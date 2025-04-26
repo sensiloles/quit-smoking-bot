@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  bot:
+    build: 
+      context: .
+    image: ${SYSTEM_NAME}
+    container_name: ${SYSTEM_NAME}
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - logs:/app/logs
+    environment:
+      - TZ=Asia/Novosibirsk
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "python.*src/bot"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  test:
+    build:
+      context: .
+    image: ${SYSTEM_NAME}-test
+    container_name: ${SYSTEM_NAME}-test
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - logs:/app/logs
+    environment:
+      - TZ=Asia/Novosibirsk
+      - PYTHONUNBUFFERED=1
+    command: python -m tests.integration.test_notifications --token "$BOT_TOKEN"
+    entrypoint: []
+
+# Named volumes for data persistence
+volumes:
+  logs:
