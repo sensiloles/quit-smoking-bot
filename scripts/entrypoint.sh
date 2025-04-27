@@ -22,7 +22,9 @@ fi
 
 # Create a health status directory - used by healthcheck
 mkdir -p /app/health
+chmod 755 /app/health
 touch /app/health/starting
+echo "$(date): Health check directory initialized" > /app/health/status.log
 
 # Run tests if BOT_TOKEN is available
 if [ -n "$BOT_TOKEN" ]; then
@@ -44,13 +46,22 @@ fi
     
     # Check every 20 seconds if the bot is operational
     while true; do
+        echo "$(date): Running health check monitoring cycle" >> /app/health/status.log
+        
+        # Check if the bot process is running
         if pgrep -f "python.*src.bot" > /dev/null; then
             # Mark as operational if running
             touch /app/health/operational
+            echo "$(date): Bot process is running, health marker updated" >> /app/health/status.log
         else
             # Remove operational marker if not running
             rm -f /app/health/operational
+            echo "$(date): WARNING - Bot process not found, removed health marker" >> /app/health/status.log
         fi
+        
+        # Make sure permissions are correct
+        chmod 644 /app/health/operational 2>/dev/null || true
+        
         sleep 20
     done
 ) &

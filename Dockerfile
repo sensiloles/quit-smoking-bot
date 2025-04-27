@@ -49,6 +49,6 @@ VOLUME /app/logs
 # Set entrypoint
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
-# Add healthcheck - check for health status file and running process
+# Add healthcheck - with more verbose output for debugging
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD test -f /app/health/operational || exit 1
+    CMD ls -la /app/health/ && pgrep -f "python.*src.bot" > /dev/null && test -f /app/health/operational || exit 1
