@@ -1,38 +1,52 @@
 #!/bin/bash
+# common.sh - Common utility functions for bot management scripts
+# 
+# This script provides shared functions for all bot management scripts,
+# including Docker checks, environment setup, and service management.
 
 # Load environment variables from .env file if it exists
 if [ -f ".env" ]; then
     source ".env"
 fi
 
-# Colors for output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+###################
+# Output Utilities
+###################
 
-# Function to print colored messages
+# ANSI color codes
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly RED='\033[0;31m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m' # No Color
+
+# Print a formatted message with optional color
 print_message() {
     local message="$1"
     local color="${2:-$NC}"
     echo -e "${color}${message}${NC}"
 }
 
+# Print a warning message
 print_warning() {
     print_message "$1" "$YELLOW"
 }
 
+# Print an error message
 print_error() {
     print_message "$1" "$RED"
 }
 
-# Function to print section header
+# Print a section header
 print_section() {
     echo -e "\n${BLUE}=== $1 ===${NC}"
 }
 
-# Function to check if Docker is installed and running
+###################
+# Docker Utilities
+###################
+
+# Check if Docker is installed and running
 check_docker_installation() {
     if ! command -v docker &> /dev/null; then
         print_error "Docker is not installed."
@@ -53,7 +67,62 @@ check_docker_installation() {
     return 0
 }
 
-# Function to check Docker daemon
+# Start Docker on macOS
+start_docker_macos() {
+    print_message "Attempting to start Docker for Mac..." "$YELLOW"
+    
+    if [ -f "/Applications/Docker.app/Contents/MacOS/Docker" ]; then
+        print_message "Found Docker.app, attempting to start it..." "$YELLOW"
+        open -a Docker
+        
+        # Wait for Docker to start (up to 60 seconds)
+        local max_attempts=30
+        local attempt=1
+        while [ $attempt -le $max_attempts ]; do
+            print_message "Waiting for Docker to start (attempt $attempt/$max_attempts)..." "$YELLOW"
+            if docker info >/dev/null 2>&1; then
+                print_message "Docker started successfully." "$GREEN"
+                return 0
+            fi
+            sleep 2
+            ((attempt++))
+        done
+        
+        print_error "Failed to start Docker for Mac."
+        print_message "Please start Docker for Mac manually and try again." "$YELLOW"
+        return 1
+    else
+        print_error "Docker for Mac is not installed."
+        print_message "Please install Docker for Mac and try again." "$YELLOW"
+        return 1
+    fi
+}
+
+# Start Docker on Linux
+start_docker_linux() {
+    print_message "Attempting to start Docker daemon..." "$YELLOW"
+    
+    if systemctl start docker.service; then
+        # Wait for Docker to start
+        local max_attempts=10
+        local attempt=1
+        while [ $attempt -le $max_attempts ]; do
+            print_message "Waiting for Docker to start (attempt $attempt/$max_attempts)..." "$YELLOW"
+            if docker info >/dev/null 2>&1; then
+                print_message "Docker started successfully." "$GREEN"
+                return 0
+            fi
+            sleep 2
+            ((attempt++))
+        done
+    fi
+    
+    print_error "Failed to start Docker daemon."
+    print_message "Please start Docker daemon manually: sudo systemctl start docker" "$YELLOW"
+    return 1
+}
+
+# Check Docker daemon
 check_docker() {
     if ! docker info >/dev/null 2>&1; then
         print_error "Docker daemon is not running"
@@ -66,7 +135,7 @@ check_docker() {
     return 0
 }
 
-# Function to check Docker Buildx
+# Check Docker Buildx
 check_docker_buildx() {
     if ! docker buildx version &> /dev/null; then
         print_warning "Docker Buildx is not installed. Using legacy builder."
@@ -75,7 +144,11 @@ check_docker_buildx() {
     fi
 }
 
-# Function to check BOT_TOKEN
+######################
+# Environment Checks
+######################
+
+# Check if BOT_TOKEN is set
 check_bot_token() {
     # First check if BOT_TOKEN is set in environment
     if [ -n "$BOT_TOKEN" ]; then
@@ -102,7 +175,7 @@ check_bot_token() {
     return 1
 }
 
-# Function to check SYSTEM_NAME
+# Check SYSTEM_NAME
 check_system_name() {
     if [ -z "$SYSTEM_NAME" ]; then
         print_error "SYSTEM_NAME is not set"
@@ -111,7 +184,7 @@ check_system_name() {
     fi
 }
 
-# Function to check SYSTEM_DISPLAY_NAME
+# Check SYSTEM_DISPLAY_NAME
 check_system_display_name() {
     if [ -z "$SYSTEM_DISPLAY_NAME" ]; then
         print_error "SYSTEM_DISPLAY_NAME is not set"
@@ -120,7 +193,11 @@ check_system_display_name() {
     fi
 }
 
-# Function to clean up Docker resources
+#########################
+# Service Management
+#########################
+
+# Clean up Docker resources
 cleanup_docker() {
     local service=${1:-""}
     local cleanup_all=${2:-0}
@@ -155,7 +232,7 @@ cleanup_docker() {
     print_message "Docker cleanup completed." "$GREEN"
 }
 
-# Function to build and start service
+# Build and start service
 build_and_start_service() {
     local service=${1:-"bot"}  # Default to "bot" if no service specified
     
@@ -194,7 +271,11 @@ build_and_start_service() {
     return 0
 }
 
-# Function to check if container is running
+###########################
+# Container Status Checks
+###########################
+
+# Check if container is running
 is_container_running() {
     local service=${1:-"bot"}  # Default to "bot" if no service specified
     
@@ -204,7 +285,7 @@ is_container_running() {
     docker-compose ps -q $service >/dev/null 2>&1
 }
 
-# Function to check if bot is healthy using Docker healthcheck
+# Check if bot is healthy using Docker healthcheck
 is_bot_healthy() {
     # Ensure SYSTEM_NAME is properly exported before running docker-compose commands
     check_system_name
@@ -236,7 +317,7 @@ is_bot_healthy() {
     fi
 }
 
-# Function to check if bot is operational
+# Check if bot is operational
 is_bot_operational() {
     local max_attempts=30
     local attempt=1
@@ -249,389 +330,100 @@ is_bot_operational() {
         return 1
     fi
     
-    # Initial delay to let the container start properly
-    sleep 5
+    # Check if Python process is running
+    if ! docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
+        print_error "Bot process is not running inside container"
+        return 1
+    fi
     
-    # First check Docker health status - this is faster and more reliable with our fixed scripts
-    local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
+    # Check container logs for operational messages
+    print_message "Checking logs for operational status..." "$YELLOW"
+    logs=$(docker logs $container_id --tail 50 2>&1)
     
-    if [ "$health_status" = "healthy" ]; then
-        print_message "Bot is operational - container health check passed" "$GREEN"
+    if echo "$logs" | grep -q "Application started"; then
+        print_message "Bot is operational" "$GREEN"
         return 0
     fi
     
-    while [ $attempt -le $max_attempts ]; do
-        print_message "Checking bot status (attempt $attempt/$max_attempts)..." "$YELLOW"
-        
-        # Re-check health status each time
-        health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
-        if [ "$health_status" = "healthy" ]; then
-            print_message "Bot is operational - container health check passed" "$GREEN"
-            return 0
-        fi
-        
-        # Check if Python process is running
-        if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
-            # Check logs for errors that indicate bot is not functioning
-            local logs=$(docker logs $container_id --tail 70 2>&1)
-            
-            # Check for critical errors that would prevent the bot from functioning
-            if echo "$logs" | grep -q "ERROR.*Error in main"; then
-                print_error "Bot has critical errors in logs:"
-                echo "$logs" | grep "ERROR"
-                return 1
-            fi
-            
-            # Check for conflict errors
-            if echo "$logs" | grep -q "telegram.error.Conflict: Conflict: terminated by other getUpdates request"; then
-                # This could be a remote conflict - warn the user
-                print_error "Detected conflict with another bot instance, possibly on a remote machine!"
-                print_message "To resolve this conflict:" "$YELLOW"
-                print_message "1. Make sure no other instances of this bot are running on any machine" "$YELLOW"
-                print_message "2. Wait a few minutes for the Telegram API to release the connection" "$YELLOW"
-                print_message "3. Restart this bot" "$YELLOW"
-                
-                # If this is a later attempt, give up - it's likely a remote conflict that won't resolve
-                if [ $attempt -gt 10 ]; then
-                    print_error "Conflict persists after multiple attempts. Likely an external bot instance."
-                    print_message "Please stop any other bots using the same token and try again." "$YELLOW"
-                    return 1
-                fi
-                
-                # Wait longer for a remote conflict
-                sleep 15
-                ((attempt++))
-                continue
-            fi
-            
-            # Count successful API calls
-            local successful_api_calls=$(echo "$logs" | grep -c "\"HTTP/1.1 200 OK\"")
-            
-            # Multiple success criteria - check for any of these patterns
-            
-            # Success pattern 1: Successful API call to getUpdates
-            if echo "$logs" | grep -q "HTTP Request: POST https://api.telegram.org/bot.*getUpdates \"HTTP/1.1 200 OK\""; then
-                print_message "Bot is operational - successfully connected to Telegram API" "$GREEN"
-                return 0
-            fi
-            
-            # Success pattern 2: Application started message
-            if echo "$logs" | grep -q "Application started"; then
-                print_message "Bot is operational - Application started" "$GREEN"
-                return 0
-            fi
-            
-            # Success pattern 3: Scheduler started
-            if echo "$logs" | grep -q "Scheduler started"; then
-                print_message "Bot is operational - Scheduler started" "$GREEN"
-                return 0
-            fi
-            
-            # Success pattern 4: Bot initialized message
-            if echo "$logs" | grep -q "telegram.ext.Application - INFO - Application started"; then
-                print_message "Bot is operational - Application initialized" "$GREEN"
-                return 0
-            fi
-            
-            # Success pattern 5: Several getUpdates calls with 200 OK
-            # This indicates the bot is successfully polling for updates
-            if [ "$successful_api_calls" -ge 2 ]; then
-                print_message "Bot is operational - multiple successful API calls detected ($successful_api_calls)" "$GREEN"
-                return 0
-            fi
-            
-            # Success pattern 6: No errors and running for at least 30 seconds
-            local container_uptime=$(docker inspect -f '{{.State.StartedAt}}' $container_id)
-            local current_time=$(date +%s)
-            local container_start_time=$(date -d "$container_uptime" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%S" "$container_uptime" +%s 2>/dev/null)
-            
-            if [ -n "$container_start_time" ]; then
-                local uptime=$((current_time - container_start_time))
-                if [ $uptime -gt 30 ] && ! echo "$logs" | grep -q "ERROR"; then
-                    print_message "Bot is operational - running for $(($uptime / 60))m $(($uptime % 60))s without errors" "$GREEN"
-                    return 0
-                fi
-            fi
-            
-            # Check if we've already waited a long time and there are no errors
-            # If the bot has been running for a while without errors, consider it operational
-            if [ $attempt -gt 15 ] && ! echo "$logs" | grep -q "ERROR"; then
-                print_message "Bot appears to be operational - no errors detected after multiple checks" "$GREEN"
-                return 0
-            fi
-        fi
-        
-        # Increasing delay between attempts
-        sleep_time=$((2 + attempt / 5))
-        sleep $sleep_time
-        ((attempt++))
-    done
-    
-    # Final check - if we've made it this far but the bot is still running and making API calls,
-    # consider it operational despite other checks failing
-    local logs=$(docker logs $container_id --tail 100 2>&1)
-    local successful_api_calls=$(echo "$logs" | grep -c "\"HTTP/1.1 200 OK\"")
-    
-    if [ "$successful_api_calls" -ge 5 ]; then
-        print_message "Bot is making successful API calls ($successful_api_calls detected) - considering operational" "$GREEN"
-        # Attempt to fix the health check marker
-        docker exec $container_id bash -c "mkdir -p /app/health && touch /app/health/operational && chmod 644 /app/health/operational" >/dev/null 2>&1 || true
+    # Check for API calls - if multiple successful API calls have been made, consider it operational
+    api_calls=$(echo "$logs" | grep -c "\"HTTP/1.1 200 OK\"")
+    if [ "$api_calls" -ge 2 ]; then
+        print_message "Bot is operational ($api_calls successful API calls detected)" "$GREEN"
         return 0
     fi
     
-    print_error "Bot failed to become operational after $max_attempts attempts"
-    print_message "Last logs:" "$YELLOW"
-    docker logs $container_id --tail 50
+    print_error "Bot is not operational"
     return 1
 }
 
-# Function to show service commands
-show_service_commands() {
-    print_message "\nService management commands:" "$YELLOW"
-    print_message "Start service: sudo systemctl start $SYSTEM_NAME.service" "$GREEN"
-    print_message "Stop service: sudo systemctl stop $SYSTEM_NAME.service" "$GREEN"
-    print_message "Restart service: sudo systemctl restart $SYSTEM_NAME.service" "$GREEN"
-    print_message "Check status: sudo systemctl status $SYSTEM_NAME.service" "$GREEN"
-    print_message "View logs: sudo journalctl -u $SYSTEM_NAME.service -f" "$GREEN"
-}
-
-# Function to wait for Docker to start
-wait_for_docker() {
-    local max_attempts=30
-    local attempts=0
-    
-    while ! docker info >/dev/null 2>&1 && [ $attempts -lt $max_attempts ]; do
-        print_message "Waiting for Docker to start... ($((attempts + 1))/$max_attempts)" "$YELLOW"
-        sleep 2
-        ((attempts++))
-    done
-    
-    if [ $attempts -eq $max_attempts ]; then
-        return 1
-    fi
-    return 0
-}
-
-# Function to start Docker on macOS
-start_docker_macos() {
-    print_message "Attempting to start Docker Desktop..." "$YELLOW"
-    if open -a Docker; then
-        print_message "Docker Desktop is starting. Please wait..." "$GREEN"
-        if wait_for_docker; then
-            return 0
-        else
-            print_error "Failed to start Docker daemon. Please start Docker Desktop manually."
-            print_message "You can start Docker Desktop from Applications or run: open -a Docker" "$YELLOW"
-            return 1
-        fi
-    else
-        print_error "Failed to start Docker Desktop."
-        print_message "Please start Docker Desktop manually from Applications or run: open -a Docker" "$YELLOW"
-        return 1
-    fi
-}
-
-# Function to start Docker on Linux
-start_docker_linux() {
-    print_message "Attempting to start Docker service..." "$YELLOW"
-    if command -v systemctl >/dev/null 2>&1; then
-        if sudo systemctl start docker; then
-            print_message "Docker service is starting. Please wait..." "$GREEN"
-            if wait_for_docker; then
-                return 0
-            else
-                print_error "Failed to start Docker daemon. Please start Docker service manually."
-                print_message "You can start Docker with: sudo systemctl start docker" "$YELLOW"
-                return 1
-            fi
-        else
-            print_error "Failed to start Docker service. Please check your permissions."
-            print_message "You can try running: sudo systemctl start docker" "$YELLOW"
-            return 1
-        fi
-    else
-        print_error "Systemd is not available on this system."
-        print_message "Please start Docker manually using your system's service manager." "$YELLOW"
-        return 1
-    fi
-}
-
-# Function to detect remote bot instances with the same token
+# Check for conflicts with the same bot token
 detect_remote_bot_conflict() {
-    local token="$1"
+    local bot_token="$1"
     
-    if [ -z "$token" ]; then
-        print_error "Cannot check for conflicts with empty token"
+    if [ -z "$bot_token" ]; then
+        print_error "Bot token is empty, cannot check for conflicts"
         return 1
     fi
     
-    # Check if curl is installed
-    if ! command -v curl &> /dev/null; then
-        print_warning "curl is not installed. Cannot check for remote bot conflicts."
-        return 0
-    fi
+    # Check for existing bot containers or services using the same token
+    print_message "Checking for existing bot processes..." "$YELLOW"
     
-    print_message "Checking for bot instances with the same token..." "$YELLOW"
+    # Try to get bot info using the token
+    local bot_info=$(curl -s "https://api.telegram.org/bot${bot_token}/getMe")
     
-    # First check if a local container is running with the same token
-    if docker ps -q --filter "name=${SYSTEM_NAME}" | grep -q .; then
-        print_message "Found a local bot instance running on this machine" "$YELLOW"
-        return 2  # Special return code for local conflict
-    fi
-    
-    # Also check if a systemd service is running
-    if command -v systemctl &> /dev/null; then
-        if systemctl is-active --quiet ${SYSTEM_NAME}.service; then
-            print_message "Found a local systemd service running on this machine" "$YELLOW"
-            return 2  # Special return code for local conflict
-        fi
-    fi
-    
-    # Try to get updates - if there's a conflict, this will tell us
-    local response
-    response=$(curl -s "https://api.telegram.org/bot$token/getUpdates")
-    
-    # Check if the response contains a conflict error
-    if echo "$response" | grep -q '"description":"Conflict: terminated by other getUpdates request'; then
-        # At this point, we know there's a conflict but not with a local container or service
-        # So it must be a remote machine
-        print_error "Detected conflict with another bot instance running on a different machine!"
-        print_message "To resolve this:" "$YELLOW"
-        print_message "1. Shut down the bot on the other machine" "$YELLOW"
-        print_message "2. Wait a few minutes for Telegram servers to release the connection" "$YELLOW"
-        print_message "3. Try installing this bot again" "$YELLOW"
-        return 1
-    fi
-    
-    print_message "No bot conflict detected" "$GREEN"
-    return 0
-}
-
-# Function to validate BOT_TOKEN by making a test request
-validate_bot_token() {
-    local token="$1"
-    
-    if [ -z "$token" ]; then
-        print_error "Cannot validate empty token"
-        return 1
-    fi
-    
-    # Check if curl is installed
-    if ! command -v curl &> /dev/null; then
-        print_error "curl is not installed. Cannot validate token."
-        print_warning "Proceeding without validation, but the token may not work."
-        return 0
-    fi
-    
-    print_message "Validating token..." "$YELLOW"
-    
-    # Use curl to validate the token by querying Telegram's getMe API
-    local response
-    response=$(curl -s "https://api.telegram.org/bot$token/getMe")
-    
-    # Check if the response contains "ok":true indicating a valid token
-    if echo "$response" | grep -q '"ok":true'; then
-        print_message "Token validation successful" "$GREEN"
+    # Check if we got a successful response
+    if echo "$bot_info" | grep -q "\"ok\":true"; then
+        # Extract bot username
+        local bot_username=$(echo "$bot_info" | grep -o '"username":"[^"]*"' | cut -d'"' -f4)
+        print_message "Connected to bot: @${bot_username}" "$GREEN"
         
-        # Also check for bot conflicts
-        local conflict_status
-        detect_remote_bot_conflict "$token"
-        conflict_status=$?
+        # Check webhook info
+        local webhook_info=$(curl -s "https://api.telegram.org/bot${bot_token}/getWebhookInfo")
         
-        if [ $conflict_status -eq 1 ]; then
-            # Remote conflict
-            print_error "Token is valid but a remote conflict was detected"
-            return 1
-        elif [ $conflict_status -eq 2 ]; then
-            # Local conflict - this is ok, we'll handle it in install-service.sh
-            print_message "Token is valid but a local bot instance is already running" "$YELLOW"
-            print_message "This is OK - the installation will handle it by restarting the service" "$YELLOW"
-            return 0
+        # Check if webhook is set
+        if echo "$webhook_info" | grep -q '"url":"[^"]*"'; then
+            local webhook_url=$(echo "$webhook_info" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
+            
+            if [ -n "$webhook_url" ] && [ "$webhook_url" != "\"\"" ]; then
+                print_warning "This bot already has a webhook set: ${webhook_url}"
+                return 1  # Remote conflict
+            fi
         fi
         
-        return 0
+        # Check for local processes using docker ps
+        if docker ps | grep -q ${SYSTEM_NAME}; then
+            print_warning "Found local bot container using the same token."
+            return 2  # Local conflict
+        fi
+        
+        return 0  # No conflict
     else
-        local error_description
-        error_description=$(echo "$response" | grep -o '"description":"[^"]*"' | cut -d'"' -f4)
-        
-        if [ -z "$error_description" ]; then
-            error_description="Unknown error, API response: $response"
-        fi
-        
-        print_error "Invalid token: $error_description"
+        print_error "Could not connect to Telegram API with the provided token"
+        echo "$bot_info"
         return 1
     fi
 }
 
-# Function to parse command line arguments
+###########################
+# Command Line Arguments
+###########################
+
+# Parse command line arguments
 parse_arguments() {
-    while [[ $# -gt 0 ]]; do
+    TOKEN_ARG=""
+    FORCE_REBUILD=0
+    CLEANUP=0
+    
+    while [[ "$#" -gt 0 ]]; do
         case $1 in
             --token)
-                local provided_token="$2"
-                
-                # Validate the token before saving it
-                if validate_bot_token "$provided_token"; then
-                    BOT_TOKEN="$provided_token"
-                    
-                    # Update the .env file with the new token
-                    if [ -f ".env" ]; then
-                        # If .env file exists, update the BOT_TOKEN line or add it if not present
-                        if grep -q "BOT_TOKEN=" ".env"; then
-                            # Replace the existing BOT_TOKEN line - platform-compatible approach
-                            if [[ "$OSTYPE" == "darwin"* ]]; then
-                                # macOS version
-                                sed -i '' "s|BOT_TOKEN=.*|BOT_TOKEN=\"$BOT_TOKEN\"|" ".env"
-                            else
-                                # Linux version
-                                sed -i "s|BOT_TOKEN=.*|BOT_TOKEN=\"$BOT_TOKEN\"|" ".env"
-                            fi
-                        else
-                            # Add BOT_TOKEN line to .env file
-                            echo "BOT_TOKEN=\"$BOT_TOKEN\"" >> ".env"
-                        fi
-                    else
-                        # Create new .env file with BOT_TOKEN
-                        echo "BOT_TOKEN=\"$BOT_TOKEN\"" > ".env"
-                    fi
-                    print_message "Updated BOT_TOKEN in .env file with valid token" "$GREEN"
-                else
-                    # If there's a remote conflict, the return value will be non-zero
-                    if detect_remote_bot_conflict "$provided_token" >/dev/null; then
-                        conflict_status=$?
-                        if [ $conflict_status -eq 2 ]; then
-                            # Local conflict - we'll handle it by updating the token and restarting
-                            BOT_TOKEN="$provided_token"
-                            
-                            # Update the .env file with the new token
-                            if [ -f ".env" ]; then
-                                if grep -q "BOT_TOKEN=" ".env"; then
-                                    if [[ "$OSTYPE" == "darwin"* ]]; then
-                                        sed -i '' "s|BOT_TOKEN=.*|BOT_TOKEN=\"$BOT_TOKEN\"|" ".env"
-                                    else
-                                        sed -i "s|BOT_TOKEN=.*|BOT_TOKEN=\"$BOT_TOKEN\"|" ".env"
-                                    fi
-                                else
-                                    echo "BOT_TOKEN=\"$BOT_TOKEN\"" >> ".env"
-                                fi
-                            else
-                                echo "BOT_TOKEN=\"$BOT_TOKEN\"" > ".env"
-                            fi
-                            print_message "Updated BOT_TOKEN in .env file. Local instance will be restarted." "$YELLOW"
-                        else
-                            # Remote conflict or invalid token
-                            print_error "The provided token is invalid and will not be saved to .env file"
-                            print_message "Please provide a valid Telegram bot token" "$YELLOW"
-                            return 1
-                        fi
-                    else
-                        # Invalid token but no conflict
-                        print_error "The provided token is invalid and will not be saved to .env file"
-                        print_message "Please provide a valid Telegram bot token" "$YELLOW"
-                        return 1
-                    fi
+                TOKEN_ARG="$2"
+                if [ -z "$TOKEN_ARG" ]; then
+                    print_error "Missing value for --token argument"
+                    print_message "Usage: $0 --token YOUR_BOT_TOKEN" "$YELLOW"
+                    return 1
                 fi
-                
+                export BOT_TOKEN="$TOKEN_ARG"
                 shift 2
                 ;;
             --force-rebuild)
@@ -642,11 +434,49 @@ parse_arguments() {
                 CLEANUP=1
                 shift
                 ;;
+            --help)
+                show_help
+                exit 0
+                ;;
             *)
-                shift
+                print_error "Unknown argument: $1"
+                show_help
+                return 1
                 ;;
         esac
     done
     
     return 0
 }
+
+# Show help message
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --token TOKEN       Specify the Telegram bot token"
+    echo "  --force-rebuild     Force rebuild of Docker containers"
+    echo "  --cleanup           Perform additional cleanup of Docker resources"
+    echo "  --help              Show this help message"
+}
+
+# Show available service commands
+show_service_commands() {
+    check_system_name
+    
+    print_section "Service Commands"
+    echo "The following commands can be used to manage the bot service:"
+    echo "  sudo systemctl start ${SYSTEM_NAME}.service    - Start the bot service"
+    echo "  sudo systemctl stop ${SYSTEM_NAME}.service     - Stop the bot service"
+    echo "  sudo systemctl restart ${SYSTEM_NAME}.service  - Restart the bot service"
+    echo "  sudo systemctl status ${SYSTEM_NAME}.service   - Check service status"
+    echo ""
+    echo "To check logs:"
+    echo "  sudo journalctl -u ${SYSTEM_NAME}.service      - View service logs"
+    echo "  docker logs ${SYSTEM_NAME}                     - View container logs"
+}
+
+# Automatically export the BOT_TOKEN if it's set
+if [ -n "$BOT_TOKEN" ]; then
+    export BOT_TOKEN
+fi
