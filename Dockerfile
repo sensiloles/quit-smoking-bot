@@ -31,6 +31,9 @@ RUN mkdir -p /app/data && \
     chown -R appuser:appuser /app/logs && \
     chmod 777 /app/logs
 
+# Make health check script executable
+RUN chmod +x /app/scripts/healthcheck.sh
+
 # Install Python packages as root
 RUN pip install --no-cache-dir . requests pytest
 
@@ -49,6 +52,6 @@ VOLUME /app/logs
 # Set entrypoint
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
-# Add healthcheck - with more verbose output for debugging
+# Add healthcheck - using dedicated script for better diagnostics
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD ls -la /app/health/ && pgrep -f "python.*src.bot" > /dev/null && test -f /app/health/operational || exit 1
+    CMD /app/scripts/healthcheck.sh
