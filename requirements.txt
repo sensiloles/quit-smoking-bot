@@ -1,0 +1,6 @@
+# Core bot dependencies
+python-telegram-bot[job-queue]>=20.0 # Specify a version range if needed
+pytz
+
+# Other potential dependencies (verify usage)
+# requests

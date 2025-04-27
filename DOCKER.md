@@ -318,15 +318,19 @@ docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' quit-smo
 
 ### Running Tests
 
+To run the test suite within the Docker environment:
+
 ```bash
 docker-compose run --rm test
 ```
 
-Or using the script:
+Alternatively, you can use the provided helper script:
 
 ```bash
 ./scripts/test.sh
 ```
+
+*Note:* The test configuration is defined in `tests/pytest.ini`.
 
 ## Troubleshooting
 

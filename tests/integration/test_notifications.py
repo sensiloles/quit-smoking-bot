@@ -17,6 +17,7 @@ import argparse
 from logging.handlers import MemoryHandler
 import tempfile
 import traceback
+import pytest
 
 # Add the parent directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -43,8 +44,10 @@ memory_handler = MemoryHandler(capacity=1000)
 logger.addHandler(memory_handler)
 
 
+@pytest.mark.skip(reason="TestLock is a helper class, not a test suite")
 class TestLock:
     """Manages a lock file to prevent multiple test runs"""
+    __test__ = False # Explicitly tell pytest not to collect this class
     
     def __init__(self, timeout_minutes=5):
         """
@@ -94,6 +97,7 @@ class TestLock:
             logger.error(f"Error releasing lock: {e}")
 
 
+@pytest.mark.asyncio
 async def test_notification_settings():
     """
     Tests the notification settings of the bot
@@ -154,6 +158,7 @@ async def test_notification_settings():
         return False
 
 
+@pytest.mark.asyncio
 async def test_notification_sending(bot_token):
     """
     Tests sending notifications to admin users

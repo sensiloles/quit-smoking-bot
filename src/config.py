@@ -47,7 +47,6 @@ STATUS_MESSAGE = (
 # File paths
 BASE_DIR = Path("/app")  # Use the container's app directory
 DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
 
 USERS_FILE = DATA_DIR / "bot_users.json"
 ADMINS_FILE = DATA_DIR / "bot_admins.json"
@@ -55,7 +54,6 @@ QUOTES_FILE = DATA_DIR / "quotes.json"
 
 # Logging configuration
 LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "bot.log"
 
 LOGGING_CONFIG = {

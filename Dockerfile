@@ -27,8 +27,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements first to leverage Docker cache
+COPY requirements.txt requirements-dev.txt ./ 
+# Install dependencies from requirements files
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+
+# Copy setup.py and install the current package in editable mode
 COPY setup.py /app/
-RUN pip install --no-cache-dir -e . requests pytest setuptools
+RUN pip install --no-cache-dir -e .
 
 # Create necessary directories
 RUN mkdir -p /app/data /app/logs /app/health \

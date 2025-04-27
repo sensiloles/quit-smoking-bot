@@ -33,7 +33,15 @@ docker-compose rm -sf test
 
 # Run tests
 print_message "Running tests..." "$GREEN"
-if ! docker-compose run --rm test; then
+# Rebuild the test service image without cache to ensure dependencies are updated
+print_message "Building test image without cache..." "$YELLOW"
+if ! docker-compose build --no-cache test; then
+    print_error "Failed to build test image"
+    exit 1
+fi
+
+# Run the tests using the freshly built image
+if ! docker-compose run --rm test; then 
     print_error "Tests failed"
     exit 1
 fi
