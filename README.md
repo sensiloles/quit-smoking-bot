@@ -24,19 +24,19 @@ git clone https://github.com/sensiloles/quit-smoking-bot.git
 cd quit-smoking-bot
 ```
 
-2. Set up your Telegram bot token using one of these methods:
-   - Create `.env` file and add your token:
-     ```bash
-     echo 'BOT_TOKEN=your_bot_token_here' > .env
-     ```
-   - Export token in your environment:
-     ```bash
-     export BOT_TOKEN='your_bot_token_here'
-     ```
-   - Pass token as an argument to scripts:
-     ```bash
-     ./scripts/run.sh --token your_bot_token_here
-     ```
+2. Create a `.env` file with the required environment variables:
+```bash
+# Required variables
+BOT_TOKEN="your_telegram_bot_token_here"  # Get from BotFather
+SYSTEM_NAME="quit-smoking-bot"            # Name used for Docker containers and systemd service
+SYSTEM_DISPLAY_NAME="Quit Smoking Bot"    # Display name for the service and logs
+
+# Optional variables (with defaults)
+TZ="Asia/Novosibirsk"                     # Timezone for scheduled notifications
+NOTIFICATION_DAY=23                       # Day of month for notifications
+NOTIFICATION_HOUR=21                      # Hour for notifications
+NOTIFICATION_MINUTE=58                    # Minute for notifications
+```
 
 3. Make the scripts executable:
 ```bash
@@ -47,6 +47,26 @@ chmod +x scripts/*.sh
 ```bash
 ./scripts/run.sh
 ```
+
+## Environment Variables
+
+The following environment variables can be set in the `.env` file:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `BOT_TOKEN` | Yes | - | Your Telegram bot token from BotFather (use quotes) |
+| `SYSTEM_NAME` | Yes | quit-smoking-bot | Name for Docker containers and systemd service (use quotes) |
+| `SYSTEM_DISPLAY_NAME` | Yes | Quit Smoking Bot | Display name for the service and logs (use quotes, especially for values with spaces) |
+| `TZ` | No | Asia/Novosibirsk | Timezone for the bot and scheduled notifications (use quotes) |
+| `NOTIFICATION_DAY` | No | 23 | Day of month for scheduled notifications (numeric value) |
+| `NOTIFICATION_HOUR` | No | 21 | Hour for notifications (24-hour format, numeric value) |
+| `NOTIFICATION_MINUTE` | No | 58 | Minute for notifications (numeric value) |
+
+**Note about .env format:** All string values should be enclosed in double quotes (`"value"`), especially if they contain spaces or special characters. Numeric values don't need quotes.
+
+You can also set environment variables in other ways:
+- Export them in your shell session: `export BOT_TOKEN=your_token_here`
+- Pass them as arguments to scripts: `./scripts/run.sh --token your_token_here`
 
 ## Testing
 
@@ -158,6 +178,8 @@ The status check script provides comprehensive information about:
 - `/start` - Start tracking your smoke-free period
 - `/status` - Show current status (period, prize fund, next increase)
 - `/notify_all` - Send notifications to all users (admin only)
+- `/list_users` - List all registered users (admin only)
+- `/list_admins` - List all admin users (admin only)
 
 ## Development
 
@@ -240,11 +262,13 @@ The `entrypoint.sh` script is used as the container's entry point and handles:
 
 The bot can be configured using environment variables:
 
-- `BOT_TOKEN` - Telegram bot token (required)
-- `TZ` - Timezone (default: Asia/Novosibirsk)
-- `NOTIFICATION_HOUR` - Hour for monthly notifications (default: 21)
-- `NOTIFICATION_MINUTE` - Minute for monthly notifications (default: 58)
-- `NOTIFICATION_DAY` - Day of month for notifications (default: 23)
+- `BOT_TOKEN` - Telegram bot token (required, use quotes)
+- `SYSTEM_NAME` - Name for Docker containers and systemd service (required, use quotes)
+- `SYSTEM_DISPLAY_NAME` - Display name for the service and logs (required, use quotes)
+- `TZ` - Timezone (default: "Asia/Novosibirsk", use quotes)
+- `NOTIFICATION_HOUR` - Hour for monthly notifications (default: 21, numeric value)
+- `NOTIFICATION_MINUTE` - Minute for monthly notifications (default: 58, numeric value)
+- `NOTIFICATION_DAY` - Day of month for notifications (default: 23, numeric value)
 
 ## Automatic Startup on VPS
 

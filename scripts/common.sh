@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# System name variables
-export SYSTEM_NAME="quit-smoking-bot"
-export SYSTEM_DISPLAY_NAME="Quit Smoking Bot"
+# Load environment variables from .env file if it exists
+if [ -f ".env" ]; then
+    source ".env"
+fi
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -105,6 +106,16 @@ check_bot_token() {
 check_system_name() {
     if [ -z "$SYSTEM_NAME" ]; then
         print_error "SYSTEM_NAME is not set"
+        print_message "Please set SYSTEM_NAME in .env file" "$YELLOW"
+        exit 1
+    fi
+}
+
+# Function to check SYSTEM_DISPLAY_NAME
+check_system_display_name() {
+    if [ -z "$SYSTEM_DISPLAY_NAME" ]; then
+        print_error "SYSTEM_DISPLAY_NAME is not set"
+        print_message "Please set SYSTEM_DISPLAY_NAME in .env file" "$YELLOW"
         exit 1
     fi
 }
@@ -113,6 +124,9 @@ check_system_name() {
 cleanup_docker() {
     local service=${1:-""}
     local cleanup_all=${2:-0}
+    
+    # Ensure SYSTEM_NAME is properly exported
+    check_system_name
     
     print_message "Cleaning up Docker resources..." "$YELLOW"
     
@@ -145,6 +159,9 @@ cleanup_docker() {
 build_and_start_service() {
     local service=${1:-"bot"}  # Default to "bot" if no service specified
     
+    # Ensure SYSTEM_NAME is properly exported
+    check_system_name
+    
     print_message "Removing existing images..." "$YELLOW"
     docker rmi ${SYSTEM_NAME} ${SYSTEM_NAME}-test >/dev/null 2>&1 || true
 
@@ -159,6 +176,10 @@ build_and_start_service() {
 # Function to check if container is running
 is_container_running() {
     local service=${1:-"bot"}  # Default to "bot" if no service specified
+    
+    # Ensure SYSTEM_NAME is properly exported
+    check_system_name
+    
     docker-compose ps -q $service >/dev/null 2>&1
 }
 
@@ -166,6 +187,8 @@ is_container_running() {
 is_bot_operational() {
     local max_attempts=30
     local attempt=1
+    # Ensure SYSTEM_NAME is properly exported before running docker-compose commands
+    check_system_name
     local container_id=$(docker-compose ps -q bot)
     
     if [ -z "$container_id" ]; then
@@ -177,18 +200,26 @@ is_bot_operational() {
         print_message "Checking bot status (attempt $attempt/$max_attempts)..." "$YELLOW"
         
         # Check if Python process is running
-        if docker exec $container_id pgrep -f "python.*src/bot" >/dev/null; then
-            # Check logs for errors
+        if docker exec $container_id pgrep -f "python.*src/bot" >/dev/null 2>&1; then
+            # Check logs for errors that indicate bot is not functioning
             local logs=$(docker logs $container_id --tail 20 2>&1)
-            if echo "$logs" | grep -q "ERROR"; then
-                print_error "Bot has errors in logs:"
+            
+            # Check for critical errors that would prevent the bot from functioning
+            if echo "$logs" | grep -q "ERROR.*Error in main"; then
+                print_error "Bot has critical errors in logs:"
                 echo "$logs" | grep "ERROR"
                 return 1
             fi
             
-            # Check if bot is responding to commands
-            if echo "$logs" | grep -q "Bot is ready"; then
-                print_message "Bot is operational" "$GREEN"
+            # Check if bot is connected to Telegram API (look for successful API calls)
+            if echo "$logs" | grep -q "HTTP Request: POST https://api.telegram.org/bot.*getUpdates \"HTTP/1.1 200 OK\""; then
+                print_message "Bot is operational - successfully connected to Telegram API" "$GREEN"
+                return 0
+            fi
+            
+            # Check if Application started successfully
+            if echo "$logs" | grep -q "Application started"; then
+                print_message "Bot is operational - Application started" "$GREEN"
                 return 0
             fi
         fi

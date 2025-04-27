@@ -11,6 +11,7 @@ check_docker_installation || exit 1
 check_docker_buildx
 check_bot_token || exit 1
 check_system_name
+check_system_display_name
 
 # Check Docker daemon
 check_docker

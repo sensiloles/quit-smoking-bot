@@ -268,7 +268,7 @@ check_container_health() {
         
         # Check for missing required environment variables
         print_message "\nRequired Environment Variables Check:" "$GREEN"
-        local required_vars=("BOT_TOKEN")
+        local required_vars=("BOT_TOKEN" "SYSTEM_NAME" "SYSTEM_DISPLAY_NAME")
         local missing_vars=()
         for var in "${required_vars[@]}"; do
             if ! docker inspect --format '{{range .Config.Env}}{{printf "%s\n" .}}{{end}}' $container_id | grep -q "^$var="; then
@@ -310,7 +310,7 @@ check_environment() {
         print_message "Environment file (.env) exists" "$GREEN"
         
         # Check for required environment variables
-        local required_vars=("BOT_TOKEN")
+        local required_vars=("BOT_TOKEN" "SYSTEM_NAME" "SYSTEM_DISPLAY_NAME")
         for var in "${required_vars[@]}"; do
             if grep -q "^$var=" .env; then
                 print_message "$var is set" "$GREEN"

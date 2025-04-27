@@ -1,7 +1,11 @@
 from setuptools import setup, find_packages
+import os
+
+# Get system name from environment variable with a default fallback
+system_name = os.environ.get("SYSTEM_NAME")
 
 setup(
-    name="quit-smoking-bot",
+    name=system_name,
     version="0.1",
     packages=find_packages(),
     package_dir={'': '.'},

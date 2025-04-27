@@ -11,6 +11,7 @@ check_docker_installation || exit 1
 check_docker_buildx
 check_bot_token || exit 1
 check_system_name
+check_system_display_name
 
 # Check if running as root
 if [ "$(id -u)" != "0" ]; then
@@ -34,7 +35,7 @@ print_message "Installing service..." "$GREEN"
 print_message "Creating systemd service..." "$YELLOW"
 cat > /etc/systemd/system/${SYSTEM_NAME}.service << EOF
 [Unit]
-Description=${SYSTEM_NAME} Bot Service
+Description=${SYSTEM_DISPLAY_NAME} Bot Service
 After=docker.service
 Requires=docker.service
 

@@ -9,6 +9,12 @@ if [ -z "$SYSTEM_NAME" ]; then
     exit 1
 fi
 
+# Ensure SYSTEM_DISPLAY_NAME is available 
+if [ -z "$SYSTEM_DISPLAY_NAME" ]; then
+    print_error "SYSTEM_DISPLAY_NAME is not set"
+    exit 1
+fi
+
 # Function to check if running as root
 check_root() {
     if [ "$EUID" -ne 0 ]; then 
