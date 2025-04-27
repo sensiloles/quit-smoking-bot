@@ -23,8 +23,10 @@ fi
 # Create a health status directory - used by healthcheck
 mkdir -p /app/health
 chmod 755 /app/health
+rm -f /app/health/operational # Remove any existing operational file
 touch /app/health/starting
 echo "$(date): Health check directory initialized" > /app/health/status.log
+echo "$(date): Bot is starting up" >> /app/health/status.log
 
 # Run tests if BOT_TOKEN is available
 if [ -n "$BOT_TOKEN" ]; then
@@ -49,18 +51,16 @@ fi
         echo "$(date): Running health check monitoring cycle" >> /app/health/status.log
         
         # Check if the bot process is running
-        if pgrep -f "python.*src.bot" > /dev/null; then
+        if pgrep -f "python.*src[/.]bot" > /dev/null; then
             # Mark as operational if running
             touch /app/health/operational
+            chmod 644 /app/health/operational
             echo "$(date): Bot process is running, health marker updated" >> /app/health/status.log
         else
             # Remove operational marker if not running
             rm -f /app/health/operational
             echo "$(date): WARNING - Bot process not found, removed health marker" >> /app/health/status.log
         fi
-        
-        # Make sure permissions are correct
-        chmod 644 /app/health/operational 2>/dev/null || true
         
         sleep 20
     done

@@ -22,11 +22,11 @@ services:
       - TZ=Asia/Novosibirsk
       - PYTHONUNBUFFERED=1
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "python.*src/bot"]
+      test: ["CMD", "/app/scripts/healthcheck.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
