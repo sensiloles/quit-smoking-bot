@@ -49,6 +49,6 @@ VOLUME /app/logs
 # Set entrypoint
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD pgrep -f python > /dev/null || exit 1
+# Add healthcheck - check for health status file and running process
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD test -f /app/health/operational || exit 1

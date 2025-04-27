@@ -20,6 +20,10 @@ if pgrep -f "python.*src/bot" > /dev/null; then
     sleep 2
 fi
 
+# Create a health status directory - used by healthcheck
+mkdir -p /app/health
+touch /app/health/starting
+
 # Run tests if BOT_TOKEN is available
 if [ -n "$BOT_TOKEN" ]; then
     echo "Running tests..."
@@ -32,6 +36,24 @@ if [ -n "$BOT_TOKEN" ]; then
         cd /app && python -m src.send_results --token "$BOT_TOKEN"
     fi
 fi
+
+# Set up a monitor script to update the health status
+(
+    # Wait for the bot to start up
+    sleep 10
+    
+    # Check every 20 seconds if the bot is operational
+    while true; do
+        if pgrep -f "python.*src.bot" > /dev/null; then
+            # Mark as operational if running
+            touch /app/health/operational
+        else
+            # Remove operational marker if not running
+            rm -f /app/health/operational
+        fi
+        sleep 20
+    done
+) &
 
 # Start the bot
 if [ -n "$BOT_TOKEN" ]; then

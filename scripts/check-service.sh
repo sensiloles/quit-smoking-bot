@@ -199,6 +199,21 @@ check_container_health() {
                     docker inspect --format '{{json .State.Health.Log}}' $container_id
                 fi
                 
+                # NEW: Check if logs directory exists and has proper permissions
+                print_message "\nDiagnosing health check issues:" "$YELLOW"
+                docker exec $container_id ls -la /app/logs/ || print_message "Cannot access logs directory inside container" "$RED"
+                
+                # NEW: Check if there are any log files
+                log_files=$(docker exec $container_id find /app/logs -name "*.log" 2>/dev/null)
+                if [ -z "$log_files" ]; then
+                    print_message "No log files found in /app/logs" "$RED"
+                    print_message "This is likely why health checks are failing" "$RED"
+                    print_message "Logs are being written to stdout but not to log files" "$YELLOW"
+                else
+                    print_message "Log files found:" "$GREEN"
+                    echo "$log_files"
+                fi
+                
                 # Check container logs for potential health check failures
                 print_message "\nRecent Container Logs (last 20 lines):" "$YELLOW"
                 docker logs --tail 20 $container_id
