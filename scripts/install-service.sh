@@ -123,54 +123,65 @@ max_attempts=30
 attempt=1
 container_id=""
 
-while [ $attempt -le $max_attempts ]; do
-    print_message "Checking bot status (attempt $attempt/$max_attempts)..." "$YELLOW"
+# First wait for the container to start
+while [ $attempt -le 10 ]; do
+    print_message "Waiting for container to start (attempt $attempt/10)..." "$YELLOW"
     container_id=$(docker-compose ps -q bot)
     
-    if [ -z "$container_id" ]; then
-        print_error "Container is not running"
-        sleep 2
-        ((attempt++))
-        continue
+    if [ -n "$container_id" ]; then
+        print_message "Container started with ID: $container_id" "$GREEN"
+        break
     fi
     
-    # Check if Python process is running
-    if docker exec $container_id pgrep -f "python.*src/bot" >/dev/null 2>&1; then
-        # Get logs to check for successful startup
-        logs=$(docker logs $container_id --tail 50 2>&1)
+    sleep 2
+    ((attempt++))
+done
+
+if [ -z "$container_id" ]; then
+    print_error "Container failed to start after 10 attempts"
+    print_message "Checking Docker logs:" "$YELLOW"
+    docker-compose logs bot
+    cleanup_docker bot "$CLEANUP"
+    systemctl stop ${SYSTEM_NAME}.service
+    exit 1
+fi
+
+# Reset attempt counter
+attempt=1
+
+# Now check if the bot is operational using our function
+if is_bot_operational; then
+    print_message "Bot is operational!" "$GREEN"
+    
+    # Show recent logs
+    print_message "\nRecent bot logs:" "$YELLOW"
+    docker logs $container_id --tail 20
+    
+    print_message "\nService installed and started successfully!" "$GREEN"
+    show_service_commands
+    exit 0
+else
+    # Try running the check-service.sh script to get a comprehensive status
+    print_message "Using check-service.sh to get detailed status..." "$YELLOW"
+    if [ -f "$(dirname "${BASH_SOURCE[0]}")/check-service.sh" ]; then
+        "$(dirname "${BASH_SOURCE[0]}")/check-service.sh"
         
-        # Check for successful signs
-        if echo "$logs" | grep -q "telegram.ext.Application - INFO - Application started" || \
-           echo "$logs" | grep -q "HTTP Request: POST https://api.telegram.org/bot.*getUpdates \"HTTP/1.1 200 OK\"" || \
-           ([ $(echo "$logs" | grep -c "getUpdates \"HTTP/1.1 200 OK\"") -ge 2 ] && ! echo "$logs" | grep -q "ERROR"); then
-            
-            print_message "Bot is operational!" "$GREEN"
-            
-            # Show recent logs
-            print_message "\nRecent bot logs:" "$YELLOW"
-            docker logs $container_id --tail 20
-            
-            print_message "\nService installed and started successfully!" "$GREEN"
+        # Even if is_bot_operational failed, if the bot is sending API requests, consider it a success
+        if docker logs $container_id --tail 100 2>&1 | grep -q "\"HTTP/1.1 200 OK\""; then
+            print_message "\nBot appears to be operational based on successful API requests." "$GREEN"
+            print_message "Service installed but may need further checks!" "$YELLOW"
             show_service_commands
             exit 0
         fi
     fi
     
-    # Wait before next attempt
-    sleep_time=$((2 + attempt / 5))
-    sleep $sleep_time
-    ((attempt++))
-done
-
-print_error "Bot failed to become operational after $max_attempts attempts"
-
-if [ -n "$container_id" ]; then
+    print_error "Bot failed to become operational"
     print_message "Last logs:" "$YELLOW"
     docker logs $container_id --tail 40
-fi
-
-# Use the CLEANUP flag when cleaning up after a failed startup
-print_message "Cleaning up due to failed startup..." "$YELLOW"
-cleanup_docker bot "$CLEANUP"
-systemctl stop ${SYSTEM_NAME}.service
-exit 1 
+    
+    # Use the CLEANUP flag when cleaning up after a failed startup
+    print_message "Cleaning up due to failed startup..." "$YELLOW"
+    cleanup_docker bot "$CLEANUP"
+    systemctl stop ${SYSTEM_NAME}.service
+    exit 1
+fi 

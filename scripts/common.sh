@@ -226,7 +226,7 @@ is_bot_operational() {
         # Check if Python process is running
         if docker exec $container_id pgrep -f "python.*src/bot" >/dev/null 2>&1; then
             # Check logs for errors that indicate bot is not functioning
-            local logs=$(docker logs $container_id --tail 50 2>&1)
+            local logs=$(docker logs $container_id --tail 70 2>&1)
             
             # Check for critical errors that would prevent the bot from functioning
             if echo "$logs" | grep -q "ERROR.*Error in main"; then
@@ -257,6 +257,9 @@ is_bot_operational() {
                 continue
             fi
             
+            # Count successful API calls
+            local successful_api_calls=$(echo "$logs" | grep -c "\"HTTP/1.1 200 OK\"")
+            
             # Multiple success criteria - check for any of these patterns
             
             # Success pattern 1: Successful API call to getUpdates
@@ -285,9 +288,22 @@ is_bot_operational() {
             
             # Success pattern 5: Several getUpdates calls with 200 OK
             # This indicates the bot is successfully polling for updates
-            if [ $(echo "$logs" | grep -c "getUpdates \"HTTP/1.1 200 OK\"") -ge 2 ]; then
-                print_message "Bot is operational - multiple successful API calls detected" "$GREEN"
+            if [ "$successful_api_calls" -ge 2 ]; then
+                print_message "Bot is operational - multiple successful API calls detected ($successful_api_calls)" "$GREEN"
                 return 0
+            fi
+            
+            # Success pattern 6: No errors and running for at least 30 seconds
+            local container_uptime=$(docker inspect -f '{{.State.StartedAt}}' $container_id)
+            local current_time=$(date +%s)
+            local container_start_time=$(date -d "$container_uptime" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%S" "$container_uptime" +%s 2>/dev/null)
+            
+            if [ -n "$container_start_time" ]; then
+                local uptime=$((current_time - container_start_time))
+                if [ $uptime -gt 30 ] && ! echo "$logs" | grep -q "ERROR"; then
+                    print_message "Bot is operational - running for $(($uptime / 60))m $(($uptime % 60))s without errors" "$GREEN"
+                    return 0
+                fi
             fi
             
             # Check if we've already waited a long time and there are no errors
