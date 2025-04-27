@@ -1,15 +1,17 @@
-# Git
+# Version control
 .git/
 .gitignore
+.gitattributes
 
 # Python environment
-venv/
-**/__pycache__/
-**/*.pyc
-**/*.pyo
-**/*.pyd
+__pycache__/
+*.py[cod]
+*$py.class
 .Python
+venv/
 env/
+virtualenv/
+ENV/
 build/
 develop-eggs/
 dist/
@@ -24,17 +26,22 @@ var/
 .installed.cfg
 *.egg
 .pytest_cache/
+pytest.ini
 
 # Docker
 Dockerfile
 .dockerignore
-docker-compose.yml
+docker-compose*.yml
 
-# Editor directories and files
+# Editor and IDE files
 .idea/
 .vscode/
+.vs/
 *.swp
 *.swo
+*~
+*.bak
+*.sublime*
 
 # OS generated files
 .DS_Store
@@ -44,4 +51,14 @@ docker-compose.yml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Logs and data
+logs/
+data/
+*.log
+
+# Documentation
+docs/
+*.md
+LICENSE
 

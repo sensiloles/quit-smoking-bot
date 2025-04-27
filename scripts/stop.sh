@@ -1,27 +1,52 @@
 #!/bin/bash
+set -e
 
 # Source common functions
-source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+source "${SCRIPT_DIR}/common.sh"
 
-# Parse command line arguments
-if ! parse_arguments "$@"; then
-    exit 1
-fi
+# Function to check prerequisites
+check_prerequisites() {
+    check_docker_installation || return 1
+    check_system_name
+    check_docker || return 1
+    return 0
+}
 
-# Check prerequisites
-check_docker_installation || exit 1
-check_system_name
+# Function to stop and remove containers
+stop_containers() {
+    print_message "Stopping bot and cleaning up resources..." "$YELLOW"
+    docker-compose down
+    return $?
+}
 
-# Check Docker daemon
-check_docker
+# Function to clean up Docker resources if requested
+cleanup_resources() {
+    if [ "$CLEANUP" == "1" ]; then
+        cleanup_docker bot 1
+    fi
+}
 
-# Stop and remove containers
-print_message "Stopping bot and cleaning up resources..." "$YELLOW"
-docker-compose down
+# Main function
+main() {
+    # Parse command line arguments
+    if ! parse_arguments "$@"; then
+        return 1
+    fi
+    
+    # Check prerequisites
+    check_prerequisites || return 1
+    
+    # Stop and remove containers
+    stop_containers || return 1
+    
+    # Clean up Docker resources if requested
+    cleanup_resources
+    
+    print_message "Bot has been stopped successfully." "$GREEN"
+    return 0
+}
 
-# Clean up Docker resources if requested
-if [ "$CLEANUP" == "1" ]; then
-    cleanup_docker bot 1
-fi
-
-print_message "Bot has been stopped successfully." "$GREEN"
+# Execute main function
+main "$@"
+exit $?

@@ -7,13 +7,16 @@ services:
       args:
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
-    image: ${SYSTEM_NAME}
-    container_name: ${SYSTEM_NAME}
-    restart: on-failure:5
+        - BUILD_ID=${BUILD_ID:-latest}
+    image: ${SYSTEM_NAME:-quit-smoking-bot}
+    container_name: ${SYSTEM_NAME:-quit-smoking-bot}
+    restart: unless-stopped
     deploy:
-      restart_policy:
-        condition: on-failure
-        max_attempts: 5
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
     env_file:
       - .env
     volumes:
@@ -33,6 +36,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - bot-network
 
   test:
     build:
@@ -40,20 +45,28 @@ services:
       args:
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
-    image: ${SYSTEM_NAME}-test
-    container_name: ${SYSTEM_NAME}-test
+    image: ${SYSTEM_NAME:-quit-smoking-bot}-test
+    container_name: ${SYSTEM_NAME:-quit-smoking-bot}-test
+    profiles: ["test"]
     env_file:
       - .env
     volumes:
-      - ./data:/app/data:rw
+      - ./data:/app/data:ro
       - logs:/app/logs:rw
     environment:
       - TZ=Asia/Novosibirsk
       - PYTHONUNBUFFERED=1
     command: python -m tests.integration.test_notifications --token "$BOT_TOKEN"
     entrypoint: []
+    networks:
+      - bot-network
 
 # Named volumes for data persistence
 volumes:
   logs:
     driver: local
+
+# Network definition
+networks:
+  bot-network:
+    driver: bridge

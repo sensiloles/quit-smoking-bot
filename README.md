@@ -405,3 +405,80 @@ This forces Docker to rebuild all images from scratch without using the cache.
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Docker Usage
+
+### Running with Docker
+
+The bot is designed to be run using Docker and Docker Compose. The provided scripts handle all Docker operations for you.
+
+```bash
+# Start the bot
+./scripts/run.sh
+
+# Stop the bot
+./scripts/stop.sh
+```
+
+### Docker Manual Usage
+
+If you prefer to use Docker commands directly:
+
+```bash
+# Build the Docker image
+docker-compose build
+
+# Start the container
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop containers
+docker-compose down
+```
+
+### Docker Configuration
+
+The Docker setup includes:
+
+- Multi-stage build for optimized image size
+- Non-root user for security
+- Volume mapping for persistent data
+- Healthcheck to ensure bot is running correctly
+- Resource limits to control container resource usage
+
+### Docker Environment Variables
+
+Additional environment variables for Docker configuration:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `USER_ID` | 1000 | User ID for the container user (maps to your host UID) |
+| `GROUP_ID` | 1000 | Group ID for the container user (maps to your host GID) |
+| `BUILD_ID` | latest | Build identifier for the Docker image |
+
+You can set these when building the image:
+
+```bash
+USER_ID=$(id -u) GROUP_ID=$(id -g) BUILD_ID=$(date +%Y%m%d) ./scripts/run.sh
+```
+
+### Docker Health Monitoring
+
+The container includes a health check system that:
+- Verifies the bot process is running
+- Checks that the bot is responding correctly
+- Logs health status for diagnostics
+
+Check the container health status with:
+
+```bash
+docker inspect --format='{{.State.Health.Status}}' quit-smoking-bot
+```
+
+View health check logs:
+
+```bash
+docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' quit-smoking-bot
+```

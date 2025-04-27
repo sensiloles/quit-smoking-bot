@@ -1,8 +1,14 @@
 # Use Python 3.9 slim image
-FROM python:3.9-slim
+FROM python:3.9-slim as base
+
+# Set timezone and environment variables
+ENV TZ=Asia/Novosibirsk \
+    PYTHONUNBUFFERED=1 \
+    IN_CONTAINER=true \
+    BUILD_ID=latest
 
 # Set timezone
-RUN ln -snf /usr/share/zoneinfo/Asia/Novosibirsk /etc/localtime && echo Asia/Novosibirsk > /etc/timezone
+RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
 
 # Create non-root user with the same UID as the host user
 ARG USER_ID=1000
@@ -11,48 +17,37 @@ RUN groupadd -g ${GROUP_ID} appuser && \
     useradd -m -u ${USER_ID} -g appuser appuser
 
 # Install system packages as root
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     apt-utils \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Add build argument
-ARG BUILD_ID=latest
-ENV BUILD_ID=${BUILD_ID}
+# Copy requirements first to leverage Docker cache
+COPY setup.py /app/
+RUN pip install --no-cache-dir -e . requests pytest
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/logs /app/default_data /app/health \
+    && chown -R appuser:appuser /app \
+    && chmod 755 /app /app/data /app/logs /app/default_data /app/health
 
 # Copy application files
-COPY . .
+COPY --chown=appuser:appuser . .
 
-# Create data and logs directories
-RUN mkdir -p /app/data && \
-    mkdir -p /app/logs && \
-    mkdir -p /app/default_data
-
-# Set proper permissions
-RUN chown -R appuser:appuser /app && \
-    chmod 755 /app && \
-    chmod 755 /app/data && \
-    chmod 755 /app/logs && \
-    chmod 755 /app/default_data
-
-# Make health check script executable
-RUN chmod +x /app/scripts/healthcheck.sh
-
-# Install Python packages as root
-RUN pip install --no-cache-dir . requests pytest
+# Make scripts executable
+RUN chmod +x /app/scripts/*.sh
 
 # Switch to non-root user
 USER appuser
 
-# Set environment variables
-ENV IN_CONTAINER=true
-ENV TZ=Asia/Novosibirsk
+# Add PATH for user-installed packages
 ENV PATH="/home/appuser/.local/bin:${PATH}"
 
-# Create volume for data persistence
+# Create volumes for data persistence
 VOLUME /app/data
 VOLUME /app/logs
 
