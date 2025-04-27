@@ -149,16 +149,85 @@ fi
 # Reset attempt counter
 attempt=1
 
-# First check if the bot is healthy using Docker healthcheck
-if is_bot_healthy; then
-    print_message "Bot health check passed!" "$GREEN"
-else
-    print_message "Bot health check not yet passing, checking operational status..." "$YELLOW"
-fi
+# Check if the bot is healthy with more detailed output
+print_message "\nStarting bot health check..." "$YELLOW"
+max_health_attempts=30
+health_attempt=1
 
-# Now check if the bot is operational using our function
+while [ $health_attempt -le $max_health_attempts ]; do
+    print_message "Checking bot health status (attempt $health_attempt/$max_health_attempts)..." "$YELLOW"
+    
+    # Get container health status directly
+    health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
+    
+    if [ "$health_status" = "healthy" ]; then
+        print_message "Bot health status: HEALTHY" "$GREEN"
+        print_message "Bot is healthy!" "$GREEN"
+        break
+    elif [ "$health_status" = "starting" ]; then
+        print_message "Bot health status: STARTING" "$YELLOW"
+    else
+        print_message "Bot health status: $health_status" "$YELLOW"
+    fi
+    
+    # If we've reached max attempts, stop trying
+    if [ $health_attempt -eq $max_health_attempts ]; then
+        print_message "Bot health check did not pass within timeout." "$YELLOW"
+        break
+    fi
+    
+    # Wait before next check
+    sleep 5
+    ((health_attempt++))
+done
+
+# Now check if the bot is operational with more detailed output
+print_message "\nStarting bot operational check..." "$YELLOW"
+max_operational_attempts=30
+operational_attempt=1
+
+while [ $operational_attempt -le $max_operational_attempts ]; do
+    print_message "Checking bot operational status (attempt $operational_attempt/$max_operational_attempts)..." "$YELLOW"
+    
+    # Check if Python process is running
+    if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
+        # Check logs for success patterns
+        logs=$(docker logs $container_id --tail 70 2>&1)
+        
+        # Check for Application started message
+        if echo "$logs" | grep -q "Application started"; then
+            print_message "Bot is operational - Application started" "$GREEN"
+            print_message "Bot is operational!" "$GREEN"
+            is_operational=true
+            break
+        fi
+        
+        # Check for successful API calls
+        successful_api_calls=$(echo "$logs" | grep -c "\"HTTP/1.1 200 OK\"")
+        if [ "$successful_api_calls" -ge 2 ]; then
+            print_message "Bot is operational - multiple successful API calls detected ($successful_api_calls)" "$GREEN"
+            print_message "Bot is operational!" "$GREEN"
+            is_operational=true
+            break
+        fi
+    fi
+    
+    # If we've reached max attempts, stop trying
+    if [ $operational_attempt -eq $max_operational_attempts ]; then
+        print_message "Bot operational check did not pass within timeout." "$YELLOW"
+        break
+    fi
+    
+    # Wait before next check
+    sleep 3
+    ((operational_attempt++))
+done
+
+# Now check if the bot is operational using our function (for final determination)
 if is_bot_operational; then
-    print_message "Bot is operational!" "$GREEN"
+    print_message "\nBot status checks summary:" "$GREEN"
+    print_message "Health status: $(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)" "$GREEN"
+    print_message "Operational status: OPERATIONAL" "$GREEN"
     
     # Show recent logs
     print_message "\nRecent bot logs:" "$YELLOW"
