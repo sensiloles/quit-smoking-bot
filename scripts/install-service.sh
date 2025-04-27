@@ -108,7 +108,7 @@ check_bot_health() {
             return 0
         fi
         
-        sleep 1
+        sleep 5
         ((health_attempt++))
     done
     
