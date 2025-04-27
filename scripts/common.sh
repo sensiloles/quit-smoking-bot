@@ -235,6 +235,7 @@ cleanup_docker() {
 # Build and start service
 build_and_start_service() {
     local service=${1:-"bot"}  # Default to "bot" if no service specified
+    local start_after_build=${2:-1} # Default to starting the service after build
     
     # Ensure SYSTEM_NAME is properly exported
     check_system_name
@@ -247,7 +248,7 @@ build_and_start_service() {
         docker builder prune -f >/dev/null 2>&1 || true
     fi
 
-    print_message "Building and starting $service service..." "$GREEN"
+    print_message "Building $service service..." "$GREEN"
     
     # Use --no-cache if force rebuild is requested
     if [ "$FORCE_REBUILD" == "1" ]; then
@@ -256,16 +257,22 @@ build_and_start_service() {
             print_error "Failed to build the $service service. Please check the logs above for details."
             return 1
         fi
-        
+    else
+        if ! docker-compose build $service; then
+            print_error "Failed to build the $service service. Please check the logs above for details."
+            return 1
+        fi
+    fi
+
+    # Start the service if requested
+    if [ "$start_after_build" -eq 1 ]; then
+        print_message "Starting $service service..." "$GREEN"
         if ! docker-compose up -d $service; then
             print_error "Failed to start the $service service. Please check the logs above for details."
             return 1
         fi
     else
-        if ! docker-compose up -d --build $service; then
-            print_error "Failed to start the $service service. Please check the logs above for details."
-            return 1
-        fi
+        print_message "Build complete. Service not started yet." "$YELLOW"
     fi
     
     return 0
@@ -591,6 +598,7 @@ parse_args() {
     TOKEN=""
     FORCE_REBUILD=0
     CLEANUP=0
+    RUN_TESTS=0 # Initialize the new flag
     # Loop through arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -608,6 +616,10 @@ parse_args() {
                 ;;
             --cleanup)
                 CLEANUP=1
+                shift 1
+                ;;
+            --tests) # Add handling for the new flag
+                RUN_TESTS=1
                 shift 1
                 ;;
             --help)
@@ -653,6 +665,10 @@ update_env_token() {
 
 # Show available service commands
 show_service_commands() {
+    if [[ "$(uname)" != "Linux" ]]; then
+        print_warning "Service commands are only available on Linux systems with systemd."
+        return
+    fi
     check_system_name
     
     print_section "Service Commands"
@@ -788,8 +804,12 @@ setup_data_directories() {
 
 # Function to get service status
 get_service_status() {
-    print_message "\nCurrent service status:" "$YELLOW"
-    systemctl status $SYSTEM_NAME.service --no-pager || true
+    if [[ "$(uname)" != "Linux" ]]; then
+        print_warning "Systemd service status is only available on Linux."
+    else
+        print_message "\nCurrent service status:" "$YELLOW"
+        systemctl status $SYSTEM_NAME.service --no-pager || true
+    fi
     
     print_message "\nDocker container status:" "$YELLOW"
     docker ps -a --filter "name=$SYSTEM_NAME" || true
@@ -800,6 +820,10 @@ get_service_status() {
 
 # Function to stop and remove service
 stop_service() {
+    if [[ "$(uname)" != "Linux" ]]; then
+        print_error "Service management commands are not supported on this OS ($(uname))."
+        return 1
+    fi
     print_message "\n1. Stopping service..." "$YELLOW"
     systemctl stop $SYSTEM_NAME.service || true
     systemctl disable $SYSTEM_NAME.service || true
@@ -810,6 +834,25 @@ stop_service() {
     print_message "\n3. Reloading systemd..." "$YELLOW"
     systemctl daemon-reload
     systemctl reset-failed
+}
+
+###################
+# Test Execution
+###################
+
+# Run tests within Docker
+run_tests_in_docker() {
+    print_section "Running Tests"
+    print_message "Running tests using docker-compose run --rm test..." "$YELLOW"
+    
+    # Execute tests directly
+    if docker-compose run --rm test; then
+        print_message "\nTests Passed!" "$GREEN"
+        return 0
+    else
+        print_error "Tests Failed! Check the output above for details."
+        return 1
+    fi
 }
 
 # Automatically export the BOT_TOKEN if it's set

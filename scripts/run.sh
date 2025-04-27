@@ -15,20 +15,20 @@ show_help() {
     echo "  --token TOKEN       Specify the Telegram bot token (will be saved to .env file)"
     echo "  --force-rebuild     Force rebuild of Docker container without using cache"
     echo "  --cleanup           Perform additional cleanup before starting"
+    echo "  --tests             Run tests after building and before starting the bot. If tests fail, the bot will not start."
     echo "  --help              Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 --token 123456789:ABCDEF... # Start with specific token"
     echo "  $0 --force-rebuild             # Force rebuild container"
+    echo "  $0 --tests                     # Build, run tests, then start"
     echo "  $0                             # Start using token from .env file"
 }
 
 # Main function
 main() {
-    # Parse command line arguments
-    if ! parse_args "$@"; then
-        return 1
-    fi
+    # Parse command line arguments using the common function
+    parse_args "$@"
     
     # If token was passed via --token parameter, save it to .env and export it
     if [ -n "$TOKEN" ]; then
@@ -46,25 +46,39 @@ main() {
     
     if [ $conflict_status -eq 1 ]; then
         # Return error for handling in main
-        return 1
-    fi
-    
-    # If conflict with remote bot (status 1)
-    if [ $conflict_status -eq 1 ]; then
         print_error "Cannot proceed due to remote conflict with another bot instance."
         print_message "Please stop the other bot instance before continuing." "$YELLOW"
         return 1
-    # In other cases (no conflict or local already stopped)
-    else
-        # Check if there are running instances (as an additional precaution)
-        stop_running_instances $conflict_status
     fi
+    
+    # Stop any existing running instances
+    stop_running_instances $conflict_status
     
     # Setup data directories with proper permissions
     setup_data_directories
     
-    # Build and start the bot - always executed if there's no conflict with remote bot
-    build_and_start_service || return 1
+    # Determine if we should start the service immediately after building
+    local start_immediately=1
+    if [ "$RUN_TESTS" -eq 1 ]; then
+        start_immediately=0
+    fi
+
+    # Build the service (potentially without starting)
+    build_and_start_service "bot" $start_immediately || return 1
+
+    # Run tests if requested
+    if [ "$RUN_TESTS" -eq 1 ]; then
+        if ! run_tests_in_docker; then
+            print_error "Tests failed. Bot will not be started."
+            return 1
+        fi
+        # If tests passed, start the service now
+        print_message "Starting bot service after successful tests..." "$GREEN"
+        if ! docker-compose up -d bot; then
+            print_error "Failed to start the bot service after tests."
+            return 1
+        fi
+    fi
     
     # Check if bot is healthy and operational
     check_bot_status

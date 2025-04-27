@@ -48,29 +48,26 @@ You can also pass the bot token directly:
 ## Requirements
 
 - Docker and Docker Compose
-- Systemd (for service management)
+- Systemd (for service management on Linux)
 - curl (for token validation and conflict detection)
 
 ## Running as a Service
 
-> **Compatibility:** Fully compatible with Linux Ubuntu. Limited compatibility with macOS. Windows support planned.
+> **Compatibility Note:** Running as a systemd service is fully supported only on **Linux distributions** that use systemd (like Ubuntu).
+> On macOS and other systems, the `install-service.sh` script will build the Docker image and run tests (if `--tests` is used), but it cannot install or manage a systemd service. The bot container will be started directly using `docker-compose`.
 
-Install and start as a systemd service:
+Install and start as a systemd service (Linux only):
 ```bash
 sudo ./scripts/install-service.sh
 ```
 
-Manage the service:
+Manage the service (Linux only):
 ```bash
 sudo systemctl start|stop|restart|status quit-smoking-bot.service
-sudo journalctl -u quit-smoking-bot.service -f  # View logs
+sudo journalctl -u quit-smoking-bot.service -f  # View logs (Linux only)
 ```
 
-Uninstall:
-
-> **Compatibility:** Fully compatible with Linux Ubuntu. Limited compatibility with macOS. Windows support planned.
-
-Uninstall and stop runned systemd service:
+Uninstall the service (Linux only):
 ```bash
 sudo ./scripts/uninstall-service.sh
 ```
@@ -113,11 +110,12 @@ docker-compose logs -f bot
 
 ## Command-Line Options
 
-All scripts support these options:
+All `run.sh` and `install-service.sh` scripts support these options:
 
 - `--token YOUR_BOT_TOKEN` - Specify the Telegram bot token
 - `--force-rebuild` - Forces a complete rebuild of Docker images
 - `--cleanup` - Performs additional cleanup of Docker resources
+- `--tests` - Runs the test suite after building the image. If tests fail, the script will stop (won't start the bot or install the service).
 - `--help` - Displays usage information and options
 
 *Note:* Test configuration is managed by `pytest.ini` located in the `tests/` directory.
@@ -128,15 +126,16 @@ All scripts support these options:
 
 1. Check if another bot is running with the same token:
 ```bash
-sudo ./scripts/check-service.sh
+./scripts/check-service.sh # Can be run with sudo on Linux for more details
 ```
 
-2. If conflict persists:
+2. If conflict persists (and you are on Linux):
 ```bash
 sudo systemctl stop quit-smoking-bot.service
 # Wait 2 minutes
 sudo systemctl start quit-smoking-bot.service
 ```
+If not on Linux, ensure no other `docker-compose` instance is running the bot.
 
 3. If all else fails, create a new bot token with BotFather.
 
