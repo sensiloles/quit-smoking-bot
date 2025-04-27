@@ -198,275 +198,192 @@ check_resources() {
     
     # Check memory usage
     print_message "\nMemory Usage:" "$GREEN"
-    free -h | grep "Mem:" | awk '{print "Total: " $2 ", Used: " $3 ", Free: " $4}'
+    free -h | grep -i mem
     
-    # Check disk usage
-    print_message "\nDisk Usage:" "$GREEN"
-    df -h / | tail -1 | awk '{print "Total: " $2 ", Used: " $3 ", Free: " $4}'
+    # Check disk space
+    print_message "\nDisk Space:" "$GREEN"
+    df -h | grep -E "(Filesystem|/$|/var)"
+    
+    # Check Docker resources
+    print_message "\nDocker Resources:" "$GREEN"
+    docker info | grep -E "(containers|images|volumes|Name)"
 }
 
-# Function to check container health
-check_container_health() {
-    print_section "Container Health Status"
+# Function to check bot health
+check_bot_health_status() {
+    print_section "Bot Health"
     
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
     if [ -n "$container_id" ]; then
         # Get container health status
         local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
         
-        print_message "Container Health Status: $health_status" "$BLUE"
-        
-        # Use our is_bot_healthy function to check health
-        if is_bot_healthy; then
-            print_message "Docker Healthcheck: PASSED" "$GREEN"
+        if [ -z "$health_status" ]; then
+            print_message "Container has no health check defined" "$YELLOW"
         else
-            print_message "Docker Healthcheck: FAILED" "$RED"
-            print_message "\nHealthcheck details:" "$YELLOW"
-            # Show the last health check log
-            docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' $container_id | tail -2
-        fi
-        
-        # Check for error logs
-        print_message "\nRecent error logs:" "$YELLOW"
-        local error_logs=$(docker logs --tail 50 $container_id 2>&1 | grep -i "error\|exception\|fail\|warning\|critical" | tail -10)
-        if [ -n "$error_logs" ]; then
-            echo "$error_logs"
-        else
-            print_message "No recent errors found in logs" "$GREEN"
-        fi
-        
-        # Check container resource limits and usage
-        print_message "\nContainer Resource Usage:" "$GREEN"
-        local cpu_usage=$(docker stats --no-stream --format "{{.CPUPerc}}" $container_id)
-        local mem_usage=$(docker stats --no-stream --format "{{.MemUsage}}" $container_id)
-        local mem_limit=$(docker inspect --format '{{.HostConfig.Memory}}' $container_id)
-        
-        print_message "CPU Usage: $cpu_usage" "$YELLOW"
-        print_message "Memory Usage: $mem_usage / $mem_limit" "$YELLOW"
-        
-        # Check for resource constraints
-        if [ "$cpu_usage" = "100%" ]; then
-            print_message "WARNING: Container is using 100% CPU" "$RED"
-        fi
-        
-        # Check container uptime and restart count
-        local uptime=$(docker inspect --format '{{.State.StartedAt}}' $container_id)
-        local restart_count=$(docker inspect --format '{{.RestartCount}}' $container_id)
-        print_message "\nContainer Uptime: $uptime" "$YELLOW"
-        print_message "Restart Count: $restart_count" "$YELLOW"
-        
-        if [ "$restart_count" -gt 0 ]; then
-            print_message "Container has been restarted $restart_count times" "$RED"
-            print_message "Last Exit Code: $(docker inspect --format '{{.State.ExitCode}}' $container_id)" "$YELLOW"
-        fi
-        
-        # Check container ports
-        print_message "\nContainer Ports:" "$GREEN"
-        local ports=$(docker inspect --format '{{range $p, $conf := .NetworkSettings.Ports}} {{$p}} -> {{(index $conf 0).HostPort}} {{end}}' $container_id)
-        if [ -n "$ports" ]; then
-            echo "$ports"
-        else
-            print_message "No ports exposed" "$YELLOW"
-        fi
-        
-        # Check container volumes
-        print_message "\nContainer Volumes:" "$GREEN"
-        local volumes=$(docker inspect --format '{{range .Mounts}}{{printf "Source: %s\nDestination: %s\nMode: %s\n" .Source .Destination .Mode}}{{end}}' $container_id)
-        if [ -n "$volumes" ]; then
-            echo "$volumes"
-        else
-            print_message "No volumes mounted" "$YELLOW"
-        fi
-        
-        # Check container environment variables
-        print_message "\nContainer Environment:" "$GREEN"
-        local env_vars=$(docker inspect --format '{{range .Config.Env}}{{printf "%s\n" .}}{{end}}' $container_id | grep -v "PASSWORD\|TOKEN\|KEY\|SECRET")
-        if [ -n "$env_vars" ]; then
-            echo "$env_vars"
-        else
-            print_message "No environment variables found" "$YELLOW"
-        fi
-        
-        # Check for missing required environment variables
-        print_message "\nRequired Environment Variables Check:" "$GREEN"
-        local required_vars=("BOT_TOKEN" "SYSTEM_NAME" "SYSTEM_DISPLAY_NAME")
-        local missing_vars=()
-        for var in "${required_vars[@]}"; do
-            if ! docker inspect --format '{{range .Config.Env}}{{printf "%s\n" .}}{{end}}' $container_id | grep -q "^$var="; then
-                missing_vars+=("$var")
-            fi
-        done
-        
-        if [ ${#missing_vars[@]} -gt 0 ]; then
-            print_message "Missing required environment variables:" "$RED"
-            for var in "${missing_vars[@]}"; do
-                print_message "- $var" "$RED"
-            done
-        else
-            print_message "All required environment variables are set" "$GREEN"
-        fi
-    else
-        print_message "No running container found to check health" "$RED"
-        
-        # Check if container exists but is stopped
-        local stopped_container=$(docker ps -a -q --filter "name=$SYSTEM_NAME" --filter "status=exited")
-        if [ -n "$stopped_container" ]; then
-            print_message "\nContainer exists but is stopped" "$YELLOW"
-            print_message "Last Exit Code: $(docker inspect --format '{{.State.ExitCode}}' $stopped_container)" "$YELLOW"
-            print_message "Last Error: $(docker inspect --format '{{.State.Error}}' $stopped_container)" "$YELLOW"
+            print_message "Container health status: $health_status" "$YELLOW"
             
-            # Show last logs of stopped container
-            print_message "\nLast logs before container stopped:" "$YELLOW"
-            docker logs --tail 20 $stopped_container
+            # Show last health check
+            print_message "\nLast health check:" "$YELLOW"
+            docker inspect --format='{{json .State.Health.Log}}' $container_id | jq -r '.[-1].Output' 2>/dev/null || \
+            docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' $container_id | tail -1
         fi
-    fi
-}
-
-# Function to check environment variables
-check_environment() {
-    print_section "Environment Configuration"
-    
-    # Check if .env file exists
-    if [ -f ".env" ]; then
-        print_message "Environment file (.env) exists" "$GREEN"
         
-        # Check for required environment variables
-        local required_vars=("BOT_TOKEN" "SYSTEM_NAME" "SYSTEM_DISPLAY_NAME")
-        for var in "${required_vars[@]}"; do
-            if grep -q "^$var=" .env; then
-                print_message "$var is set" "$GREEN"
+        # Check if the bot process is running
+        if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
+            print_message "\nBot process is running inside container" "$GREEN"
+            
+            # Check the health file
+            if docker exec $container_id test -f /app/health/operational 2>/dev/null; then
+                print_message "Health file exists (/app/health/operational)" "$GREEN"
+                # Show when the file was last updated
+                local file_time=$(docker exec $container_id stat -c %y /app/health/operational 2>/dev/null)
+                print_message "Health file last updated: $file_time" "$YELLOW"
             else
-                print_message "$var is missing" "$RED"
+                print_message "Health file does not exist (/app/health/operational)" "$RED"
             fi
-        done
+            
+            # Check for logs that indicate the bot is operational
+            if docker logs $container_id --tail 100 2>&1 | grep -q "Application started"; then
+                print_message "\nBot is operational (found 'Application started' in logs)" "$GREEN"
+            elif docker logs $container_id --tail 100 2>&1 | grep -q "\"HTTP/1.1 200 OK\""; then
+                print_message "\nBot is making API calls (found successful HTTP requests in logs)" "$GREEN"
+            else
+                print_message "\nCould not find evidence of bot activity in recent logs" "$YELLOW"
+            fi
+            
+            # Check for conflict errors
+            if docker logs $container_id --tail 100 2>&1 | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
+                print_error "\nWARNING: Conflict detected in logs! Another bot instance is running with the same token."
+                print_message "This may prevent your bot from functioning correctly." "$RED"
+            fi
+        else
+            print_error "\nBot process is NOT running inside container"
+        fi
     else
-        print_message "Environment file (.env) not found" "$RED"
+        print_message "No running container found" "$RED"
     fi
 }
 
-# Function to check Docker configuration
-check_docker_config() {
-    print_section "Docker Configuration"
-    
-    # Check Docker version
-    print_message "Docker Version:" "$GREEN"
-    docker --version
-    
-    # Check Docker daemon status
-    if systemctl is-active docker &>/dev/null; then
-        print_message "\nDocker daemon is running" "$GREEN"
-    else
-        print_message "\nDocker daemon is not running" "$RED"
-    fi
-    
-    # Check Docker compose version
-    print_message "\nDocker Compose Version:" "$GREEN"
-    docker-compose --version
-}
-
-# Function to check if bot is fully operational
-check_bot_operation() {
-    print_section "Bot Operational Status"
+# Function to report overall status
+report_overall_status() {
+    print_section "Overall Status"
     
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
-    if [ -z "$container_id" ]; then
-        print_message "No running container found. Bot is not operational." "$RED"
-        return 1
-    fi
+    local service_active=false
+    local container_running=false
+    local bot_running=false
+    local health_check_ok=false
     
-    # Check if bot is healthy
-    print_message "Checking Docker health status:" "$BLUE"
-    if is_bot_healthy; then
-        print_message "Health status: HEALTHY" "$GREEN"
+    if systemctl is-active $SYSTEM_NAME.service >/dev/null 2>&1; then
+        service_active=true
+        print_message "Systemd service: ACTIVE" "$GREEN"
     else
-        print_message "Health status: NOT HEALTHY" "$RED"
+        print_message "Systemd service: NOT ACTIVE" "$RED"
     fi
     
-    # Check if bot is operational
-    print_message "\nChecking operational status:" "$BLUE"
-    if is_bot_operational; then
-        print_message "Operational status: OPERATIONAL" "$GREEN"
+    if [ -n "$container_id" ]; then
+        container_running=true
+        print_message "Docker container: RUNNING" "$GREEN"
+        
+        if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
+            bot_running=true
+            print_message "Bot process: RUNNING" "$GREEN"
+        else
+            print_message "Bot process: NOT RUNNING" "$RED"
+        fi
+        
+        local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
+        if [ "$health_status" = "healthy" ]; then
+            health_check_ok=true
+            print_message "Health check: PASSED" "$GREEN"
+        else
+            print_message "Health check: $health_status" "$YELLOW"
+        fi
     else
-        print_message "Operational status: NOT OPERATIONAL" "$RED"
+        print_message "Docker container: NOT RUNNING" "$RED"
     fi
     
-    # Get container logs
-    local logs=$(docker logs $container_id 2>&1)
-    
-    print_message "\nDetailed Bot Status Checks:" "$BLUE"
-    # Check for successful connections to Telegram API
-    if echo "$logs" | grep -q "HTTP Request: POST https://api.telegram.org/bot.*getUpdates \"HTTP/1.1 200 OK\""; then
-        print_message "✓ Bot successfully connected to Telegram API" "$GREEN"
+    print_message "\nSummary:" "$YELLOW"
+    if $service_active && $container_running && $bot_running && $health_check_ok; then
+        print_message "Bot is fully operational" "$GREEN"
+    elif $service_active && $container_running && $bot_running; then
+        print_message "Bot is operational but health check may not have passed" "$YELLOW"
+    elif $service_active && $container_running; then
+        print_message "Bot container is running but bot process is not" "$RED"
+    elif $service_active; then
+        print_message "Service is active but container is not running" "$RED"
     else
-        print_message "✗ No successful Telegram API connections detected" "$RED"
+        print_message "Bot is not operational" "$RED"
     fi
     
-    # Check for Application started message
-    if echo "$logs" | grep -q "telegram.ext.Application - INFO - Application started"; then
-        print_message "✓ Telegram application successfully started" "$GREEN"
+    if [ -f "/etc/systemd/system/$SYSTEM_NAME.service" ]; then
+        print_message "\nAvailable commands:" "$YELLOW"
+        print_message "  Start: sudo systemctl start $SYSTEM_NAME.service" "$YELLOW"
+        print_message "  Stop: sudo systemctl stop $SYSTEM_NAME.service" "$YELLOW"
+        print_message "  Restart: sudo systemctl restart $SYSTEM_NAME.service" "$YELLOW"
+        print_message "  Status: sudo systemctl status $SYSTEM_NAME.service" "$YELLOW"
+        print_message "  Logs: sudo journalctl -u $SYSTEM_NAME.service" "$YELLOW"
+        
+        if [ -n "$container_id" ]; then
+            print_message "  Container logs: docker logs $container_id" "$YELLOW"
+        fi
     else
-        print_message "✗ No application start message detected" "$RED"
-    fi
-    
-    # Check for Scheduler started
-    if echo "$logs" | grep -q "apscheduler.scheduler - INFO - Scheduler started"; then
-        print_message "✓ Scheduler successfully started" "$GREEN"
-    else
-        print_message "✗ No scheduler start message detected" "$RED"
-    fi
-    
-    # Count getUpdates calls with 200 OK
-    local getUpdates_count=$(echo "$logs" | grep -c "getUpdates \"HTTP/1.1 200 OK\"")
-    if [ $getUpdates_count -ge 2 ]; then
-        print_message "✓ Bot has made $getUpdates_count successful API calls" "$GREEN"
-    else
-        print_message "✗ Less than 2 successful API calls detected ($getUpdates_count)" "$RED"
-    fi
-    
-    # Check for critical errors
-    if echo "$logs" | grep -q "telegram.error.Conflict: Conflict: terminated by other getUpdates request"; then
-        print_message "‼️ CRITICAL: Detected conflict with another bot instance" "$RED"
-        print_message "This usually means another bot with the same token is running elsewhere" "$YELLOW"
-        print_message "Recommendations:" "$YELLOW"
-        print_message "1. Check for any other instances of this bot" "$YELLOW"
-        print_message "2. Wait a few minutes for the Telegram API to release the connection" "$YELLOW"
-        print_message "3. Restart this bot" "$YELLOW"
-    fi
-    
-    local error_count=$(echo "$logs" | grep -c "ERROR")
-    if [ $error_count -gt 0 ]; then
-        print_message "‼️ Found $error_count ERROR entries in the logs" "$RED"
-        print_message "\nRecent ERROR logs:" "$YELLOW"
-        echo "$logs" | grep "ERROR" | tail -5
-    else
-        print_message "✓ No ERROR entries found in logs" "$GREEN"
-    fi
-    
-    # Final verdict - based on our is_bot_operational function
-    if is_bot_operational; then
-        print_message "\nBOT STATUS: OPERATIONAL" "$GREEN"
-        return 0
-    else
-        print_message "\nBOT STATUS: NOT FULLY OPERATIONAL" "$RED"
-        return 1
+        print_message "\nService is not installed." "$YELLOW"
     fi
 }
 
-# Main script
-print_message "Starting comprehensive status check of $SYSTEM_NAME service..." "$BLUE"
+# Run all check functions
+check_prerequisites() {
+    # Check system name
+    if ! check_system_name; then
+        exit 1
+    fi
+    
+    # Check if Docker is installed
+    if ! command -v docker >/dev/null 2>&1; then
+        print_error "Docker is not installed. Cannot check bot status."
+        exit 1
+    fi
+    
+    # Check if docker-compose is installed
+    if ! command -v docker-compose >/dev/null 2>&1; then
+        print_warning "docker-compose is not installed. Limited checks will be performed."
+    fi
+    
+    # Check if jq is installed (for parsing JSON)
+    if ! command -v jq >/dev/null 2>&1; then
+        print_warning "jq is not installed. Some health checks may not display properly."
+    fi
+    
+    return 0
+}
 
-# Run all checks
-check_systemd_service
-check_docker_containers
-check_docker_images
-check_docker_volumes
-check_project_files
-check_network
-check_resources
-check_container_health
-check_environment
-check_docker_config
-check_bot_operation
-check_logs
+# Main function
+main() {
+    # Ensure SYSTEM_NAME is set
+    if [ -z "$SYSTEM_NAME" ]; then
+        print_error "SYSTEM_NAME is not set. Cannot check bot status."
+        exit 1
+    fi
+    
+    print_message "Checking status of $SYSTEM_NAME bot service..." "$YELLOW"
+    
+    # Run prerequisite checks
+    check_prerequisites
+    
+    # Run all check functions
+    check_systemd_service
+    check_docker_containers
+    check_docker_images
+    check_docker_volumes
+    check_project_files
+    check_network
+    check_logs
+    check_resources
+    check_bot_health_status
+    report_overall_status
+}
 
-print_message "\nStatus check completed!" "$GREEN"
+# Run main function
+main

@@ -20,14 +20,6 @@ show_help() {
     echo "  $0 --cleanup        # Stop the bot and perform thorough cleanup"
 }
 
-# Function to check prerequisites
-check_prerequisites() {
-    check_docker_installation || return 1
-    check_system_name
-    check_docker || return 1
-    return 0
-}
-
 # Function to stop and remove containers
 stop_containers() {
     print_message "Stopping bot and cleaning up resources..." "$YELLOW"

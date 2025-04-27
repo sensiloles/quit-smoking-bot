@@ -25,14 +25,8 @@ if ! parse_args "$@"; then
 fi
 
 # Check prerequisites
-check_docker_installation || exit 1
-check_docker_buildx
-check_bot_token || exit 1
-check_system_name
+check_prerequisites || exit 1
 check_system_display_name
-
-# Check Docker daemon
-check_docker
 
 # Clean up any existing test resources
 docker-compose rm -sf test

@@ -502,7 +502,7 @@ stop_local_bot_instance() {
 check_bot_conflicts_common() {
     local token="$1"
     local exit_on_conflict="${2:-1}"  # Default to 1 (exit on conflict)
-    local wait_time="${3:-5}"  # Wait time after stopping (default 5 seconds)
+    local wait_time="${3:-0}"  # Wait time after stopping (default 5 seconds)
     
     print_message "Checking for conflicts with the same bot token..." "$YELLOW"
     
@@ -665,6 +665,126 @@ show_service_commands() {
     echo "To check logs:"
     echo "  sudo journalctl -u ${SYSTEM_NAME}.service      - View service logs"
     echo "  docker logs ${SYSTEM_NAME}                     - View container logs"
+}
+
+# Function to check prerequisites (common across scripts)
+check_prerequisites() {
+    # Check prerequisites
+    check_docker_installation || return 1
+    check_docker_buildx
+    check_bot_token || return 1
+    check_system_name
+    check_docker || return 1
+    return 0
+}
+
+# Function to check for bot conflicts
+check_bot_conflicts() {
+    # Use common function to check conflicts (don't exit on conflict)
+    check_bot_conflicts_common "$BOT_TOKEN" 0
+    conflict_status=$?
+    
+    if [ $conflict_status -eq 1 ]; then
+        # Return error for handling in main
+        return 1
+    fi
+    
+    return $conflict_status
+}
+
+# Function to stop any running bot instances
+stop_running_instances() {
+    print_message "Checking for existing bot instances..." "$YELLOW"
+    
+    if docker-compose ps -q bot >/dev/null 2>&1; then
+        print_message "Stopping existing bot container..." "$YELLOW"
+        docker-compose stop bot
+        docker-compose rm -f bot
+        
+        # If there was a conflict, wait a bit to let Telegram API release connections
+        if [ $1 -eq 2 ]; then
+            print_message "Waiting for Telegram API connections to release (5 seconds)..." "$YELLOW"
+            sleep 5
+        fi
+    fi
+}
+
+# Function to check bot health and status after startup
+check_bot_status() {
+    print_message "\nChecking bot status after startup..." "$YELLOW"
+    local max_attempts=10
+    local attempt=1
+    
+    # Wait a moment for the container to initialize
+    sleep 5
+    
+    while [ $attempt -le $max_attempts ]; do
+        print_message "Checking bot health (attempt $attempt/$max_attempts)..." "$YELLOW"
+        
+        # Check if bot is healthy using Docker healthcheck
+        if is_bot_healthy; then
+            print_message "Bot health check: PASSED" "$GREEN"
+            break
+        else
+            if [ $attempt -eq $max_attempts ]; then
+                print_message "Bot health check did not pass within timeout, but bot might still be functioning." "$YELLOW"
+                print_message "Continuing with operational check..." "$YELLOW"
+            else
+                print_message "Bot health check not yet passing, waiting..." "$YELLOW"
+                sleep 5
+                ((attempt++))
+                continue
+            fi
+        fi
+        
+        ((attempt++))
+    done
+    
+    # Check if bot is operational
+    if is_bot_operational; then
+        print_message "Bot operational check: PASSED" "$GREEN"
+        print_message "Bot is fully operational!" "$GREEN"
+        return 0
+    else
+        print_message "Bot operational check: NOT PASSED" "$YELLOW"
+        print_message "Bot is running but might not be fully operational." "$YELLOW"
+        print_message "Use './scripts/check-service.sh' for detailed diagnostics." "$YELLOW"
+        return 1
+    fi
+}
+
+# Function to check if running as root
+check_root() {
+    if [ "$EUID" -ne 0 ]; then 
+        print_error "Please run as root (use sudo)"
+        exit 1
+    fi
+}
+
+# Function to get service status
+get_service_status() {
+    print_message "\nCurrent service status:" "$YELLOW"
+    systemctl status $SYSTEM_NAME.service --no-pager || true
+    
+    print_message "\nDocker container status:" "$YELLOW"
+    docker ps -a --filter "name=$SYSTEM_NAME" || true
+    
+    print_message "\nDocker images:" "$YELLOW"
+    docker images | grep $SYSTEM_NAME || true
+}
+
+# Function to stop and remove service
+stop_service() {
+    print_message "\n1. Stopping service..." "$YELLOW"
+    systemctl stop $SYSTEM_NAME.service || true
+    systemctl disable $SYSTEM_NAME.service || true
+    
+    print_message "\n2. Removing service file..." "$YELLOW"
+    rm -f /etc/systemd/system/$SYSTEM_NAME.service
+    
+    print_message "\n3. Reloading systemd..." "$YELLOW"
+    systemctl daemon-reload
+    systemctl reset-failed
 }
 
 # Automatically export the BOT_TOKEN if it's set
