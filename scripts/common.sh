@@ -340,6 +340,12 @@ is_bot_operational() {
     print_message "Checking logs for operational status..." "$YELLOW"
     logs=$(docker logs $container_id --tail 50 2>&1)
     
+    # Check for conflict errors first - if found, report the conflict but don't return yet
+    if echo "$logs" | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
+        print_error "Telegram API conflict detected - another bot is running with the same token"
+        print_message "You will need to stop the other bot instance to use this one properly." "$YELLOW"
+    fi
+    
     if echo "$logs" | grep -q "Application started"; then
         print_message "Bot is operational" "$GREEN"
         return 0
@@ -349,6 +355,15 @@ is_bot_operational() {
     api_calls=$(echo "$logs" | grep -c "\"HTTP/1.1 200 OK\"")
     if [ "$api_calls" -ge 2 ]; then
         print_message "Bot is operational ($api_calls successful API calls detected)" "$GREEN"
+        return 0
+    fi
+    
+    # Even with conflicts, the bot might still be partly operational if it's still making API calls
+    # If we found conflicts earlier, but the bot is still somewhat operational, return success
+    # This allows the finalizeStartupCheck function to handle the conflict appropriately
+    if echo "$logs" | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates" && \
+       echo "$logs" | grep -q "\"HTTP/1.1 200 OK\""; then
+        print_message "Bot is partly operational despite conflicts" "$YELLOW"
         return 0
     fi
     
@@ -498,39 +513,30 @@ check_bot_conflicts_common() {
         debug_print "Local bot instance stopped: $local_stopped"
     fi
     
-    # If there's no local container, check for conflicts via API
-    debug_print "Calling detect_remote_bot_conflict"
-    conflict_check=$(detect_remote_bot_conflict "$token")
-    conflict_status=$?
-    debug_print "detect_remote_bot_conflict returned status: $conflict_status"
+    # Make multiple attempts to detect conflicts with increased wait times
+    local max_attempts=3
+    local attempt=1
+    local conflict_status=0
     
-    # If we got a conflict (status 1)
-    if [ $conflict_status -eq 1 ]; then
-        # Status 1 means a remote conflict (different machine or process)
-        print_error "A remote conflict was detected with another bot using the same token."
-        local context_message="continuing"
-        if [ "$exit_on_conflict" -eq 1 ]; then
-            context_message="continuing with installation"
+    while [ $attempt -le $max_attempts ]; do
+        debug_print "Conflict check attempt: $attempt of $max_attempts"
+        
+        # If we've already tried once, wait longer to ensure any connections have time to release
+        if [ $attempt -gt 1 ]; then
+            print_message "Waiting longer for existing connections to clear (attempt $attempt)..." "$YELLOW"
+            sleep $(( wait_time * attempt ))
         fi
-        print_message "Please stop the other bot instance before ${context_message}." "$YELLOW"
         
-        if [ "$exit_on_conflict" -eq 1 ]; then
-            return 1
-        fi
-    else
-        # Even if the initial check passed, sometimes conflicts only appear after the bot starts 
-        # Let's do an additional check to be sure
-        print_message "Initial conflict check passed. Performing additional verification..." "$YELLOW"
+        # If there's no local container, check for conflicts via API
+        debug_print "Calling detect_remote_bot_conflict"
+        conflict_check=$(detect_remote_bot_conflict "$token")
+        conflict_status=$?
+        debug_print "detect_remote_bot_conflict returned status: $conflict_status"
         
-        # Wait a moment to make sure any existing connections are detected
-        sleep 2
-
-        # Make a direct getUpdates request to test for conflicts
-        local getUpdates_response=$(curl -s "https://api.telegram.org/bot${token}/getUpdates?timeout=1&offset=-1&limit=1")
-        
-        if echo "$getUpdates_response" | grep -q "\"error_code\":409" || echo "$getUpdates_response" | grep -q "terminated by other getUpdates"; then
-            # We detected a conflict on second check with remote machine
-            print_error "A remote conflict was detected on second check with another bot."
+        # If we got a conflict (status 1)
+        if [ $conflict_status -eq 1 ]; then
+            # Status 1 means a remote conflict (different machine or process)
+            print_error "A remote conflict was detected with another bot using the same token."
             local context_message="continuing"
             if [ "$exit_on_conflict" -eq 1 ]; then
                 context_message="continuing with installation"
@@ -540,8 +546,37 @@ check_bot_conflicts_common() {
             if [ "$exit_on_conflict" -eq 1 ]; then
                 return 1
             fi
+            break
         fi
-    fi
+        
+        # Make a direct getUpdates request to test for conflicts
+        local getUpdates_response=$(curl -s "https://api.telegram.org/bot${token}/getUpdates?timeout=1&offset=-1&limit=1")
+        
+        if echo "$getUpdates_response" | grep -q "\"error_code\":409" || echo "$getUpdates_response" | grep -q "terminated by other getUpdates"; then
+            # We detected a conflict on this check
+            print_error "A remote conflict was detected with another bot."
+            local context_message="continuing"
+            if [ "$exit_on_conflict" -eq 1 ]; then
+                context_message="continuing with installation"
+            fi
+            print_message "Please stop the other bot instance before ${context_message}." "$YELLOW"
+            
+            if [ "$exit_on_conflict" -eq 1 ]; then
+                return 1
+            fi
+            conflict_status=1
+            break
+        fi
+        
+        # If no conflicts detected on this attempt and we're on the last attempt, we're good to continue
+        if [ $attempt -eq $max_attempts ]; then
+            print_message "No conflicts detected after $max_attempts attempts" "$GREEN"
+            conflict_status=0
+            break
+        fi
+        
+        ((attempt++))
+    done
     
     return $conflict_status
 }
@@ -561,7 +596,7 @@ parse_args() {
         case "$1" in
             --token)
                 if [[ -z "$2" || "$2" == --* ]]; then
-                    log_message "ERROR" "Token value missing after --token flag"
+                    print_error "Token value missing after --token flag"
                     exit 1
                 fi
                 TOKEN="$2"
@@ -580,7 +615,7 @@ parse_args() {
                 exit 0
                 ;;
             *)
-                log_message "ERROR" "Unknown option: $1"
+                print_error "Unknown option: $1"
                 show_help
                 exit 1
                 ;;

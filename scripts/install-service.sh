@@ -292,6 +292,17 @@ finalizeStartupCheck() {
         print_message "\nRecent bot logs:" "$YELLOW"
         docker logs $container_id --tail 20
         
+        # Check specifically for conflict errors in logs
+        if docker logs $container_id --tail 50 2>&1 | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
+            print_error "\nWARNING: Conflict detected in logs! Another bot instance appears to be running with the same token."
+            print_message "Even though the bot appears operational, you may experience issues." "$YELLOW"
+            print_message "To resolve this issue:" "$YELLOW"
+            print_message "1. Stop any other instances of this bot running elsewhere" "$YELLOW"
+            print_message "2. Restart this service with: sudo systemctl restart ${SYSTEM_NAME}.service" "$YELLOW"
+            print_message "\nService installed but has conflicts!" "$RED"
+            return 1
+        fi
+        
         print_message "\nService installed and started successfully!" "$GREEN"
         show_service_commands
         exit 0
@@ -300,6 +311,21 @@ finalizeStartupCheck() {
         print_message "Using check-service.sh to get detailed status..." "$YELLOW"
         if [ -f "$(dirname "${BASH_SOURCE[0]}")/check-service.sh" ]; then
             "$(dirname "${BASH_SOURCE[0]}")/check-service.sh"
+            
+            # Check for conflict errors in the logs
+            if docker logs $container_id --tail 100 2>&1 | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
+                print_error "\nERROR: Conflict detected in logs! Another bot instance is running with the same token."
+                print_message "This is preventing your bot from starting properly." "$RED"
+                print_message "To resolve this issue:" "$YELLOW"
+                print_message "1. Stop any other instances of this bot running elsewhere" "$YELLOW"
+                print_message "2. Restart this service with: sudo systemctl restart ${SYSTEM_NAME}.service" "$YELLOW"
+                
+                # Cleanup and exit with error
+                print_message "Cleaning up due to conflict..." "$YELLOW"
+                cleanup_docker bot "$CLEANUP"
+                systemctl stop ${SYSTEM_NAME}.service
+                exit 1
+            }
             
             # Even if is_bot_operational failed, if the bot is sending API requests, consider it a success
             if docker logs $container_id --tail 100 2>&1 | grep -q "\"HTTP/1.1 200 OK\""; then
