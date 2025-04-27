@@ -115,6 +115,22 @@ check_logs_for_errors() {
             log_message "ERROR" "Found critical errors in bot logs ($critical_errors occurrences)"
             return 1
         fi
+        
+        # Check for conflict errors with other bot instances
+        local conflict_errors=$(tail -n 100 /app/logs/bot.log | grep -c "Conflict: terminated by other getUpdates request")
+        local conflict_count=0
+        
+        # If we look at container logs directly, we can also check for error patterns there
+        conflict_count=$(tail -n 100 /app/logs/*.log 2>/dev/null | grep -c "Conflict: terminated by other getUpdates request" || echo 0)
+        
+        if [[ $conflict_errors -gt 3 || $conflict_count -gt 3 ]]; then
+            log_message "ERROR" "Found multiple conflict errors in logs: another bot instance is running with the same token"
+            log_message "ERROR" "Please stop the other bot instance before running this one"
+            
+            # Write a summary of the errors
+            echo "Conflict detected - Multiple instances using the same token" > /app/health/conflict_detected
+            return 1
+        fi
     fi
     
     return 0

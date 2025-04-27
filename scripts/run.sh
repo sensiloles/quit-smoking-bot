@@ -36,21 +36,16 @@ check_prerequisites() {
 
 # Function to check for bot conflicts
 check_bot_conflicts() {
-    print_message "Checking for conflicts with the same bot token..." "$YELLOW"
-    conflict_check=$(detect_remote_bot_conflict "$BOT_TOKEN")
+    # Use common function to check conflicts (don't exit on conflict)
+    check_bot_conflicts_common "$BOT_TOKEN" 0
     conflict_status=$?
-
+    
     if [ $conflict_status -eq 1 ]; then
-        # Status 1 means a remote conflict (different machine)
-        print_error "A remote conflict was detected with another bot using the same token."
-        print_message "Please resolve the conflict before continuing." "$YELLOW"
+        # Return error for handling in main
         return 1
-    elif [ $conflict_status -eq 2 ]; then
-        # Status 2 means a local conflict (this machine)
-        print_message "A local bot instance with the same token is already running on this machine." "$YELLOW"
-        print_message "The existing instance will be stopped and restarted." "$YELLOW"
     fi
-    return 0
+    
+    return $conflict_status
 }
 
 # Function to stop any running bot instances
@@ -117,24 +112,35 @@ check_bot_status() {
 # Main function
 main() {
     # Parse command line arguments
-    if ! parse_arguments "$@"; then
+    if ! parse_args "$@"; then
         return 1
+    fi
+    
+    # If token was passed via --token parameter, save it to .env and export it
+    if [ -n "$TOKEN" ]; then
+        update_env_token "$TOKEN"
+        export BOT_TOKEN="$TOKEN"
     fi
     
     # Check prerequisites
     check_prerequisites || return 1
     
-    # Check for bot conflicts
+    # Check for local container and conflicts with remote bots
     check_bot_conflicts
     conflict_status=$?
-    if [ $conflict_status -ne 0 ]; then
+    
+    # If conflict with remote bot (status 1)
+    if [ $conflict_status -eq 1 ]; then
+        print_error "Cannot proceed due to remote conflict with another bot instance."
+        print_message "Please stop the other bot instance before continuing." "$YELLOW"
         return 1
+    # In other cases (no conflict or local already stopped)
+    else
+        # Check if there are running instances (as an additional precaution)
+        stop_running_instances $conflict_status
     fi
     
-    # Stop any running instances of the bot
-    stop_running_instances $conflict_status
-    
-    # Build and start the bot
+    # Build and start the bot - always executed if there's no conflict with remote bot
     build_and_start_service || return 1
     
     # Check if bot is healthy and operational

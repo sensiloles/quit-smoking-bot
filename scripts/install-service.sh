@@ -31,8 +31,14 @@ install_service() {
     print_section "Checking Prerequisites"
     
     # Parse command line arguments
-    if ! parse_arguments "$@"; then
+    if ! parse_args "$@"; then
         exit 1
+    fi
+    
+    # If token was passed via --token parameter, save it to .env and export it
+    if [ -n "$TOKEN" ]; then
+        update_env_token "$TOKEN"
+        export BOT_TOKEN="$TOKEN"
     fi
     
     # Check prerequisites
@@ -53,20 +59,14 @@ install_service() {
     
     print_section "Checking for Conflicts"
     
-    # Check for bot conflicts
-    print_message "Checking for conflicts with the same bot token..." "$YELLOW"
-    conflict_check=$(detect_remote_bot_conflict "$BOT_TOKEN")
+    # Check for local container and conflicts with remote bots
+    # For service we use a longer wait time (10 seconds)
+    check_bot_conflicts_common "$BOT_TOKEN" 1 10
     conflict_status=$?
     
     if [ $conflict_status -eq 1 ]; then
-        # Status 1 means a remote conflict (different machine)
-        print_error "A remote conflict was detected with another bot using the same token."
-        print_message "Please resolve the conflict before continuing with installation." "$YELLOW"
+        # Exit if there's a conflict with a remote bot
         exit 1
-    elif [ $conflict_status -eq 2 ]; then
-        # Status 2 means a local conflict (this machine)
-        print_message "A local bot instance with the same token is already running on this machine." "$YELLOW"
-        print_message "The installation will stop and restart this instance." "$YELLOW"
     fi
     
     print_section "Cleaning Existing Instances"
@@ -83,12 +83,6 @@ install_service() {
         print_message "Found existing systemd service for ${SYSTEM_NAME}. Stopping and disabling..." "$YELLOW"
         systemctl stop ${SYSTEM_NAME}.service 2>/dev/null || true
         systemctl disable ${SYSTEM_NAME}.service 2>/dev/null || true
-    fi
-    
-    # If there was a local conflict, wait for Telegram API connections to release
-    if [ $conflict_status -eq 2 ]; then
-        print_message "Waiting for Telegram API connections to release (10 seconds)..." "$YELLOW"
-        sleep 10
     fi
     
     print_section "Building Bot Image"

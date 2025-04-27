@@ -45,7 +45,7 @@ cleanup_resources() {
 # Main function
 main() {
     # Parse command line arguments
-    if ! parse_arguments "$@"; then
+    if ! parse_args "$@"; then
         return 1
     fi
     

@@ -72,7 +72,7 @@ print_message "Starting uninstallation of $SYSTEM_DISPLAY_NAME service..." "$YEL
 check_root
 
 # Parse command line arguments
-if ! parse_arguments "$@"; then
+if ! parse_args "$@"; then
     exit 1
 fi
 

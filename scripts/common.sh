@@ -360,8 +360,11 @@ is_bot_operational() {
 detect_remote_bot_conflict() {
     local bot_token="$1"
     
+    debug_print "Entering detect_remote_bot_conflict"
+    
     if [ -z "$bot_token" ]; then
         print_error "Bot token is empty, cannot check for conflicts"
+        debug_print "Bot token is empty, returning 1"
         return 1
     fi
     
@@ -369,33 +372,76 @@ detect_remote_bot_conflict() {
     print_message "Checking for existing bot processes..." "$YELLOW"
     
     # Try to get bot info using the token
+    print_message "Requesting bot info from Telegram API..." "$YELLOW"
+    debug_print "Making getMe request to Telegram API"
     local bot_info=$(curl -s "https://api.telegram.org/bot${bot_token}/getMe")
+    debug_print "getMe response received"
+    print_message "Response received from Telegram API" "$YELLOW"
     
     # Check if we got a successful response
+    debug_print "Checking if response is successful"
     if echo "$bot_info" | grep -q "\"ok\":true"; then
+        debug_print "Response is successful"
         # Extract bot username
         local bot_username=$(echo "$bot_info" | grep -o '"username":"[^"]*"' | cut -d'"' -f4)
         print_message "Connected to bot: @${bot_username}" "$GREEN"
         
+        # Make a getUpdates request to check if someone else is polling
+        print_message "Testing Telegram API connection..." "$YELLOW"
+        debug_print "Making getUpdates request"
+        local getUpdates_response=$(curl -s "https://api.telegram.org/bot${bot_token}/getUpdates?timeout=1&offset=-1&limit=1")
+        debug_print "getUpdates response received"
+        print_message "GetUpdates response received" "$YELLOW"
+        
+        # Check for conflict error
+        debug_print "Checking for error_code:409"
+        if echo "$getUpdates_response" | grep -q "\"error_code\":409"; then
+            debug_print "Found error_code:409"
+            print_error "Conflict detected: Another bot instance is already polling updates."
+            print_message "Error 409 indicates that another bot with the same token is running elsewhere." "$RED"
+            print_message "Please stop the other bot instance before starting this one." "$YELLOW"
+            return 1  # Remote conflict
+        fi
+        
+        # Additional check for "terminated by other getUpdates" in error description
+        debug_print "Checking for 'terminated by other getUpdates'"
+        if echo "$getUpdates_response" | grep -q "terminated by other getUpdates"; then
+            debug_print "Found 'terminated by other getUpdates'"
+            print_error "Conflict detected: Another bot instance is already polling updates."
+            print_message "Error message indicates that another bot with the same token is running elsewhere." "$RED"
+            print_message "Please stop the other bot instance before starting this one." "$YELLOW"
+            return 1  # Remote conflict
+        fi
+        
         # Check webhook info
+        print_message "Checking webhook info..." "$YELLOW"
         local webhook_info=$(curl -s "https://api.telegram.org/bot${bot_token}/getWebhookInfo")
+        print_message "Webhook info received" "$YELLOW"
         
         # Check if webhook is set
         if echo "$webhook_info" | grep -q '"url":"[^"]*"'; then
             local webhook_url=$(echo "$webhook_info" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
             
-            if [ -n "$webhook_url" ] && [ "$webhook_url" != "\"\"" ]; then
-                print_warning "This bot already has a webhook set: ${webhook_url}"
+            if [ -n "$webhook_url" ] && [ "$webhook_url" != "\"\"" ] && [ "$webhook_url" != "" ]; then
+                print_error "This bot already has a webhook set: ${webhook_url}"
+                print_message "This indicates it is in use by another server." "$RED"
+                print_message "Please remove the webhook or use another bot token." "$YELLOW"
                 return 1  # Remote conflict
             fi
         fi
         
         # Check for local processes using docker ps
-        if docker ps | grep -q ${SYSTEM_NAME}; then
-            print_warning "Found local bot container using the same token."
-            return 2  # Local conflict
+        print_message "Checking for local Docker containers..." "$YELLOW"
+        if [ -z "$SYSTEM_NAME" ]; then
+            print_warning "SYSTEM_NAME is not set, skipping local container check"
+        else
+            if docker ps | grep -q ${SYSTEM_NAME}; then
+                print_warning "Found local bot container using the same token."
+                return 2  # Local conflict
+            fi
         fi
         
+        print_message "No conflicts detected" "$GREEN"
         return 0  # No conflict
     else
         print_error "Could not connect to Telegram API with the provided token"
@@ -404,51 +450,142 @@ detect_remote_bot_conflict() {
     fi
 }
 
+# Add a function for debug output
+debug_print() {
+    if [ "${DEBUG:-0}" = "1" ]; then
+        echo "DEBUG: $1" >&2
+    fi
+}
+
+# Function to stop local bot instance
+stop_local_bot_instance() {
+    local wait_time="${1:-5}"  # Wait time after stopping (default 5 seconds)
+    
+    print_message "Checking if bot is running locally..." "$YELLOW"
+    local local_bot_running=0
+    
+    if docker ps | grep -q "${SYSTEM_NAME}"; then
+        print_warning "Bot is already running on this machine."
+        
+        # Stop existing container
+        print_message "Stopping existing bot container..." "$YELLOW"
+        docker-compose stop bot
+        docker-compose rm -f bot
+        
+        # Wait for Telegram API connections to release
+        print_message "Waiting for Telegram API connections to release (${wait_time} seconds)..." "$YELLOW"
+        sleep $wait_time
+        
+        print_message "Local bot instance stopped" "$GREEN"
+        return 0  # Container was stopped
+    fi
+    
+    return 1  # Container was not found
+}
+
+# Reusable function to check for bot conflicts with extended verification
+check_bot_conflicts_common() {
+    local token="$1"
+    local exit_on_conflict="${2:-1}"  # Default to 1 (exit on conflict)
+    local wait_time="${3:-5}"  # Wait time after stopping (default 5 seconds)
+    
+    print_message "Checking for conflicts with the same bot token..." "$YELLOW"
+    
+    # First check and stop local container
+    local local_stopped=0
+    if stop_local_bot_instance "$wait_time"; then
+        local_stopped=1
+        debug_print "Local bot instance stopped: $local_stopped"
+    fi
+    
+    # If there's no local container, check for conflicts via API
+    debug_print "Calling detect_remote_bot_conflict"
+    conflict_check=$(detect_remote_bot_conflict "$token")
+    conflict_status=$?
+    debug_print "detect_remote_bot_conflict returned status: $conflict_status"
+    
+    # If we got a conflict (status 1)
+    if [ $conflict_status -eq 1 ]; then
+        # Status 1 means a remote conflict (different machine or process)
+        print_error "A remote conflict was detected with another bot using the same token."
+        local context_message="continuing"
+        if [ "$exit_on_conflict" -eq 1 ]; then
+            context_message="continuing with installation"
+        fi
+        print_message "Please stop the other bot instance before ${context_message}." "$YELLOW"
+        
+        if [ "$exit_on_conflict" -eq 1 ]; then
+            return 1
+        fi
+    else
+        # Even if the initial check passed, sometimes conflicts only appear after the bot starts 
+        # Let's do an additional check to be sure
+        print_message "Initial conflict check passed. Performing additional verification..." "$YELLOW"
+        
+        # Wait a moment to make sure any existing connections are detected
+        sleep 2
+
+        # Make a direct getUpdates request to test for conflicts
+        local getUpdates_response=$(curl -s "https://api.telegram.org/bot${token}/getUpdates?timeout=1&offset=-1&limit=1")
+        
+        if echo "$getUpdates_response" | grep -q "\"error_code\":409" || echo "$getUpdates_response" | grep -q "terminated by other getUpdates"; then
+            # We detected a conflict on second check with remote machine
+            print_error "A remote conflict was detected on second check with another bot."
+            local context_message="continuing"
+            if [ "$exit_on_conflict" -eq 1 ]; then
+                context_message="continuing with installation"
+            fi
+            print_message "Please stop the other bot instance before ${context_message}." "$YELLOW"
+            
+            if [ "$exit_on_conflict" -eq 1 ]; then
+                return 1
+            fi
+        fi
+    fi
+    
+    return $conflict_status
+}
+
 ###########################
 # Command Line Arguments
 ###########################
 
-# Parse command line arguments
-parse_arguments() {
-    TOKEN_ARG=""
+# Parse command-line arguments
+parse_args() {
+    # Initialize variables with default values
+    TOKEN=""
     FORCE_REBUILD=0
     CLEANUP=0
-    
-    while [[ "$#" -gt 0 ]]; do
-        case $1 in
+    # Loop through arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
             --token)
-                TOKEN_ARG="$2"
-                if [ -z "$TOKEN_ARG" ]; then
-                    print_error "Missing value for --token argument"
-                    print_message "Usage: $0 --token YOUR_BOT_TOKEN" "$YELLOW"
-                    return 1
+                if [[ -z "$2" || "$2" == --* ]]; then
+                    log_message "ERROR" "Token value missing after --token flag"
+                    exit 1
                 fi
-                export BOT_TOKEN="$TOKEN_ARG"
-                # Update BOT_TOKEN in .env file
-                update_env_token "$TOKEN_ARG"
+                TOKEN="$2"
                 shift 2
                 ;;
             --force-rebuild)
                 FORCE_REBUILD=1
-                shift
+                shift 1
                 ;;
             --cleanup)
                 CLEANUP=1
-                shift
+                shift 1
                 ;;
             --help)
                 show_help
                 exit 0
                 ;;
             *)
-                print_error "Unknown argument: $1"
+                log_message "ERROR" "Unknown option: $1"
                 show_help
-                return 1
+                exit 1
                 ;;
         esac
     done
-    
-    return 0
 }
 
 # Update BOT_TOKEN in .env file
