@@ -311,6 +311,29 @@ parse_arguments() {
         case $1 in
             --token)
                 BOT_TOKEN="$2"
+                # Update the .env file with the new token if it was provided via command line
+                if [ -n "$BOT_TOKEN" ]; then
+                    if [ -f ".env" ]; then
+                        # If .env file exists, update the BOT_TOKEN line or add it if not present
+                        if grep -q "BOT_TOKEN=" ".env"; then
+                            # Replace the existing BOT_TOKEN line - platform-compatible approach
+                            if [[ "$OSTYPE" == "darwin"* ]]; then
+                                # macOS version
+                                sed -i '' "s|BOT_TOKEN=.*|BOT_TOKEN=\"$BOT_TOKEN\"|" ".env"
+                            else
+                                # Linux version
+                                sed -i "s|BOT_TOKEN=.*|BOT_TOKEN=\"$BOT_TOKEN\"|" ".env"
+                            fi
+                        else
+                            # Add BOT_TOKEN line to .env file
+                            echo "BOT_TOKEN=\"$BOT_TOKEN\"" >> ".env"
+                        fi
+                    else
+                        # Create new .env file with BOT_TOKEN
+                        echo "BOT_TOKEN=\"$BOT_TOKEN\"" > ".env"
+                    fi
+                    print_message "Updated BOT_TOKEN in .env file with value from command line" "$GREEN"
+                fi
                 shift 2
                 ;;
             --force-rebuild)
