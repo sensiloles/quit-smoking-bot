@@ -204,6 +204,9 @@ install_service() {
         systemctl disable ${SYSTEM_NAME}.service 2>/dev/null || true
     fi
     
+    # Setup data directories with proper permissions
+    setup_data_directories
+    
     print_section "Building Bot Image"
     
     # Build the bot image

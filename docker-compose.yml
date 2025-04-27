@@ -21,7 +21,7 @@ services:
       - .env
     volumes:
       - ./data:/app/data:rw
-      - logs:/app/logs:rw
+      - ./logs:/app/logs:rw
     environment:
       - TZ=Asia/Novosibirsk
       - PYTHONUNBUFFERED=1
@@ -52,7 +52,7 @@ services:
       - .env
     volumes:
       - ./data:/app/data:ro
-      - logs:/app/logs:rw
+      - ./logs:/app/logs:rw
     environment:
       - TZ=Asia/Novosibirsk
       - PYTHONUNBUFFERED=1
@@ -60,11 +60,6 @@ services:
     entrypoint: []
     networks:
       - bot-network
-
-# Named volumes for data persistence
-volumes:
-  logs:
-    driver: local
 
 # Network definition
 networks:

@@ -54,6 +54,9 @@ main() {
         stop_running_instances $conflict_status
     fi
     
+    # Setup data directories with proper permissions
+    setup_data_directories
+    
     # Build and start the bot - always executed if there's no conflict with remote bot
     build_and_start_service || return 1
     
