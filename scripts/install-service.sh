@@ -180,7 +180,7 @@ install_service() {
     
     # Check for local container and conflicts with remote bots
     # For service we use a longer wait time (10 seconds)
-    check_bot_conflicts_common "$BOT_TOKEN" 1 5
+    check_bot_conflicts "$BOT_TOKEN" 1 5
     conflict_status=$?
     
     if [ $conflict_status -eq 1 ]; then
