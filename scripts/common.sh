@@ -499,7 +499,7 @@ stop_local_bot_instance() {
 }
 
 # Reusable function to check for bot conflicts with extended verification
-check_bot_conflicts_common() {
+check_bot_conflicts() {
     local token="$1"
     local exit_on_conflict="${2:-1}"  # Default to 1 (exit on conflict)
     local wait_time="${3:-0}"  # Wait time after stopping (default 5 seconds)
@@ -678,19 +678,6 @@ check_prerequisites() {
     return 0
 }
 
-# Function to check for bot conflicts
-check_bot_conflicts() {
-    # Use common function to check conflicts (don't exit on conflict)
-    check_bot_conflicts_common "$BOT_TOKEN" 0
-    conflict_status=$?
-    
-    if [ $conflict_status -eq 1 ]; then
-        # Return error for handling in main
-        return 1
-    fi
-    
-    return $conflict_status
-}
 
 # Function to stop any running bot instances
 stop_running_instances() {

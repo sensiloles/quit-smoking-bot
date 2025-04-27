@@ -40,8 +40,14 @@ main() {
     check_prerequisites || return 1
     
     # Check for local container and conflicts with remote bots
-    check_bot_conflicts
+    # Use common function to check conflicts (don't exit on conflict)
+    check_bot_conflicts "$BOT_TOKEN" 0
     conflict_status=$?
+    
+    if [ $conflict_status -eq 1 ]; then
+        # Return error for handling in main
+        return 1
+    fi
     
     # If conflict with remote bot (status 1)
     if [ $conflict_status -eq 1 ]; then
@@ -72,3 +78,11 @@ main() {
 # Execute main function
 main "$@"
 exit $?
+
+
+# ПОПРАВИТЬ, ЗАПУСТИЛ ЛОКАЛЬНО НА MACOS когда на сервере тоже было запущено
+# ./scripts/run.sh --token YOUR_BOT_TOKEN_HERE
+# Updated BOT_TOKEN in .env
+# Checking for conflicts with the same bot token...
+# Checking if bot is running locally...
+# Waiting longer for existing connections to clear (attempt 2)...
