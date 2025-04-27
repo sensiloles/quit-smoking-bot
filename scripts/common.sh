@@ -305,14 +305,57 @@ start_docker_linux() {
     fi
 }
 
+# Function to validate BOT_TOKEN by making a test request
+validate_bot_token() {
+    local token="$1"
+    
+    if [ -z "$token" ]; then
+        print_error "Cannot validate empty token"
+        return 1
+    fi
+    
+    # Check if curl is installed
+    if ! command -v curl &> /dev/null; then
+        print_error "curl is not installed. Cannot validate token."
+        print_warning "Proceeding without validation, but the token may not work."
+        return 0
+    fi
+    
+    print_message "Validating token..." "$YELLOW"
+    
+    # Use curl to validate the token by querying Telegram's getMe API
+    local response
+    response=$(curl -s "https://api.telegram.org/bot$token/getMe")
+    
+    # Check if the response contains "ok":true indicating a valid token
+    if echo "$response" | grep -q '"ok":true'; then
+        print_message "Token validation successful" "$GREEN"
+        return 0
+    else
+        local error_description
+        error_description=$(echo "$response" | grep -o '"description":"[^"]*"' | cut -d'"' -f4)
+        
+        if [ -z "$error_description" ]; then
+            error_description="Unknown error, API response: $response"
+        fi
+        
+        print_error "Invalid token: $error_description"
+        return 1
+    fi
+}
+
 # Function to parse command line arguments
 parse_arguments() {
     while [[ $# -gt 0 ]]; do
         case $1 in
             --token)
-                BOT_TOKEN="$2"
-                # Update the .env file with the new token if it was provided via command line
-                if [ -n "$BOT_TOKEN" ]; then
+                local provided_token="$2"
+                
+                # Validate the token before saving it
+                if validate_bot_token "$provided_token"; then
+                    BOT_TOKEN="$provided_token"
+                    
+                    # Update the .env file with the new token
                     if [ -f ".env" ]; then
                         # If .env file exists, update the BOT_TOKEN line or add it if not present
                         if grep -q "BOT_TOKEN=" ".env"; then
@@ -332,8 +375,13 @@ parse_arguments() {
                         # Create new .env file with BOT_TOKEN
                         echo "BOT_TOKEN=\"$BOT_TOKEN\"" > ".env"
                     fi
-                    print_message "Updated BOT_TOKEN in .env file with value from command line" "$GREEN"
+                    print_message "Updated BOT_TOKEN in .env file with valid token" "$GREEN"
+                else
+                    print_error "The provided token is invalid and will not be saved to .env file"
+                    print_message "Please provide a valid Telegram bot token" "$YELLOW"
+                    return 1
                 fi
+                
                 shift 2
                 ;;
             --force-rebuild)
@@ -349,4 +397,6 @@ parse_arguments() {
                 ;;
         esac
     done
+    
+    return 0
 }

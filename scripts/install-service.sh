@@ -4,7 +4,9 @@
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 # Parse command line arguments
-parse_arguments "$@"
+if ! parse_arguments "$@"; then
+    exit 1
+fi
 
 # Check prerequisites
 check_docker_installation || exit 1
