@@ -67,30 +67,38 @@ class QuitSmokingBot:
         logger.info(f"Status sent to user {user_id}")
         
     async def _send_notifications_to_users(self, bot, status_info):
-        """Helper method to send notifications to all users with provided bot instance."""
-        # Log users count
-        users = self.user_manager.get_all_users()
-        logger.info(f"Preparing to send notifications to {len(users)} users")
+        """Send notifications to all users with the provided status info."""
+        logger.info("Starting to send notifications to users")
         
-        # Send to all registered users
+        users = self.user_manager.get_all_users()
+        if not users:
+            logger.warning("No users to send notifications to")
+            return
+            
         for user_id in users:
             try:
-                await bot.send_message(chat_id=user_id, text=status_info)
-                logger.info(f"Notification sent to user {user_id}")
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=status_info
+                )
+                logger.info(f"Status sent to user {user_id}")
             except Exception as e:
                 logger.error(f"Failed to send notification to user {user_id}: {e}")
         
         logger.info("Notification sending completed")
 
-    async def send_monthly_notification(self, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def send_monthly_notification(self, context=None) -> None:
         """Send monthly notifications to all users."""
         logger.info("Starting monthly notification process")
         
         # Use global random quote for notifications
         status_info = self.status_manager.get_status_info("monthly_notification")
         
+        # Determine which bot instance to use
+        bot_instance = context.bot if context else self.application.bot
+        
         # Send notifications to all users
-        await self._send_notifications_to_users(context.bot, status_info)
+        await self._send_notifications_to_users(bot_instance, status_info)
     
     # This method is called by the scheduler without context
     async def scheduled_notification_job(self):
@@ -103,7 +111,7 @@ class QuitSmokingBot:
         # Send notifications to all users
         await self._send_notifications_to_users(self.application.bot, status_info)
     
-    async def manual_notification(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def manual_notification(self, update: Update, context: ContextTypes.DEFAULT_TYPE = None) -> None:
         """Manually send notifications to all users (admin command)."""
         user_id = update.effective_user.id
         
