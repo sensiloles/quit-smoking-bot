@@ -24,15 +24,23 @@ fi
 # Check Docker daemon
 check_docker
 
-# Check for remote bot conflicts
-print_message "Checking for remote conflicts with the same bot token..." "$YELLOW"
-if ! detect_remote_bot_conflict "$BOT_TOKEN"; then
+# Check for bot conflicts
+print_message "Checking for conflicts with the same bot token..." "$YELLOW"
+conflict_check=$(detect_remote_bot_conflict "$BOT_TOKEN")
+conflict_status=$?
+
+if [ $conflict_status -eq 1 ]; then
+    # Status 1 means a remote conflict (different machine)
     print_error "A remote conflict was detected with another bot using the same token."
     print_message "Please resolve the conflict before continuing with installation." "$YELLOW"
     exit 1
+elif [ $conflict_status -eq 2 ]; then
+    # Status 2 means a local conflict (this machine)
+    print_message "A local bot instance with the same token is already running on this machine." "$YELLOW"
+    print_message "The installation will stop and restart this instance." "$YELLOW"
 fi
 
-# Check for any existing bot containers or services
+# Regardless of conflict type, check for any existing bot containers or services
 print_message "Checking for existing bot instances..." "$YELLOW"
 
 # Check for existing containers
@@ -47,6 +55,12 @@ if systemctl list-units --full --all | grep -q "${SYSTEM_NAME}.service"; then
     print_message "Found existing systemd service for ${SYSTEM_NAME}. Stopping and disabling..." "$YELLOW"
     systemctl stop ${SYSTEM_NAME}.service 2>/dev/null || true
     systemctl disable ${SYSTEM_NAME}.service 2>/dev/null || true
+fi
+
+# If there was a local conflict, wait a moment for Telegram API connections to release
+if [ $conflict_status -eq 2 ]; then
+    print_message "Waiting for Telegram API connections to release (10 seconds)..." "$YELLOW"
+    sleep 10
 fi
 
 # Build the bot image, use --force-rebuild if specified

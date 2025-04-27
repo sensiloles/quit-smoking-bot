@@ -396,7 +396,21 @@ detect_remote_bot_conflict() {
         return 0
     fi
     
-    print_message "Checking for remote bot instances with the same token..." "$YELLOW"
+    print_message "Checking for bot instances with the same token..." "$YELLOW"
+    
+    # First check if a local container is running with the same token
+    if docker ps -q --filter "name=${SYSTEM_NAME}" | grep -q .; then
+        print_message "Found a local bot instance running on this machine" "$YELLOW"
+        return 2  # Special return code for local conflict
+    fi
+    
+    # Also check if a systemd service is running
+    if command -v systemctl &> /dev/null; then
+        if systemctl is-active --quiet ${SYSTEM_NAME}.service; then
+            print_message "Found a local systemd service running on this machine" "$YELLOW"
+            return 2  # Special return code for local conflict
+        fi
+    fi
     
     # Try to get updates - if there's a conflict, this will tell us
     local response
@@ -404,6 +418,8 @@ detect_remote_bot_conflict() {
     
     # Check if the response contains a conflict error
     if echo "$response" | grep -q '"description":"Conflict: terminated by other getUpdates request'; then
+        # At this point, we know there's a conflict but not with a local container or service
+        # So it must be a remote machine
         print_error "Detected conflict with another bot instance running on a different machine!"
         print_message "To resolve this:" "$YELLOW"
         print_message "1. Shut down the bot on the other machine" "$YELLOW"
@@ -412,7 +428,7 @@ detect_remote_bot_conflict() {
         return 1
     fi
     
-    print_message "No remote bot conflict detected" "$GREEN"
+    print_message "No bot conflict detected" "$GREEN"
     return 0
 }
 
@@ -442,10 +458,20 @@ validate_bot_token() {
     if echo "$response" | grep -q '"ok":true'; then
         print_message "Token validation successful" "$GREEN"
         
-        # Also check for remote bot conflicts
-        if ! detect_remote_bot_conflict "$token"; then
+        # Also check for bot conflicts
+        local conflict_status
+        detect_remote_bot_conflict "$token"
+        conflict_status=$?
+        
+        if [ $conflict_status -eq 1 ]; then
+            # Remote conflict
             print_error "Token is valid but a remote conflict was detected"
             return 1
+        elif [ $conflict_status -eq 2 ]; then
+            # Local conflict - this is ok, we'll handle it in install-service.sh
+            print_message "Token is valid but a local bot instance is already running" "$YELLOW"
+            print_message "This is OK - the installation will handle it by restarting the service" "$YELLOW"
+            return 0
         fi
         
         return 0
@@ -495,9 +521,40 @@ parse_arguments() {
                     fi
                     print_message "Updated BOT_TOKEN in .env file with valid token" "$GREEN"
                 else
-                    print_error "The provided token is invalid and will not be saved to .env file"
-                    print_message "Please provide a valid Telegram bot token" "$YELLOW"
-                    return 1
+                    # If there's a remote conflict, the return value will be non-zero
+                    if detect_remote_bot_conflict "$provided_token" >/dev/null; then
+                        conflict_status=$?
+                        if [ $conflict_status -eq 2 ]; then
+                            # Local conflict - we'll handle it by updating the token and restarting
+                            BOT_TOKEN="$provided_token"
+                            
+                            # Update the .env file with the new token
+                            if [ -f ".env" ]; then
+                                if grep -q "BOT_TOKEN=" ".env"; then
+                                    if [[ "$OSTYPE" == "darwin"* ]]; then
+                                        sed -i '' "s|BOT_TOKEN=.*|BOT_TOKEN=\"$BOT_TOKEN\"|" ".env"
+                                    else
+                                        sed -i "s|BOT_TOKEN=.*|BOT_TOKEN=\"$BOT_TOKEN\"|" ".env"
+                                    fi
+                                else
+                                    echo "BOT_TOKEN=\"$BOT_TOKEN\"" >> ".env"
+                                fi
+                            else
+                                echo "BOT_TOKEN=\"$BOT_TOKEN\"" > ".env"
+                            fi
+                            print_message "Updated BOT_TOKEN in .env file. Local instance will be restarted." "$YELLOW"
+                        else
+                            # Remote conflict or invalid token
+                            print_error "The provided token is invalid and will not be saved to .env file"
+                            print_message "Please provide a valid Telegram bot token" "$YELLOW"
+                            return 1
+                        fi
+                    else
+                        # Invalid token but no conflict
+                        print_error "The provided token is invalid and will not be saved to .env file"
+                        print_message "Please provide a valid Telegram bot token" "$YELLOW"
+                        return 1
+                    fi
                 fi
                 
                 shift 2
