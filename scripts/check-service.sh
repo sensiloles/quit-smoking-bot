@@ -233,6 +233,10 @@ check_bot_health_status() {
         if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
             print_message "\nBot process is running inside container" "$GREEN"
             
+            # Get container start time 
+            local container_start_time=$(docker inspect --format='{{.State.StartedAt}}' $container_id)
+            print_message "Container started at: $container_start_time" "$YELLOW"
+            
             # Check the health file
             if docker exec $container_id test -f /app/health/operational 2>/dev/null; then
                 print_message "Health file exists (/app/health/operational)" "$GREEN"
@@ -244,18 +248,42 @@ check_bot_health_status() {
             fi
             
             # Check for logs that indicate the bot is operational
-            if docker logs $container_id --tail 100 2>&1 | grep -q "Application started"; then
+            if docker logs $container_id --tail 100 2>&1 | grep -q "NEW BOT SESSION STARTED"; then
+                print_message "\nFound session marker in logs - this is a fresh session" "$GREEN"
+                
+                # Check for operational indicator after session start
+                docker_log_with_session_start=$(docker logs $container_id 2>&1 | awk '/NEW BOT SESSION STARTED/{flag=1;next} flag')
+                if echo "$docker_log_with_session_start" | grep -q "Application started"; then
+                    print_message "Bot is operational (found 'Application started' in logs)" "$GREEN"
+                    
+                    # Check for conflict errors only in current session
+                    if echo "$docker_log_with_session_start" | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
+                        print_error "\nWARNING: Conflict detected in current session! Another bot instance is running with the same token."
+                        print_message "This may prevent your bot from functioning correctly." "$RED"
+                    fi
+                else
+                    print_message "\nCould not find evidence of successful startup in current session" "$YELLOW"
+                fi
+            elif docker logs $container_id --tail 100 2>&1 | grep -q "Application started"; then
                 print_message "\nBot is operational (found 'Application started' in logs)" "$GREEN"
+                
+                # Check for recent conflict errors (last 10 lines)
+                if docker logs $container_id --tail 10 2>&1 | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
+                    print_error "\nWARNING: Recent conflict detected in logs! Another bot instance is running with the same token."
+                    print_message "This may prevent your bot from functioning correctly." "$RED"
+                fi
+                
+                # Inform about old conflict errors if present
+                if docker exec $container_id grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates" /app/logs/bot.log 2>/dev/null; then
+                    conflict_count=$(docker exec $container_id grep -c "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates" /app/logs/bot.log 2>/dev/null || echo 0)
+                    print_message "\nNote: Found historical conflict errors ($conflict_count) in full log file." "$YELLOW"
+                    print_message "If health check is failing but no current conflicts, try clearing logs:" "$YELLOW"
+                    print_message "docker exec $SYSTEM_NAME sh -c 'echo > /app/logs/bot.log' && docker restart $SYSTEM_NAME" "$YELLOW"
+                fi
             elif docker logs $container_id --tail 100 2>&1 | grep -q "\"HTTP/1.1 200 OK\""; then
                 print_message "\nBot is making API calls (found successful HTTP requests in logs)" "$GREEN"
             else
                 print_message "\nCould not find evidence of bot activity in recent logs" "$YELLOW"
-            fi
-            
-            # Check for conflict errors
-            if docker logs $container_id --tail 100 2>&1 | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
-                print_error "\nWARNING: Conflict detected in logs! Another bot instance is running with the same token."
-                print_message "This may prevent your bot from functioning correctly." "$RED"
             fi
         else
             print_error "\nBot process is NOT running inside container"

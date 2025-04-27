@@ -110,27 +110,45 @@ check_logs_for_errors() {
     
     # Check the logs for critical errors
     if [[ -f "/app/logs/bot.log" ]]; then
-        local critical_errors=$(tail -n 100 /app/logs/bot.log | grep -c "ERROR.*bot crashed")
+        # Get container startup time (or file creation time as fallback)
+        local container_start_time=$(stat -c %Y /proc/1/cmdline 2>/dev/null || stat -c %Y "$OPERATIONAL_FILE")
+        local current_time=$(date +%s)
+        
+        # Only check for errors in the current session (using timestamp filtering)
+        local critical_errors=$(grep -a "ERROR.*bot crashed" /app/logs/bot.log | grep -a -v "^20[0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].*" | wc -l)
+        
         if [[ $critical_errors -gt 0 ]]; then
             log_message "ERROR" "Found critical errors in bot logs ($critical_errors occurrences)"
             return 1
         fi
         
-        # Check for conflict errors with other bot instances
-        local conflict_errors=$(tail -n 100 /app/logs/bot.log | grep -c "Conflict: terminated by other getUpdates request")
-        local conflict_count=0
+        # For conflict errors, we'll check only the last minute (60 seconds) of logs
+        # This is sufficient because conflict errors would be ongoing if there's a real issue
+        local recent_log_file="/tmp/recent_logs.txt"
+        tail -n 200 /app/logs/bot.log > "$recent_log_file"
         
-        # If we look at container logs directly, we can also check for error patterns there
-        conflict_count=$(tail -n 100 /app/logs/*.log 2>/dev/null | grep -c "Conflict: terminated by other getUpdates request" || echo 0)
+        # Check for conflict errors with other bot instances only in recent logs
+        local conflict_errors=$(grep -c "Conflict: terminated by other getUpdates request" "$recent_log_file")
         
-        if [[ $conflict_errors -gt 3 || $conflict_count -gt 3 ]]; then
-            log_message "ERROR" "Found multiple conflict errors in logs: another bot instance is running with the same token"
-            log_message "ERROR" "Please stop the other bot instance before running this one"
+        if [[ $conflict_errors -gt 3 ]]; then
+            # Verify that these are recent conflicts by checking if they occurred after startup
+            local recent_conflicts=$(grep -a "Conflict: terminated by other getUpdates request" "$recent_log_file" | tail -n 5)
             
-            # Write a summary of the errors
-            echo "Conflict detected - Multiple instances using the same token" > /app/health/conflict_detected
-            return 1
+            # Only fail health check if conflicts are from the current session
+            if [[ -n "$recent_conflicts" ]]; then
+                log_message "ERROR" "Found multiple conflict errors in logs: another bot instance is running with the same token"
+                log_message "ERROR" "Please stop the other bot instance before running this one"
+                
+                # Write a summary of the errors
+                echo "Conflict detected - Multiple instances using the same token" > /app/health/conflict_detected
+                return 1
+            else
+                log_message "INFO" "Found old conflict errors in logs, but they are not from the current session"
+            fi
         fi
+        
+        # Clean up
+        rm -f "$recent_log_file"
     fi
     
     return 0

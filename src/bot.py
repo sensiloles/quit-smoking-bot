@@ -244,6 +244,12 @@ class QuitSmokingBot:
         try:
             # Start the scheduler
             self.scheduler.start()
+            
+            # Log clear session start marker
+            logger.info("=" * 50)
+            logger.info("NEW BOT SESSION STARTED")
+            logger.info("=" * 50)
+            
             logger.info(f"Bot started at {datetime.datetime.now(NOVOSIBIRSK_TZ)}")
             
             # Calculate and log next notification time

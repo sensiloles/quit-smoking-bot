@@ -38,6 +38,44 @@ setup_health_system() {
     log_message "INFO" "Health monitoring system initialized"
 }
 
+# Rotate logs to prevent accumulation of old errors
+rotate_logs() {
+    log_message "INFO" "Setting up log rotation"
+    
+    # Create logs directory if it doesn't exist
+    mkdir -p "$LOGS_DIR"
+    
+    # If log file exists and is not empty, rotate it
+    if [ -s "$LOGS_DIR/bot.log" ]; then
+        local timestamp=$(date +"%Y%m%d_%H%M%S")
+        local backup_dir="$LOGS_DIR/archive"
+        
+        # Create archive directory if it doesn't exist
+        mkdir -p "$backup_dir"
+        
+        # Move current log to archive with timestamp
+        log_message "INFO" "Rotating existing log file to archive"
+        cp "$LOGS_DIR/bot.log" "$backup_dir/bot_${timestamp}.log"
+        
+        # Reset current log file (create new empty file)
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] [INFO] Log file rotated - new session started" > "$LOGS_DIR/bot.log"
+        
+        # Clean up old archives (keep last 5)
+        if [ "$(ls -1 "$backup_dir" | wc -l)" -gt 5 ]; then
+            log_message "INFO" "Cleaning up old log archives, keeping only the 5 most recent"
+            ls -1t "$backup_dir" | tail -n +6 | xargs -I {} rm "$backup_dir/{}"
+        fi
+    else
+        # Create new log file if it doesn't exist
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] [INFO] New log file created - session started" > "$LOGS_DIR/bot.log"
+    fi
+    
+    # Ensure proper permissions
+    chmod 644 "$LOGS_DIR/bot.log"
+    
+    log_message "INFO" "Log rotation completed"
+}
+
 # Initialize data directory and create default files if missing
 setup_data_directory() {
     log_message "INFO" "Checking data directory and files"
@@ -172,6 +210,7 @@ main() {
     terminate_existing_processes
     setup_health_system
     setup_data_directory
+    rotate_logs
     run_integration_tests
     start_health_monitor
 
