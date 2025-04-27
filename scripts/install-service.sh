@@ -18,16 +18,22 @@ show_help() {
     echo "  --token TOKEN       Specify the Telegram bot token (will be saved to .env file)"
     echo "  --force-rebuild     Force rebuild of Docker container without using cache"
     echo "  --cleanup           Perform additional cleanup if installation fails"
+    echo "  --tests             Run tests after building and before installing the service. If tests fail, installation stops."
     echo "  --help              Show this help message"
     echo ""
     echo "Examples:"
     echo "  sudo $0 --token 123456789:ABCDEF... # Install with specific token"
     echo "  sudo $0 --force-rebuild             # Force rebuild container"
+    echo "  sudo $0 --tests                     # Build, run tests, then install"
     echo "  sudo $0                             # Install using token from .env file"
 }
 
 # Create systemd service file
 create_systemd_service() {
+    if [[ "$(uname)" != "Linux" ]]; then
+        print_warning "Systemd service creation is skipped on non-Linux systems."
+        return 0
+    fi
     print_message "Creating systemd service file..." "$YELLOW"
     
     cat > /etc/systemd/system/${SYSTEM_NAME}.service << EOF
@@ -79,7 +85,9 @@ wait_for_bot_startup() {
         print_message "Checking Docker logs:" "$YELLOW"
         docker-compose logs bot
         cleanup_docker bot "$CLEANUP"
-        systemctl stop ${SYSTEM_NAME}.service
+        if [[ "$(uname)" == "Linux" ]]; then
+             systemctl stop ${SYSTEM_NAME}.service
+        fi
         exit 1
     fi
     
@@ -158,10 +166,8 @@ check_bot_operational() {
 install_service() {
     print_section "Checking Prerequisites"
     
-    # Parse command line arguments
-    if ! parse_args "$@"; then
-        exit 1
-    fi
+    # Parse command line arguments using common function
+    parse_args "$@"
     
     # If token was passed via --token parameter, save it to .env and export it
     if [ -n "$TOKEN" ]; then
@@ -175,6 +181,13 @@ install_service() {
     
     # Check if running as root
     check_root
+    
+    # Check if OS is Linux before proceeding with service-specific steps
+    if [[ "$(uname)" != "Linux" ]]; then
+        print_warning "Systemd service installation is only supported on Linux."
+        print_message "Building image and running tests (if requested), but skipping service setup." "$YELLOW"
+        # Set a flag or modify logic if needed based on this warning
+    fi
     
     print_section "Checking for Conflicts"
     
@@ -198,10 +211,12 @@ install_service() {
     fi
     
     # Check for existing service
-    if systemctl list-units --full --all | grep -q "${SYSTEM_NAME}.service"; then
-        print_message "Found existing systemd service for ${SYSTEM_NAME}. Stopping and disabling..." "$YELLOW"
-        systemctl stop ${SYSTEM_NAME}.service 2>/dev/null || true
-        systemctl disable ${SYSTEM_NAME}.service 2>/dev/null || true
+    if [[ "$(uname)" == "Linux" ]]; then
+        if systemctl list-units --full --all | grep -q "${SYSTEM_NAME}.service"; then
+            print_message "Found existing systemd service for ${SYSTEM_NAME}. Stopping and disabling..." "$YELLOW"
+            systemctl stop ${SYSTEM_NAME}.service 2>/dev/null || true
+            systemctl disable ${SYSTEM_NAME}.service 2>/dev/null || true
+        fi
     fi
     
     # Setup data directories with proper permissions
@@ -229,19 +244,41 @@ install_service() {
             exit 1
         fi
     fi
+
+    # Run tests if requested before installing the service
+    if [ "$RUN_TESTS" -eq 1 ]; then
+        if ! run_tests_in_docker; then
+            print_error "Tests failed. Service installation aborted."
+            # Optional: Clean up build artifacts if tests fail?
+            # cleanup_docker bot $CLEANUP 
+            exit 1
+        fi
+        print_message "Tests passed. Proceeding with service installation." "$GREEN"
+    fi
     
     print_section "Creating Systemd Service"
     
     # Install service
-    create_systemd_service
+    if [[ "$(uname)" == "Linux" ]]; then
+        create_systemd_service
+    else
+        print_warning "Skipping systemd service creation on non-Linux OS."
+    fi
     
     # Reload systemd and enable service
-    print_message "Reloading systemd and enabling service..." "$YELLOW"
-    systemctl daemon-reload
-    systemctl enable ${SYSTEM_NAME}.service
+    if [[ "$(uname)" == "Linux" ]]; then
+        print_message "Reloading systemd and enabling service..." "$YELLOW"
+        systemctl daemon-reload
+        systemctl enable ${SYSTEM_NAME}.service
+    fi
     
     print_message "Starting service..." "$YELLOW"
-    systemctl start ${SYSTEM_NAME}.service
+    # Start using docker-compose directly, as systemd won't manage it on non-Linux
+    # We already built the image, now just bring it up.
+    if ! docker-compose up -d bot; then
+        print_error "Failed to start bot container using docker-compose."
+        exit 1
+    fi
     
     print_section "Waiting for Bot to Start"
     

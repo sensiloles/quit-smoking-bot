@@ -31,14 +31,6 @@ if [ -z "$SYSTEM_DISPLAY_NAME" ]; then
     exit 1
 fi
 
-# Function to check if running as root
-check_root() {
-    if [ "$EUID" -ne 0 ]; then 
-        print_error "Please run as root (use sudo)"
-        exit 1
-    fi
-}
-
 # Function to get service status
 get_service_status() {
     print_message "\nCurrent service status:" "$YELLOW"
