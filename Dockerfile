@@ -4,8 +4,11 @@ FROM python:3.9-slim
 # Set timezone
 RUN ln -snf /usr/share/zoneinfo/Asia/Novosibirsk /etc/localtime && echo Asia/Novosibirsk > /etc/timezone
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser
+# Create non-root user with the same UID as the host user
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+RUN groupadd -g ${GROUP_ID} appuser && \
+    useradd -m -u ${USER_ID} -g appuser appuser
 
 # Install system packages as root
 RUN apt-get update && apt-get install -y \
@@ -20,22 +23,20 @@ WORKDIR /app
 ARG BUILD_ID=latest
 ENV BUILD_ID=${BUILD_ID}
 
-# Copy application files and set permissions
+# Copy application files
 COPY . .
-RUN chown -R appuser:appuser /app
 
-# Create data and logs directories with proper permissions
+# Create data and logs directories
 RUN mkdir -p /app/data && \
-    chown -R appuser:appuser /app/data && \
     mkdir -p /app/logs && \
-    chown -R appuser:appuser /app/logs && \
-    chmod 777 /app/logs
+    mkdir -p /app/default_data
 
-# Copy data files to default_data directory to preserve them
-RUN mkdir -p /app/default_data && \
-    cp -r /app/data/* /app/default_data/ 2>/dev/null || true && \
-    chmod -R 644 /app/default_data/* 2>/dev/null || true && \
-    chown -R appuser:appuser /app/default_data
+# Set proper permissions
+RUN chown -R appuser:appuser /app && \
+    chmod 755 /app && \
+    chmod 755 /app/data && \
+    chmod 755 /app/logs && \
+    chmod 755 /app/default_data
 
 # Make health check script executable
 RUN chmod +x /app/scripts/healthcheck.sh
