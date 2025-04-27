@@ -1,3 +1,1 @@
-import os
-
-"""Unit tests package for {}.""".format(os.environ.get("SYSTEM_DISPLAY_NAME",))
+# Empty file to make the directory a Python package

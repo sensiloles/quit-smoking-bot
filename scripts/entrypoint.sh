@@ -9,24 +9,27 @@ if [ ! -w "/app/logs" ]; then
     echo "Warning: Cannot write to /app/logs directory"
 fi
 
+# Set Python path to include the app directory
+export PYTHONPATH="/app:${PYTHONPATH}"
+
 # Run tests if BOT_TOKEN is available
 if [ -n "$BOT_TOKEN" ]; then
     echo "Running tests..."
     # Run tests and save output to file
-    python tests/integration/test_notifications.py --token "$BOT_TOKEN" > /app/test_results.txt 2>&1
+    cd /app && python -m tests.integration.test_notifications --token "$BOT_TOKEN" > /app/test_results.txt 2>&1
     
-    # Send test results to admins
+    # Send test results to admins - only if tests succeeded
     if [ -f "/app/test_results.txt" ]; then
         echo "Sending test results to admins..."
-        python /app/src/send_results.py --token "$BOT_TOKEN"
+        cd /app && python -m src.send_results --token "$BOT_TOKEN"
     fi
 fi
 
 # Start the bot
 if [ -n "$BOT_TOKEN" ]; then
     echo "Using BOT_TOKEN from environment variable"
-    exec python /app/src/bot.py --token "$BOT_TOKEN"
+    cd /app && exec python -m src.bot --token "$BOT_TOKEN"
 else
     echo "No BOT_TOKEN provided in environment variable"
-    exec python /app/src/bot.py
+    cd /app && exec python -m src.bot
 fi

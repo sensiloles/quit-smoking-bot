@@ -1,5 +1,1 @@
-from .bot import main
-
-__all__ = ['main']
-
-# This file makes the src directory a Python package
+# Empty file to make the directory a Python package

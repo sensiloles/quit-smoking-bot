@@ -7,6 +7,7 @@ from telegram import Bot
 import asyncio
 import argparse
 from logging.handlers import MemoryHandler
+import tempfile
 
 # Add the parent directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -31,6 +32,27 @@ logger = logging.getLogger(__name__)
 # Add memory handler to store logs
 memory_handler = MemoryHandler(capacity=1000)
 logger.addHandler(memory_handler)
+
+# Protection against repeated execution
+def is_test_already_running():
+    """Checks if a test is already running."""
+    lock_file = os.path.join(tempfile.gettempdir(), "bot_test_lock")
+    
+    # If the file exists and was created less than 5 minutes ago, consider the test as running
+    if os.path.exists(lock_file):
+        # Check the creation time of the file
+        file_time = os.path.getmtime(lock_file)
+        current_time = datetime.now().timestamp()
+        if current_time - file_time < 300:  # 5 minutes
+            return True
+        else:
+            # If the file is older than 5 minutes, delete it
+            os.remove(lock_file)
+    
+    # Create a lock file
+    with open(lock_file, "w") as f:
+        f.write(f"running since {datetime.now()}")
+    return False
 
 async def test_notification_settings():
     """Tests the notification settings of the bot."""
@@ -154,6 +176,11 @@ async def send_test_results():
 
 async def main():
     """Main function to run all tests."""
+    # Check for repeated execution
+    if is_test_already_running():
+        logger.warning("Test is already running. Exiting to avoid duplicate notifications.")
+        return
+        
     try:
         # Run notification settings test
         await test_notification_settings()
@@ -169,6 +196,14 @@ async def main():
     except Exception as e:
         logger.error(f"Tests failed: {e}")
         sys.exit(1)
+    finally:
+        # Remove lock file
+        lock_file = os.path.join(tempfile.gettempdir(), "bot_test_lock")
+        if os.path.exists(lock_file):
+            try:
+                os.remove(lock_file)
+            except:
+                pass
 
 if __name__ == "__main__":
     asyncio.run(main()) 

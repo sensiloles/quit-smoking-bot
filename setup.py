@@ -1,15 +1,12 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 import os
 
-# Get system name from environment variable with a default fallback
-system_name = os.environ.get("SYSTEM_NAME")
+# Простое получение имени из окружения
+system_name = os.environ.get("SYSTEM_NAME", "quit-smoking-bot")
 
 setup(
     name=system_name,
     version="0.1",
-    packages=find_packages(),
-    package_dir={'': '.'},
-    include_package_data=True,
     install_requires=[
         "python-telegram-bot==20.8",
         "pytz==2023.3",
