@@ -1,2 +1,4 @@
 setuptools>=65.5.0
--e .
+pytest
+pytest-cov
+pytest-asyncio

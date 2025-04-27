@@ -2,8 +2,8 @@ import logging
 from typing import List
 from pathlib import Path
 
-from .utils import load_json_file, save_json_file
-from .config import USERS_FILE, ADMINS_FILE
+from src.utils import load_json_file, save_json_file
+from src.config import USERS_FILE, ADMINS_FILE
 
 logger = logging.getLogger(__name__)
 

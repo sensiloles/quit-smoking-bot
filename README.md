@@ -104,6 +104,9 @@ sudo ./scripts/check-service.sh
 # Run tests
 ./scripts/test.sh
 
+# Run tests using Docker Compose
+docker-compose run --rm test
+
 # View logs
 docker-compose logs -f bot
 ```
@@ -116,6 +119,8 @@ All scripts support these options:
 - `--force-rebuild` - Forces a complete rebuild of Docker images
 - `--cleanup` - Performs additional cleanup of Docker resources
 - `--help` - Displays usage information and options
+
+*Note:* Test configuration is managed by `pytest.ini` located in the `tests/` directory.
 
 ## Troubleshooting
 

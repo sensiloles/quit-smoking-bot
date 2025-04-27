@@ -56,7 +56,7 @@ services:
     environment:
       - TZ=Asia/Novosibirsk
       - PYTHONUNBUFFERED=1
-    command: python -m tests.integration.test_notifications --token "$BOT_TOKEN"
+    command: pytest tests -v
     entrypoint: []
     networks:
       - bot-network
