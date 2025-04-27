@@ -28,6 +28,50 @@ touch /app/health/starting
 echo "$(date): Health check directory initialized" > /app/health/status.log
 echo "$(date): Bot is starting up" >> /app/health/status.log
 
+# Verify that data files exist
+echo "Checking data files..."
+mkdir -p /app/data
+chmod 755 /app/data
+ls -la /app/data/
+
+# Check if the mounted data directory is empty (indication that volume is empty)
+if [ -z "$(ls -A /app/data)" ]; then
+    echo "Data directory is empty, initializing with default files"
+    
+    # Look for default data files that might be in the image
+    if [ -d "/app/default_data" ] && [ "$(ls -A /app/default_data)" ]; then
+        echo "Copying files from default_data directory"
+        cp -r /app/default_data/* /app/data/
+    else
+        echo "Error: No default data files found and data directory is empty"
+        echo "Please ensure the data directory is properly initialized with required files:"
+        echo "- bot_admins.json"
+        echo "- bot_users.json"
+        echo "- quotes.json"
+        exit 1
+    fi
+    
+    # Set permissions for all files
+    chmod -R 644 /app/data/*
+    chown -R appuser:appuser /app/data
+fi
+
+# Ensure critical files exist
+if [ ! -f "/app/data/bot_admins.json" ]; then
+    echo "Warning: bot_admins.json not found, creating it"
+    echo '[272043118]' > /app/data/bot_admins.json
+    chmod 644 /app/data/bot_admins.json
+fi
+
+if [ ! -f "/app/data/bot_users.json" ]; then
+    echo "Warning: bot_users.json not found, creating it"
+    echo '[]' > /app/data/bot_users.json
+    chmod 644 /app/data/bot_users.json
+fi
+
+echo "Data directory contents after initialization:"
+ls -la /app/data/
+
 # Run tests if BOT_TOKEN is available
 if [ -n "$BOT_TOKEN" ]; then
     echo "Running tests..."

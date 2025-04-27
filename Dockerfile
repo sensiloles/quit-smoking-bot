@@ -31,6 +31,12 @@ RUN mkdir -p /app/data && \
     chown -R appuser:appuser /app/logs && \
     chmod 777 /app/logs
 
+# Copy data files to default_data directory to preserve them
+RUN mkdir -p /app/default_data && \
+    cp -r /app/data/* /app/default_data/ 2>/dev/null || true && \
+    chmod -R 644 /app/default_data/* 2>/dev/null || true && \
+    chown -R appuser:appuser /app/default_data
+
 # Make health check script executable
 RUN chmod +x /app/scripts/healthcheck.sh
 
