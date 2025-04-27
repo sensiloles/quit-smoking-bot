@@ -74,7 +74,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Setup application
 WORKDIR /app
 COPY setup.py /app/
-RUN pip install --no-cache-dir -e . requests pytest
+RUN pip install --no-cache-dir -e . requests pytest setuptools
 
 # Prepare directories with proper permissions
 RUN mkdir -p /app/data /app/logs /app/health \
@@ -391,4 +391,19 @@ The Docker configuration for the Quit Smoking Bot provides a robust, secure, and
 - **Performance**: Resource limits and optimized image
 - **Flexibility**: Environment variable configuration
 
-By leveraging Docker, the bot can be consistently deployed across different environments while maintaining predictable behavior and performance. 
+By leveraging Docker, the bot can be consistently deployed across different environments while maintaining predictable behavior and performance.
+
+## Local Development Environment
+
+For local development without Docker, a Python virtual environment is recommended:
+
+1. Install development dependencies:
+   ```bash
+   python3 -m pip install -r requirements-dev.txt
+   ```
+
+2. This installs:
+   - `setuptools`: For package management
+   - Project dependencies: Through the `-e .` editable install
+
+The editable install (`-e .`) allows you to modify the code and have changes take effect immediately without reinstalling the package. 

@@ -248,3 +248,14 @@ This extended platform support will primarily be enabled by the migration to Pyt
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Development Environment Setup
+
+To set up the development environment for this project:
+
+```bash
+# Install development dependencies
+python3 -m pip install -r requirements-dev.txt
+```
+
+This will install all necessary libraries, including setuptools, and configure the project for development.

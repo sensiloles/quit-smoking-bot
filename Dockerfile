@@ -28,7 +28,7 @@ WORKDIR /app
 
 # Copy requirements first to leverage Docker cache
 COPY setup.py /app/
-RUN pip install --no-cache-dir -e . requests pytest
+RUN pip install --no-cache-dir -e . requests pytest setuptools
 
 # Create necessary directories
 RUN mkdir -p /app/data /app/logs /app/health \
