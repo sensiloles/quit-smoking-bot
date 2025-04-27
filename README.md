@@ -53,6 +53,8 @@ You can also pass the bot token directly:
 
 ## Running as a Service
 
+> **Compatibility:** Fully compatible with Linux Ubuntu. Limited compatibility with macOS. Windows support planned.
+
 Install and start as a systemd service:
 ```bash
 sudo ./scripts/install-service.sh
@@ -65,6 +67,10 @@ sudo journalctl -u quit-smoking-bot.service -f  # View logs
 ```
 
 Uninstall:
+
+> **Compatibility:** Fully compatible with Linux Ubuntu. Limited compatibility with macOS. Windows support planned.
+
+Uninstall and stop runned systemd service:
 ```bash
 sudo ./scripts/uninstall-service.sh
 ```
@@ -211,6 +217,33 @@ Key features of the Docker implementation include:
 - JSON logging with rotation
 
 Container management is handled through shell scripts that provide a simple interface to the underlying Docker operations.
+
+## Future Development Plans
+
+### Migration from Bash to Python
+
+There is a planned migration to rewrite operational scripts from Bash to Python. This will provide several advantages:
+
+- **Code Consistency**: Using Python for both application and operational scripts maintains a single language across the codebase
+- **Better Error Handling**: Python's exception handling is more robust than Bash error processing
+- **Improved Testability**: Python scripts are easier to unit test than Bash scripts
+- **Enhanced Maintainability**: Python's cleaner syntax and stronger typing improves long-term code maintenance
+- **Library Reuse**: Ability to reuse application code utilities within operational scripts
+
+The migration will be implemented in phases:
+1. Create Python equivalents of current Bash scripts
+2. Support both Bash and Python versions during transition period
+3. Eventually make Python the default with Bash as optional legacy support
+
+### Extended OS Support
+
+While the current implementation has limited support for macOS and primarily targets Linux, future versions will include:
+
+- **Full macOS Support**: Improved service management and native integration
+- **Windows Support**: Adding Windows compatibility for broader user adoption
+- **Cross-platform Abstractions**: Using Python to create OS-independent operational scripts
+
+This extended platform support will primarily be enabled by the migration to Python-based scripts, which offer better cross-platform capabilities than Bash.
 
 ## License
 
