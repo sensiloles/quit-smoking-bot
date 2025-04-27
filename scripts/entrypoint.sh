@@ -1,9 +1,13 @@
 #!/bin/bash
 echo "Starting Telegram bot..."
 
-# Create logs directory if it doesn't exist and set permissions
+# Create logs directory if it doesn't exist
 mkdir -p /app/logs
-chmod 755 /app/logs
+# Don't try to change permissions as the volume is already set up in Dockerfile
+# Just check if we can write to the log directory
+if [ ! -w "/app/logs" ]; then
+    echo "Warning: Cannot write to /app/logs directory"
+fi
 
 # Run tests if BOT_TOKEN is available
 if [ -n "$BOT_TOKEN" ]; then

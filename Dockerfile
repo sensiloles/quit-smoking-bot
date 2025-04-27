@@ -24,9 +24,12 @@ ENV BUILD_ID=${BUILD_ID}
 COPY . .
 RUN chown -R appuser:appuser /app
 
-# Create data directory with proper permissions
+# Create data and logs directories with proper permissions
 RUN mkdir -p /app/data && \
-    chown -R appuser:appuser /app/data
+    chown -R appuser:appuser /app/data && \
+    mkdir -p /app/logs && \
+    chown -R appuser:appuser /app/logs && \
+    chmod 777 /app/logs
 
 # Install Python packages as root
 RUN pip install --no-cache-dir . requests pytest
@@ -41,6 +44,7 @@ ENV PATH="/home/appuser/.local/bin:${PATH}"
 
 # Create volume for data persistence
 VOLUME /app/data
+VOLUME /app/logs
 
 # Set entrypoint
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]

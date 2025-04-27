@@ -46,3 +46,4 @@ services:
 # Named volumes for data persistence
 volumes:
   logs:
+    # No driver options needed as Docker will handle permissions
