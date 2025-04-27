@@ -172,52 +172,32 @@ check_resources() {
 
 # Function to check container health
 check_container_health() {
-    print_section "Container Health"
+    print_section "Container Health Status"
     
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
     if [ -n "$container_id" ]; then
-        # Check container state
-        local state=$(docker inspect --format '{{.State.Status}}' $container_id)
-        print_message "Container State: $state" "$GREEN"
+        # Get container health status
+        local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
         
-        # Check container health status
-        local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id)
-        if [ "$health_status" = "healthy" ]; then
-            print_message "Container health status: $health_status" "$GREEN"
+        print_message "Container Health Status: $health_status" "$BLUE"
+        
+        # Use our is_bot_healthy function to check health
+        if is_bot_healthy; then
+            print_message "Docker Healthcheck: PASSED" "$GREEN"
         else
-            print_message "Container health status: $health_status" "$RED"
-            
-            # Get health check logs if unhealthy
-            if [ "$health_status" = "unhealthy" ]; then
-                print_message "\nHealth Check Logs:" "$YELLOW"
-                # Check if jq is installed
-                if command -v jq &> /dev/null; then
-                    docker inspect --format '{{json .State.Health.Log}}' $container_id | jq -r '.[] | "Exit Code: \(.ExitCode)\nOutput: \(.Output)\nStart: \(.Start)\nEnd: \(.End)\n"'
-                else
-                    # Fallback to raw JSON output if jq is not available
-                    print_message "jq is not installed. Raw health check logs:" "$YELLOW"
-                    docker inspect --format '{{json .State.Health.Log}}' $container_id
-                fi
-                
-                # NEW: Check if logs directory exists and has proper permissions
-                print_message "\nDiagnosing health check issues:" "$YELLOW"
-                docker exec $container_id ls -la /app/logs/ || print_message "Cannot access logs directory inside container" "$RED"
-                
-                # NEW: Check if there are any log files
-                log_files=$(docker exec $container_id find /app/logs -name "*.log" 2>/dev/null)
-                if [ -z "$log_files" ]; then
-                    print_message "No log files found in /app/logs" "$RED"
-                    print_message "This is likely why health checks are failing" "$RED"
-                    print_message "Logs are being written to stdout but not to log files" "$YELLOW"
-                else
-                    print_message "Log files found:" "$GREEN"
-                    echo "$log_files"
-                fi
-                
-                # Check container logs for potential health check failures
-                print_message "\nRecent Container Logs (last 20 lines):" "$YELLOW"
-                docker logs --tail 20 $container_id
-            fi
+            print_message "Docker Healthcheck: FAILED" "$RED"
+            print_message "\nHealthcheck details:" "$YELLOW"
+            # Show the last health check log
+            docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' $container_id | tail -2
+        fi
+        
+        # Check for error logs
+        print_message "\nRecent error logs:" "$YELLOW"
+        local error_logs=$(docker logs --tail 50 $container_id 2>&1 | grep -i "error\|exception\|fail\|warning\|critical" | tail -10)
+        if [ -n "$error_logs" ]; then
+            echo "$error_logs"
+        else
+            print_message "No recent errors found in logs" "$GREEN"
         fi
         
         # Check container resource limits and usage
@@ -243,15 +223,6 @@ check_container_health() {
         if [ "$restart_count" -gt 0 ]; then
             print_message "Container has been restarted $restart_count times" "$RED"
             print_message "Last Exit Code: $(docker inspect --format '{{.State.ExitCode}}' $container_id)" "$YELLOW"
-        fi
-        
-        # Check container logs for errors
-        print_message "\nRecent Error Logs:" "$GREEN"
-        local error_logs=$(docker logs --tail 50 $container_id 2>&1 | grep -i "error\|exception\|fail\|warning\|critical" | tail -10)
-        if [ -n "$error_logs" ]; then
-            echo "$error_logs"
-        else
-            print_message "No recent errors found in logs" "$GREEN"
         fi
         
         # Check container ports
@@ -368,62 +339,80 @@ check_bot_operation() {
         return 1
     fi
     
+    # Check if bot is healthy
+    print_message "Checking Docker health status:" "$BLUE"
+    if is_bot_healthy; then
+        print_message "Health status: HEALTHY" "$GREEN"
+    else
+        print_message "Health status: NOT HEALTHY" "$RED"
+    fi
+    
+    # Check if bot is operational
+    print_message "\nChecking operational status:" "$BLUE"
+    if is_bot_operational; then
+        print_message "Operational status: OPERATIONAL" "$GREEN"
+    else
+        print_message "Operational status: NOT OPERATIONAL" "$RED"
+    fi
+    
     # Get container logs
     local logs=$(docker logs $container_id 2>&1)
     
-    # Check for recognized success patterns
-    local success=false
-    
+    print_message "\nDetailed Bot Status Checks:" "$BLUE"
     # Check for successful connections to Telegram API
     if echo "$logs" | grep -q "HTTP Request: POST https://api.telegram.org/bot.*getUpdates \"HTTP/1.1 200 OK\""; then
-        print_message "Bot successfully connected to Telegram API" "$GREEN"
-        success=true
+        print_message "✓ Bot successfully connected to Telegram API" "$GREEN"
+    else
+        print_message "✗ No successful Telegram API connections detected" "$RED"
     fi
     
     # Check for Application started message
     if echo "$logs" | grep -q "telegram.ext.Application - INFO - Application started"; then
-        print_message "Telegram application successfully started" "$GREEN"
-        success=true
+        print_message "✓ Telegram application successfully started" "$GREEN"
+    else
+        print_message "✗ No application start message detected" "$RED"
     fi
     
     # Check for Scheduler started
     if echo "$logs" | grep -q "apscheduler.scheduler - INFO - Scheduler started"; then
-        print_message "Scheduler successfully started" "$GREEN"
-        success=true
+        print_message "✓ Scheduler successfully started" "$GREEN"
+    else
+        print_message "✗ No scheduler start message detected" "$RED"
     fi
     
     # Count getUpdates calls with 200 OK
     local getUpdates_count=$(echo "$logs" | grep -c "getUpdates \"HTTP/1.1 200 OK\"")
     if [ $getUpdates_count -ge 2 ]; then
-        print_message "Bot has made $getUpdates_count successful API calls" "$GREEN"
-        success=true
+        print_message "✓ Bot has made $getUpdates_count successful API calls" "$GREEN"
+    else
+        print_message "✗ Less than 2 successful API calls detected ($getUpdates_count)" "$RED"
     fi
     
     # Check for critical errors
     if echo "$logs" | grep -q "telegram.error.Conflict: Conflict: terminated by other getUpdates request"; then
-        print_message "CRITICAL: Detected conflict with another bot instance" "$RED"
+        print_message "‼️ CRITICAL: Detected conflict with another bot instance" "$RED"
         print_message "This usually means another bot with the same token is running elsewhere" "$YELLOW"
         print_message "Recommendations:" "$YELLOW"
         print_message "1. Check for any other instances of this bot" "$YELLOW"
         print_message "2. Wait a few minutes for the Telegram API to release the connection" "$YELLOW"
         print_message "3. Restart this bot" "$YELLOW"
-        success=false
     fi
     
     local error_count=$(echo "$logs" | grep -c "ERROR")
     if [ $error_count -gt 0 ]; then
-        print_message "Found $error_count ERROR entries in the logs" "$RED"
+        print_message "‼️ Found $error_count ERROR entries in the logs" "$RED"
         print_message "\nRecent ERROR logs:" "$YELLOW"
         echo "$logs" | grep "ERROR" | tail -5
-        success=false
+    else
+        print_message "✓ No ERROR entries found in logs" "$GREEN"
     fi
     
-    # Final verdict
-    if [ "$success" = true ]; then
+    # Final verdict - based on our is_bot_operational function
+    if is_bot_operational; then
         print_message "\nBOT STATUS: OPERATIONAL" "$GREEN"
         return 0
     else
-        print_message "\nBOT STATUS: NOT OPERATIONAL" "$RED"
+        print_message "\nBOT STATUS: NOT FULLY OPERATIONAL" "$RED"
         return 1
     fi
 }

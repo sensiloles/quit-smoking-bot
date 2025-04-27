@@ -52,6 +52,50 @@ stop_running_instances() {
     fi
 }
 
+# Function to check bot health and status after startup
+check_bot_status() {
+    print_message "\nChecking bot status after startup..." "$YELLOW"
+    local max_attempts=10
+    local attempt=1
+    
+    # Wait a moment for the container to initialize
+    sleep 5
+    
+    while [ $attempt -le $max_attempts ]; do
+        print_message "Checking bot health (attempt $attempt/$max_attempts)..." "$YELLOW"
+        
+        # Check if bot is healthy using Docker healthcheck
+        if is_bot_healthy; then
+            print_message "Bot health check: PASSED" "$GREEN"
+            break
+        else
+            if [ $attempt -eq $max_attempts ]; then
+                print_message "Bot health check did not pass within timeout, but bot might still be functioning." "$YELLOW"
+                print_message "Continuing with operational check..." "$YELLOW"
+            else
+                print_message "Bot health check not yet passing, waiting..." "$YELLOW"
+                sleep 5
+                ((attempt++))
+                continue
+            fi
+        fi
+        
+        ((attempt++))
+    done
+    
+    # Check if bot is operational
+    if is_bot_operational; then
+        print_message "Bot operational check: PASSED" "$GREEN"
+        print_message "Bot is fully operational!" "$GREEN"
+        return 0
+    else
+        print_message "Bot operational check: NOT PASSED" "$YELLOW"
+        print_message "Bot is running but might not be fully operational." "$YELLOW"
+        print_message "Use './scripts/check-service.sh' for detailed diagnostics." "$YELLOW"
+        return 1
+    fi
+}
+
 # Main function
 main() {
     # Parse command line arguments
@@ -75,8 +119,11 @@ main() {
     # Build and start the bot
     build_and_start_service || return 1
     
+    # Check if bot is healthy and operational
+    check_bot_status
+    
     # Show logs and handle Ctrl+C gracefully
-    print_message "Bot started successfully. Press Ctrl+C to detach from logs." "$GREEN"
+    print_message "\nBot started successfully. Press Ctrl+C to detach from logs." "$GREEN"
     trap 'print_message "\nDetaching from logs..." "$GREEN"; return 0' INT
     docker-compose logs -f --no-color bot 2>/dev/null
 }

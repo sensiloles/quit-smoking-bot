@@ -31,9 +31,9 @@ COPY setup.py /app/
 RUN pip install --no-cache-dir -e . requests pytest
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/logs /app/default_data /app/health \
+RUN mkdir -p /app/data /app/logs /app/health \
     && chown -R appuser:appuser /app \
-    && chmod 755 /app /app/data /app/logs /app/default_data /app/health
+    && chmod 755 /app /app/data /app/logs /app/health
 
 # Copy application files
 COPY --chown=appuser:appuser . .

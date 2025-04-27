@@ -149,6 +149,13 @@ fi
 # Reset attempt counter
 attempt=1
 
+# First check if the bot is healthy using Docker healthcheck
+if is_bot_healthy; then
+    print_message "Bot health check passed!" "$GREEN"
+else
+    print_message "Bot health check not yet passing, checking operational status..." "$YELLOW"
+fi
+
 # Now check if the bot is operational using our function
 if is_bot_operational; then
     print_message "Bot is operational!" "$GREEN"

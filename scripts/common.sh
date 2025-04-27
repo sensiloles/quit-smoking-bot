@@ -204,6 +204,38 @@ is_container_running() {
     docker-compose ps -q $service >/dev/null 2>&1
 }
 
+# Function to check if bot is healthy using Docker healthcheck
+is_bot_healthy() {
+    # Ensure SYSTEM_NAME is properly exported before running docker-compose commands
+    check_system_name
+    local container_id=$(docker-compose ps -q bot)
+    
+    if [ -z "$container_id" ]; then
+        print_error "Container is not running"
+        return 1
+    fi
+    
+    # Get container health status
+    local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
+    
+    if [ "$health_status" = "healthy" ]; then
+        print_message "Bot is healthy - container health check passed" "$GREEN"
+        # Print the most recent health check log
+        print_message "Last health check result:" "$YELLOW"
+        docker inspect --format='{{range .State.Health.Log}}{{if eq .ExitCode 0}}{{.Output}}{{end}}{{end}}' $container_id | tail -1
+        return 0
+    elif [ "$health_status" = "starting" ]; then
+        print_message "Bot health check is still initializing" "$YELLOW"
+        return 1
+    else
+        print_error "Bot health check failed - status: $health_status"
+        # Print the most recent health check log
+        print_message "Last health check result:" "$YELLOW"
+        docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' $container_id | tail -1
+        return 1
+    fi
+}
+
 # Function to check if bot is operational
 is_bot_operational() {
     local max_attempts=30
