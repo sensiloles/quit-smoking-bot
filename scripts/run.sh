@@ -17,6 +17,14 @@ check_system_name
 # Check Docker daemon
 check_docker
 
+# Check for remote bot conflicts
+print_message "Checking for remote conflicts with the same bot token..." "$YELLOW"
+if ! detect_remote_bot_conflict "$BOT_TOKEN"; then
+    print_error "A remote conflict was detected with another bot using the same token."
+    print_message "Please resolve the conflict before continuing." "$YELLOW"
+    exit 1
+fi
+
 # Stop any running instances of the bot
 print_message "Checking for existing bot instances..." "$YELLOW"
 if docker-compose ps -q bot >/dev/null 2>&1; then

@@ -343,6 +343,76 @@ check_docker_config() {
     docker-compose --version
 }
 
+# Function to check if bot is fully operational
+check_bot_operation() {
+    print_section "Bot Operational Status"
+    
+    local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
+    if [ -z "$container_id" ]; then
+        print_message "No running container found. Bot is not operational." "$RED"
+        return 1
+    fi
+    
+    # Get container logs
+    local logs=$(docker logs $container_id 2>&1)
+    
+    # Check for recognized success patterns
+    local success=false
+    
+    # Check for successful connections to Telegram API
+    if echo "$logs" | grep -q "HTTP Request: POST https://api.telegram.org/bot.*getUpdates \"HTTP/1.1 200 OK\""; then
+        print_message "Bot successfully connected to Telegram API" "$GREEN"
+        success=true
+    fi
+    
+    # Check for Application started message
+    if echo "$logs" | grep -q "telegram.ext.Application - INFO - Application started"; then
+        print_message "Telegram application successfully started" "$GREEN"
+        success=true
+    fi
+    
+    # Check for Scheduler started
+    if echo "$logs" | grep -q "apscheduler.scheduler - INFO - Scheduler started"; then
+        print_message "Scheduler successfully started" "$GREEN"
+        success=true
+    fi
+    
+    # Count getUpdates calls with 200 OK
+    local getUpdates_count=$(echo "$logs" | grep -c "getUpdates \"HTTP/1.1 200 OK\"")
+    if [ $getUpdates_count -ge 2 ]; then
+        print_message "Bot has made $getUpdates_count successful API calls" "$GREEN"
+        success=true
+    fi
+    
+    # Check for critical errors
+    if echo "$logs" | grep -q "telegram.error.Conflict: Conflict: terminated by other getUpdates request"; then
+        print_message "CRITICAL: Detected conflict with another bot instance" "$RED"
+        print_message "This usually means another bot with the same token is running elsewhere" "$YELLOW"
+        print_message "Recommendations:" "$YELLOW"
+        print_message "1. Check for any other instances of this bot" "$YELLOW"
+        print_message "2. Wait a few minutes for the Telegram API to release the connection" "$YELLOW"
+        print_message "3. Restart this bot" "$YELLOW"
+        success=false
+    fi
+    
+    local error_count=$(echo "$logs" | grep -c "ERROR")
+    if [ $error_count -gt 0 ]; then
+        print_message "Found $error_count ERROR entries in the logs" "$RED"
+        print_message "\nRecent ERROR logs:" "$YELLOW"
+        echo "$logs" | grep "ERROR" | tail -5
+        success=false
+    fi
+    
+    # Final verdict
+    if [ "$success" = true ]; then
+        print_message "\nBOT STATUS: OPERATIONAL" "$GREEN"
+        return 0
+    else
+        print_message "\nBOT STATUS: NOT OPERATIONAL" "$RED"
+        return 1
+    fi
+}
+
 # Main script
 print_message "Starting comprehensive status check of $SYSTEM_NAME service..." "$BLUE"
 
@@ -357,6 +427,7 @@ check_resources
 check_container_health
 check_environment
 check_docker_config
+check_bot_operation
 check_logs
 
 print_message "\nStatus check completed!" "$GREEN"

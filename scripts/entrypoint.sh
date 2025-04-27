@@ -12,6 +12,14 @@ fi
 # Set Python path to include the app directory
 export PYTHONPATH="/app:${PYTHONPATH}"
 
+# Check for existing bot processes and terminate them
+if pgrep -f "python.*src/bot" > /dev/null; then
+    echo "Detected existing bot process, terminating it..."
+    pkill -f "python.*src/bot"
+    # Wait for process to terminate
+    sleep 2
+fi
+
 # Run tests if BOT_TOKEN is available
 if [ -n "$BOT_TOKEN" ]; then
     echo "Running tests..."

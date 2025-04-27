@@ -162,14 +162,35 @@ build_and_start_service() {
     # Ensure SYSTEM_NAME is properly exported
     check_system_name
     
-    print_message "Removing existing images..." "$YELLOW"
-    docker rmi ${SYSTEM_NAME} ${SYSTEM_NAME}-test >/dev/null 2>&1 || true
+    # Always remove images if force rebuild is requested
+    if [ "$FORCE_REBUILD" == "1" ]; then
+        print_message "Force rebuild requested. Removing existing images..." "$YELLOW"
+        docker rmi ${SYSTEM_NAME} ${SYSTEM_NAME}-test >/dev/null 2>&1 || true
+        # Also remove all build cache
+        docker builder prune -f >/dev/null 2>&1 || true
+    fi
 
     print_message "Building and starting $service service..." "$GREEN"
-    if ! docker-compose up -d --build $service; then
-        print_error "Failed to start the $service service. Please check the logs above for details."
-        return 1
+    
+    # Use --no-cache if force rebuild is requested
+    if [ "$FORCE_REBUILD" == "1" ]; then
+        print_message "Building from scratch (no cache)..." "$YELLOW"
+        if ! docker-compose build --no-cache $service; then
+            print_error "Failed to build the $service service. Please check the logs above for details."
+            return 1
+        fi
+        
+        if ! docker-compose up -d $service; then
+            print_error "Failed to start the $service service. Please check the logs above for details."
+            return 1
+        fi
+    else
+        if ! docker-compose up -d --build $service; then
+            print_error "Failed to start the $service service. Please check the logs above for details."
+            return 1
+        fi
     fi
+    
     return 0
 }
 
@@ -196,13 +217,16 @@ is_bot_operational() {
         return 1
     fi
     
+    # Initial delay to let the container start properly
+    sleep 5
+    
     while [ $attempt -le $max_attempts ]; do
         print_message "Checking bot status (attempt $attempt/$max_attempts)..." "$YELLOW"
         
         # Check if Python process is running
         if docker exec $container_id pgrep -f "python.*src/bot" >/dev/null 2>&1; then
             # Check logs for errors that indicate bot is not functioning
-            local logs=$(docker logs $container_id --tail 20 2>&1)
+            local logs=$(docker logs $container_id --tail 50 2>&1)
             
             # Check for critical errors that would prevent the bot from functioning
             if echo "$logs" | grep -q "ERROR.*Error in main"; then
@@ -211,26 +235,78 @@ is_bot_operational() {
                 return 1
             fi
             
-            # Check if bot is connected to Telegram API (look for successful API calls)
+            # Check for conflict errors
+            if echo "$logs" | grep -q "telegram.error.Conflict: Conflict: terminated by other getUpdates request"; then
+                # This could be a remote conflict - warn the user
+                print_error "Detected conflict with another bot instance, possibly on a remote machine!"
+                print_message "To resolve this conflict:" "$YELLOW"
+                print_message "1. Make sure no other instances of this bot are running on any machine" "$YELLOW"
+                print_message "2. Wait a few minutes for the Telegram API to release the connection" "$YELLOW"
+                print_message "3. Restart this bot" "$YELLOW"
+                
+                # If this is a later attempt, give up - it's likely a remote conflict that won't resolve
+                if [ $attempt -gt 10 ]; then
+                    print_error "Conflict persists after multiple attempts. Likely an external bot instance."
+                    print_message "Please stop any other bots using the same token and try again." "$YELLOW"
+                    return 1
+                fi
+                
+                # Wait longer for a remote conflict
+                sleep 15
+                ((attempt++))
+                continue
+            fi
+            
+            # Multiple success criteria - check for any of these patterns
+            
+            # Success pattern 1: Successful API call to getUpdates
             if echo "$logs" | grep -q "HTTP Request: POST https://api.telegram.org/bot.*getUpdates \"HTTP/1.1 200 OK\""; then
                 print_message "Bot is operational - successfully connected to Telegram API" "$GREEN"
                 return 0
             fi
             
-            # Check if Application started successfully
+            # Success pattern 2: Application started message
             if echo "$logs" | grep -q "Application started"; then
                 print_message "Bot is operational - Application started" "$GREEN"
                 return 0
             fi
+            
+            # Success pattern 3: Scheduler started
+            if echo "$logs" | grep -q "Scheduler started"; then
+                print_message "Bot is operational - Scheduler started" "$GREEN"
+                return 0
+            fi
+            
+            # Success pattern 4: Bot initialized message
+            if echo "$logs" | grep -q "telegram.ext.Application - INFO - Application started"; then
+                print_message "Bot is operational - Application initialized" "$GREEN"
+                return 0
+            fi
+            
+            # Success pattern 5: Several getUpdates calls with 200 OK
+            # This indicates the bot is successfully polling for updates
+            if [ $(echo "$logs" | grep -c "getUpdates \"HTTP/1.1 200 OK\"") -ge 2 ]; then
+                print_message "Bot is operational - multiple successful API calls detected" "$GREEN"
+                return 0
+            fi
+            
+            # Check if we've already waited a long time and there are no errors
+            # If the bot has been running for a while without errors, consider it operational
+            if [ $attempt -gt 15 ] && ! echo "$logs" | grep -q "ERROR"; then
+                print_message "Bot appears to be operational - no errors detected after multiple checks" "$GREEN"
+                return 0
+            fi
         fi
         
-        sleep 2
+        # Increasing delay between attempts
+        sleep_time=$((2 + attempt / 5))
+        sleep $sleep_time
         ((attempt++))
     done
     
     print_error "Bot failed to become operational after $max_attempts attempts"
     print_message "Last logs:" "$YELLOW"
-    docker logs $container_id --tail 20
+    docker logs $container_id --tail 50
     return 1
 }
 
@@ -305,6 +381,41 @@ start_docker_linux() {
     fi
 }
 
+# Function to detect remote bot instances with the same token
+detect_remote_bot_conflict() {
+    local token="$1"
+    
+    if [ -z "$token" ]; then
+        print_error "Cannot check for conflicts with empty token"
+        return 1
+    fi
+    
+    # Check if curl is installed
+    if ! command -v curl &> /dev/null; then
+        print_warning "curl is not installed. Cannot check for remote bot conflicts."
+        return 0
+    fi
+    
+    print_message "Checking for remote bot instances with the same token..." "$YELLOW"
+    
+    # Try to get updates - if there's a conflict, this will tell us
+    local response
+    response=$(curl -s "https://api.telegram.org/bot$token/getUpdates")
+    
+    # Check if the response contains a conflict error
+    if echo "$response" | grep -q '"description":"Conflict: terminated by other getUpdates request'; then
+        print_error "Detected conflict with another bot instance running on a different machine!"
+        print_message "To resolve this:" "$YELLOW"
+        print_message "1. Shut down the bot on the other machine" "$YELLOW"
+        print_message "2. Wait a few minutes for Telegram servers to release the connection" "$YELLOW"
+        print_message "3. Try installing this bot again" "$YELLOW"
+        return 1
+    fi
+    
+    print_message "No remote bot conflict detected" "$GREEN"
+    return 0
+}
+
 # Function to validate BOT_TOKEN by making a test request
 validate_bot_token() {
     local token="$1"
@@ -330,6 +441,13 @@ validate_bot_token() {
     # Check if the response contains "ok":true indicating a valid token
     if echo "$response" | grep -q '"ok":true'; then
         print_message "Token validation successful" "$GREEN"
+        
+        # Also check for remote bot conflicts
+        if ! detect_remote_bot_conflict "$token"; then
+            print_error "Token is valid but a remote conflict was detected"
+            return 1
+        fi
+        
         return 0
     else
         local error_description

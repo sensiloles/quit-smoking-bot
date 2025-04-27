@@ -10,11 +10,15 @@ Telegram bot that helps track smoke-free periods and motivates users with quotes
 - Show next prize fund increase date
 - Display random motivational quotes
 - Admin commands for managing users and notifications
+- Token validation during setup to ensure proper connectivity
+- Conflict detection with external bot instances
+- Improved service monitoring and diagnostics
 
 ## Requirements
 
 - Docker and Docker Compose
 - Systemd (for service management)
+- curl (for token validation and conflict detection)
 
 ## Installation
 
@@ -46,6 +50,26 @@ chmod +x scripts/*.sh
 4. Start the bot:
 ```bash
 ./scripts/run.sh
+```
+
+You can also pass the bot token directly as a parameter:
+```bash
+./scripts/run.sh --token YOUR_BOT_TOKEN
+```
+The token will be validated against the Telegram API and saved to the `.env` file if valid.
+
+### Additional Command-Line Options
+
+All scripts support these additional options:
+
+- `--force-rebuild` - Forces a complete rebuild of Docker images without using the cache
+```bash
+./scripts/run.sh --force-rebuild
+```
+
+- `--cleanup` - Performs additional cleanup of Docker resources (volumes, networks)
+```bash
+./scripts/stop.sh --cleanup
 ```
 
 ## Environment Variables
@@ -108,11 +132,24 @@ sudo ./scripts/install-service.sh
 ```
 
 The installation script will:
+- Validate the Telegram bot token
+- Check for conflicts with other bot instances using the same token
+- Clear any existing containers or services with the same name
 - Create a systemd service file (overwrites existing if any)
 - Configure automatic startup
 - Start the service
 - Monitor the startup process
-- Show detailed status information
+- Show detailed status information and recent logs
+
+You can also pass the bot token directly:
+```bash
+sudo ./scripts/install-service.sh --token YOUR_BOT_TOKEN
+```
+
+For a clean installation, forcing a complete rebuild:
+```bash
+sudo ./scripts/install-service.sh --force-rebuild
+```
 
 ### Service Management Commands
 
@@ -160,6 +197,11 @@ The uninstallation script will:
 - Remove project artifacts
 - Show status before and after uninstallation
 
+To perform a thorough cleanup during uninstallation:
+```bash
+sudo ./scripts/uninstall-service.sh --cleanup
+```
+
 ### Status Check
 
 ```bash
@@ -171,6 +213,7 @@ The status check script provides comprehensive information about:
 - Docker containers, images, and volumes
 - Project files and directories
 - Network connections
+- Bot operational status with detailed diagnostics
 - Recent logs from both systemd and Docker
 
 ## Bot Commands
@@ -255,6 +298,7 @@ quit-smoking-bot/
 The `entrypoint.sh` script is used as the container's entry point and handles:
 - Environment variable setup
 - Log directory creation
+- Prevention of multiple bot instances
 - Bot startup with proper configuration
 - Signal handling for graceful shutdown
 
@@ -269,6 +313,15 @@ The bot can be configured using environment variables:
 - `NOTIFICATION_HOUR` - Hour for monthly notifications (default: 21, numeric value)
 - `NOTIFICATION_MINUTE` - Minute for monthly notifications (default: 58, numeric value)
 - `NOTIFICATION_DAY` - Day of month for notifications (default: 23, numeric value)
+
+## Token Validation and Conflict Detection
+
+The bot now includes intelligent token validation and conflict detection features:
+
+- **Token Validation**: When providing a token through command line arguments, the system will validate it with the Telegram API before saving it to the `.env` file.
+- **Conflict Detection**: The system checks for other bot instances using the same token, which could cause conflicts.
+- **Instance Management**: The entrypoint script prevents multiple bot processes within the same container.
+- **Detailed Error Messages**: Clear error messages and troubleshooting guides if conflicts or validation issues are detected.
 
 ## Automatic Startup on VPS
 
@@ -293,12 +346,53 @@ The service will:
 - Start automatically when the server boots
 - Wait for Docker service to be ready
 - Run the bot in a container
-- Restart the container if it stops
+- Use restart policies to handle temporary failures
+- Monitor bot health and restart if needed
 
 To stop the service:
 ```bash
 sudo systemctl stop quit-smoking-bot.service
 ```
+
+## Troubleshooting
+
+### Bot doesn't start or reports conflicts
+
+If the bot fails to start and reports conflicts with another instance:
+
+1. Check if another bot is running with the same token:
+```bash
+sudo ./scripts/check-service.sh
+```
+
+2. If you have multiple servers or machines running the bot, make sure only one is active with a given token.
+
+3. If a conflict persists but no other instances are running:
+```bash
+# Wait for Telegram API connections to time out (typically 1-2 minutes)
+sudo systemctl stop quit-smoking-bot.service
+# Wait 2 minutes
+sudo systemctl start quit-smoking-bot.service
+```
+
+4. If all else fails, try creating a new bot token with BotFather and update your `.env` file.
+
+### Checking if bot is running correctly
+
+The bot provides comprehensive status information:
+```bash
+sudo ./scripts/check-service.sh
+```
+
+Look for the "Bot Operational Status" section which will indicate if the bot is fully operational and connected to the Telegram API.
+
+### Docker build issues
+
+If you're experiencing Docker build issues or suspect cached layers are causing problems:
+```bash
+./scripts/run.sh --force-rebuild
+```
+This forces Docker to rebuild all images from scratch without using the cache.
 
 ## Contributing
 
