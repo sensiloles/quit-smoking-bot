@@ -6,14 +6,14 @@ import argparse
 import os
 import sys
 import signal
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, BotCommand, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import (
     NOVOSIBIRSK_TZ, NOTIFICATION_DAY,
     NOTIFICATION_HOUR, NOTIFICATION_MINUTE, LOGGING_CONFIG,
-    START_DATE, BOT_NAME, WELCOME_MESSAGE
+    START_DATE, BOT_NAME, WELCOME_MESSAGE, USER_COMMANDS, ADMIN_COMMANDS
 )
 from src.quotes import QuotesManager
 from src.users import UserManager
@@ -163,6 +163,244 @@ class QuitSmokingBot:
         else:
             await update.message.reply_text("You don't have permission to use this command.")
     
+    async def add_admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Add a new admin (admin command)."""
+        user_id = update.effective_user.id
+        admin_name = update.effective_user.first_name
+        
+        if not self.user_manager.is_admin(user_id):
+            await update.message.reply_text("You don't have permission to use this command.")
+            logger.warning(f"Unauthorized add_admin attempt by user {user_id}")
+            return
+            
+        # Check if we have a user ID as an argument
+        if not context.args or len(context.args) != 1:
+            await update.message.reply_text(
+                "Please provide a user ID to add as admin.\nUsage: /add_admin USER_ID"
+            )
+            return
+            
+        try:
+            new_admin_id = int(context.args[0])
+            
+            # Check if user exists in our database
+            if new_admin_id not in self.user_manager.get_all_users():
+                await update.message.reply_text(
+                    f"User ID {new_admin_id} is not registered with the bot. "
+                    f"The user must use /start command first."
+                )
+                return
+                
+            # Check if already an admin
+            if self.user_manager.is_admin(new_admin_id):
+                await update.message.reply_text(f"User ID {new_admin_id} is already an admin.")
+                return
+                
+            # Add the new admin
+            if self.user_manager.add_admin(new_admin_id):
+                await update.message.reply_text(f"User ID {new_admin_id} has been added as an admin.")
+                logger.info(f"New admin {new_admin_id} added by admin {user_id}")
+                
+                # Create inline keyboard for declining admin rights
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("Decline Admin Rights", callback_data=f"decline_admin")]
+                ])
+                
+                # Create admin privileges message with detailed information
+                admin_capabilities = "\n".join([
+                    f"• {cmd} - Admin command" for cmd in ADMIN_COMMANDS 
+                    if cmd not in USER_COMMANDS
+                ])
+                
+                # Prepare notification message
+                admin_message = (
+                    f"🔔 You have been given administrator privileges by {admin_name} (ID: {user_id}).\n\n"
+                    f"As an admin, you can now use these additional commands:\n"
+                    f"{admin_capabilities}\n\n"
+                    f"If you don't want to be an admin, you can decline these privileges using the button below "
+                    f"or by using the /decline_admin command."
+                )
+                
+                # Notify the new admin
+                try:
+                    await context.bot.send_message(
+                        chat_id=new_admin_id,
+                        text=admin_message,
+                        reply_markup=keyboard
+                    )
+                    
+                    # Update commands in Telegram UI for the new admin
+                    await self.update_commands_for_user(new_admin_id)
+                except Exception as e:
+                    logger.error(f"Failed to notify new admin {new_admin_id}: {e}")
+            else:
+                await update.message.reply_text(f"Failed to add user ID {new_admin_id} as admin.")
+        except ValueError:
+            await update.message.reply_text("Invalid user ID. Please provide a numeric user ID.")
+    
+    async def remove_admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Remove an admin (admin command)."""
+        user_id = update.effective_user.id
+        admin_name = update.effective_user.first_name
+        
+        if not self.user_manager.is_admin(user_id):
+            await update.message.reply_text("You don't have permission to use this command.")
+            logger.warning(f"Unauthorized remove_admin attempt by user {user_id}")
+            return
+            
+        # Check if we have a user ID as an argument
+        if not context.args or len(context.args) != 1:
+            await update.message.reply_text(
+                "Please provide a user ID to remove from admins.\nUsage: /remove_admin USER_ID"
+            )
+            return
+            
+        try:
+            admin_id_to_remove = int(context.args[0])
+            
+            # Check if trying to remove themselves
+            if admin_id_to_remove == user_id:
+                await update.message.reply_text("You cannot remove yourself from admins. Use /decline_admin instead.")
+                return
+                
+            # Check if the user is an admin
+            if not self.user_manager.is_admin(admin_id_to_remove):
+                await update.message.reply_text(f"User ID {admin_id_to_remove} is not an admin.")
+                return
+                
+            # Remove the admin
+            if self.user_manager.remove_admin(admin_id_to_remove):
+                await update.message.reply_text(f"User ID {admin_id_to_remove} has been removed from admins.")
+                logger.info(f"Admin {admin_id_to_remove} removed by admin {user_id}")
+                
+                # Notify the removed admin
+                try:
+                    await context.bot.send_message(
+                        chat_id=admin_id_to_remove,
+                        text=f"Your administrator privileges have been revoked by {admin_name} (ID: {user_id})."
+                    )
+                    
+                    # Update commands in Telegram UI for the removed admin
+                    await self.update_commands_for_user(admin_id_to_remove, is_admin=False)
+                except Exception as e:
+                    logger.error(f"Failed to notify removed admin {admin_id_to_remove}: {e}")
+            else:
+                await update.message.reply_text(
+                    f"Failed to remove user ID {admin_id_to_remove} from admins. "
+                    f"Cannot remove the last admin."
+                )
+        except ValueError:
+            await update.message.reply_text("Invalid user ID. Please provide a numeric user ID.")
+    
+    async def decline_admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Allow an admin to decline their admin privileges."""
+        user_id = update.effective_user.id
+        
+        if not self.user_manager.is_admin(user_id):
+            await update.message.reply_text("You are not an admin.")
+            return
+            
+        # Get all admins and check if this is the last admin
+        admins = self.user_manager.get_all_admins()
+        if len(admins) <= 1:
+            await update.message.reply_text(
+                "You are the last administrator and cannot decline your privileges. "
+                "Make someone else an admin first."
+            )
+            return
+            
+        # Remove admin privileges
+        if self.user_manager.remove_admin(user_id):
+            await update.message.reply_text(
+                "You have successfully declined your administrator privileges."
+            )
+            logger.info(f"Admin {user_id} declined their admin privileges")
+            
+            # Update commands in Telegram UI
+            await self.update_commands_for_user(user_id, is_admin=False)
+        else:
+            await update.message.reply_text(
+                "Failed to decline administrator privileges."
+            )
+    
+    async def handle_callback_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle callback queries from inline keyboards."""
+        query = update.callback_query
+        user_id = query.from_user.id
+        
+        await query.answer()
+        
+        if query.data == "decline_admin":
+            # Get all admins and check if this is the last admin
+            admins = self.user_manager.get_all_admins()
+            if len(admins) <= 1 and user_id in admins:
+                await query.message.reply_text(
+                    "You are the last administrator and cannot decline your privileges. "
+                    "Make someone else an admin first."
+                )
+                return
+                
+            # Check if the user is an admin
+            if not self.user_manager.is_admin(user_id):
+                await query.message.reply_text("You are not an admin.")
+                return
+                
+            # Remove admin privileges
+            if self.user_manager.remove_admin(user_id):
+                await query.message.reply_text(
+                    "You have successfully declined your administrator privileges."
+                )
+                logger.info(f"Admin {user_id} declined their admin privileges via inline button")
+                
+                # Update commands in Telegram UI
+                await self.update_commands_for_user(user_id, is_admin=False)
+            else:
+                await query.message.reply_text(
+                    "Failed to decline administrator privileges."
+                )
+    
+    async def update_commands_for_user(self, user_id: int, is_admin: bool = True):
+        """Update the available commands for a specific user."""
+        try:
+            if is_admin:
+                # Set admin commands for the user
+                admin_commands = [
+                    BotCommand(command.lstrip("/"), f"Admin command: {command.lstrip('/')}")
+                    for command in ADMIN_COMMANDS
+                ]
+                
+                await self.application.bot.set_my_commands(
+                    admin_commands,
+                    scope=BotCommandScopeChat(chat_id=user_id)
+                )
+                logger.info(f"Updated commands for admin {user_id}")
+            else:
+                # Set normal user commands
+                user_commands = [
+                    BotCommand(command.lstrip("/"), f"User command: {command.lstrip('/')}")
+                    for command in USER_COMMANDS
+                ]
+                
+                await self.application.bot.set_my_commands(
+                    user_commands,
+                    scope=BotCommandScopeChat(chat_id=user_id)
+                )
+                logger.info(f"Updated commands for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to update commands for user {user_id}: {e}")
+    
+    async def my_id(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Send the user their ID when the command /my_id is issued."""
+        user_id = update.effective_user.id
+        user_name = update.effective_user.first_name
+        
+        await update.message.reply_text(
+            f"Your user ID: {user_id}\n"
+            f"Name: {user_name}\n\n"
+            "You can share this ID with an admin if you need admin privileges."
+        )
+        logger.info(f"User {user_id} requested their ID")
+    
     async def shutdown(self, signal_type=None):
         """Cleanup and shutdown the bot gracefully"""
         if not self._running:
@@ -210,13 +448,28 @@ class QuitSmokingBot:
             # Store bot instance for scheduler use
             self.bot = self.application.bot
 
-            # Add command handlers
-            self.application.add_handler(CommandHandler("start", self.start))
-            self.application.add_handler(CommandHandler("status", self.status))
-            self.application.add_handler(CommandHandler("notify_all", self.manual_notification))
-            self.application.add_handler(CommandHandler("list_users", self.list_users))
-            self.application.add_handler(CommandHandler("list_admins", self.list_admins))
-
+            # Mapping of commands to their handlers
+            command_handlers = {
+                "/start": self.start,
+                "/status": self.status,
+                "/my_id": self.my_id,
+                "/notify_all": self.manual_notification,
+                "/list_users": self.list_users,
+                "/list_admins": self.list_admins,
+                "/add_admin": self.add_admin,
+                "/remove_admin": self.remove_admin,
+                "/decline_admin": self.decline_admin
+            }
+            
+            # Register command handlers based on configuration
+            for command, handler in command_handlers.items():
+                if command in USER_COMMANDS or command in ADMIN_COMMANDS:
+                    self.application.add_handler(CommandHandler(command.lstrip("/"), handler))
+                    logger.info(f"Registered handler for command {command}")
+            
+            # Add callback query handler for inline buttons
+            self.application.add_handler(CallbackQueryHandler(self.handle_callback_query))
+            
             # Setup scheduler for monthly notifications
             self.scheduler = AsyncIOScheduler(timezone=NOVOSIBIRSK_TZ)
             
@@ -233,6 +486,43 @@ class QuitSmokingBot:
         except Exception as e:
             logger.error(f"Error during setup: {e}")
             return False
+            
+    async def set_bot_commands(self):
+        """Set bot commands in Telegram to make them visible in the UI"""
+        try:
+            # Define user commands with descriptions
+            user_commands = [
+                BotCommand(command.lstrip("/"), f"User command: {command.lstrip('/')}")
+                for command in USER_COMMANDS
+            ]
+            
+            # Set commands visible to all users
+            await self.application.bot.set_my_commands(user_commands)
+            logger.info("Set user commands in Telegram")
+            
+            # Get all admins
+            admins = self.user_manager.get_all_admins()
+            
+            # Define admin commands with descriptions
+            admin_commands = [
+                BotCommand(command.lstrip("/"), f"Admin command: {command.lstrip('/')}")
+                for command in ADMIN_COMMANDS
+            ]
+            
+            # Set admin-specific commands for each admin
+            for admin_id in admins:
+                try:
+                    await self.application.bot.set_my_commands(
+                        admin_commands,
+                        scope=BotCommandScopeChat(chat_id=admin_id)
+                    )
+                    logger.info(f"Set admin commands for admin {admin_id}")
+                except Exception as e:
+                    logger.error(f"Failed to set admin commands for {admin_id}: {e}")
+                    
+            logger.info("Bot commands updated in Telegram")
+        except Exception as e:
+            logger.error(f"Error setting bot commands: {e}")
 
     async def run(self):
         """Run the bot"""
@@ -260,6 +550,10 @@ class QuitSmokingBot:
             # Start the bot with polling
             await self.application.initialize()
             await self.application.start()
+            
+            # Update commands in Telegram UI
+            await self.set_bot_commands()
+            
             await self.application.updater.start_polling()
             
             # Keep the bot running until shutdown is requested

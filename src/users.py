@@ -49,6 +49,20 @@ class UserManager:
             return True
         return False
     
+    def remove_admin(self, user_id: int) -> bool:
+        """Remove a user from admin list."""
+        if user_id in self.admins:
+            # Don't remove the last admin
+            if len(self.admins) <= 1:
+                logger.warning(f"Cannot remove the last admin: {user_id}")
+                return False
+                
+            self.admins.remove(user_id)
+            self.save_admins()
+            logger.info(f"Admin removed: {user_id}")
+            return True
+        return False
+    
     def is_admin(self, user_id: int) -> bool:
         """Check if user is an admin."""
         return user_id in self.admins

@@ -24,8 +24,8 @@ MAX_PRIZE_FUND = 100000  # maximum prize fund amount
 
 # Bot settings
 BOT_NAME = "Quit Smoking Bot"
-ADMIN_COMMANDS = ["/notify_all", "/list_users", "/list_admins"]
-USER_COMMANDS = ["/start", "/status"]
+USER_COMMANDS = ["/start", "/status", "/my_id"]
+ADMIN_COMMANDS = ["/notify_all", "/list_users", "/list_admins", "/add_admin", "/remove_admin", "/decline_admin"] + USER_COMMANDS
 
 # Message templates
 WELCOME_MESSAGE = (
