@@ -10,18 +10,8 @@ Telegram bot that helps track smoke-free periods and motivates users with quotes
 - Show next prize fund increase date
 - Display random motivational quotes
 - Admin commands for managing users and notifications
-- Token validation during setup to ensure proper connectivity
-- Conflict detection with external bot instances
-- Improved service monitoring and diagnostics
-- Automatic token persistence when provided via command line
 
-## Requirements
-
-- Docker and Docker Compose
-- Systemd (for service management)
-- curl (for token validation and conflict detection)
-
-## Installation
+## Quick Start
 
 1. Clone the repository:
 ```bash
@@ -29,230 +19,23 @@ git clone https://github.com/sensiloles/quit-smoking-bot.git
 cd quit-smoking-bot
 ```
 
-2. Create a `.env` file with the required environment variables:
+2. Create a `.env` file with required environment variables:
 ```bash
-# Required variables
 BOT_TOKEN="your_telegram_bot_token_here"  # Get from BotFather
-SYSTEM_NAME="quit-smoking-bot"            # Name used for Docker containers and systemd service
-SYSTEM_DISPLAY_NAME="Quit Smoking Bot"    # Display name for the service and logs
-
-# Optional variables (with defaults)
-TZ="Asia/Novosibirsk"                     # Timezone for scheduled notifications
-NOTIFICATION_DAY=23                       # Day of month for notifications
-NOTIFICATION_HOUR=21                      # Hour for notifications
-NOTIFICATION_MINUTE=58                    # Minute for notifications
+SYSTEM_NAME="quit-smoking-bot"            # For Docker containers and systemd service
+SYSTEM_DISPLAY_NAME="Quit Smoking Bot"    # For service and logs
 ```
 
-3. Make the scripts executable:
+3. Start the bot:
 ```bash
 chmod +x scripts/*.sh
-```
-
-4. Start the bot:
-```bash
 ./scripts/run.sh
 ```
 
-You can also pass the bot token directly as a parameter:
-```bash
-./scripts/run.sh --token YOUR_BOT_TOKEN
-```
-The token will be validated against the Telegram API, saved to the `.env` file, and persisted for future runs.
-
-### Additional Command-Line Options
-
-All scripts support these additional options:
-
-- `--token YOUR_BOT_TOKEN` - Specify the Telegram bot token (will be saved to .env file automatically)
-```bash
-./scripts/run.sh --token YOUR_BOT_TOKEN
-```
-
-- `--force-rebuild` - Forces a complete rebuild of Docker images without using the cache
-```bash
-./scripts/run.sh --force-rebuild
-```
-
-- `--cleanup` - Performs additional cleanup of Docker resources (volumes, networks)
-```bash
-./scripts/stop.sh --cleanup
-```
-
-- `--help` - Displays usage information and available options for any script
-```bash
-./scripts/run.sh --help
-./scripts/install-service.sh --help
-```
-
-Example output (each script has its own customized help message):
-```
-Usage: ./scripts/run.sh [options]
-
-Start the Telegram bot in a Docker container.
-
-Options:
-  --token TOKEN       Specify the Telegram bot token (will be saved to .env file)
-  --force-rebuild     Force rebuild of Docker container without using cache
-  --cleanup           Perform additional cleanup before starting
-  --help              Show this help message
-
-Examples:
-  ./scripts/run.sh --token 123456789:ABCDEF... # Start with specific token
-  ./scripts/run.sh --force-rebuild             # Force rebuild container
-  ./scripts/run.sh                             # Start using token from .env file
-```
-
-## Environment Variables
-
-The following environment variables can be set in the `.env` file:
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `BOT_TOKEN` | Yes | - | Your Telegram bot token from BotFather (use quotes) |
-| `SYSTEM_NAME` | Yes | quit-smoking-bot | Name for Docker containers and systemd service (use quotes) |
-| `SYSTEM_DISPLAY_NAME` | Yes | Quit Smoking Bot | Display name for the service and logs (use quotes, especially for values with spaces) |
-| `TZ` | No | Asia/Novosibirsk | Timezone for the bot and scheduled notifications (use quotes) |
-| `NOTIFICATION_DAY` | No | 23 | Day of month for scheduled notifications (numeric value) |
-| `NOTIFICATION_HOUR` | No | 21 | Hour for notifications (24-hour format, numeric value) |
-| `NOTIFICATION_MINUTE` | No | 58 | Minute for notifications (numeric value) |
-
-**Note about .env format:** All string values should be enclosed in double quotes (`"value"`), especially if they contain spaces or special characters. Numeric values don't need quotes.
-
-You can also set environment variables in other ways:
-- Export them in your shell session: `export BOT_TOKEN=your_token_here`
-- Pass them as arguments to scripts: `./scripts/run.sh --token your_token_here`
-
-## Testing
-
-To run the tests:
-```bash
-./scripts/test.sh
-```
-
-The test script will:
-1. Build and run tests in a dedicated container (`quit-smoking-bot-test`)
-2. Run integration tests for notification system
-3. Send test results to all admins via Telegram
-4. Clean up test containers after completion
-
-Test results will be:
-- Displayed in the console
-- Sent to admin users via Telegram with timestamp
-
-## Usage
-
-The bot will automatically start when the container is running. Logs can be viewed with:
-```bash
-docker-compose logs -f bot
-```
-
-To stop the container:
-```bash
-docker-compose down
-```
-
-## Service Management
-
-The project includes several scripts for managing the bot as a system service:
-
-### Installation and Setup
-
-```bash
-sudo ./scripts/install-service.sh
-```
-
-The installation script will:
-- Validate the Telegram bot token
-- Check for conflicts with other bot instances using the same token
-- Clear any existing containers or services with the same name
-- Create a systemd service file (overwrites existing if any)
-- Configure automatic startup
-- Start the service
-- Monitor the startup process
-- Show detailed status information and recent logs
-
 You can also pass the bot token directly:
 ```bash
-sudo ./scripts/install-service.sh --token YOUR_BOT_TOKEN
+./scripts/run.sh --token YOUR_BOT_TOKEN
 ```
-This will save the token to the .env file for future use.
-
-For a clean installation, forcing a complete rebuild:
-```bash
-sudo ./scripts/install-service.sh --force-rebuild
-```
-
-For full usage information and available options:
-```bash
-sudo ./scripts/install-service.sh --help
-```
-
-Each script in the project (`run.sh`, `stop.sh`, `test.sh`, `install-service.sh`, `uninstall-service.sh`, and `check-service.sh`) provides detailed, context-specific help information when run with the `--help` flag, including examples, descriptions, and available options specific to that script's purpose.
-
-### Service Management Commands
-
-After installation, you can manage the service with these commands:
-
-```bash
-# Start the service
-sudo systemctl start quit-smoking-bot.service
-
-# Stop the service
-sudo systemctl stop quit-smoking-bot.service
-
-# Restart the service
-sudo systemctl restart quit-smoking-bot.service
-
-# Check service status
-sudo systemctl status quit-smoking-bot.service
-
-# View service logs
-sudo journalctl -u quit-smoking-bot.service -f
-```
-
-### Stopping the Bot
-
-To stop the bot and clean up resources:
-
-```bash
-./scripts/stop.sh [--cleanup]
-```
-
-The stop script will:
-- Stop and remove all bot containers
-- Optionally clean up Docker resources (volumes and networks) if `--cleanup` flag is provided
-
-### Uninstallation
-
-```bash
-sudo ./scripts/uninstall-service.sh
-```
-
-The uninstallation script will:
-- Stop and disable the service
-- Remove the service file
-- Clean up Docker containers and images
-- Remove project artifacts
-- Show status before and after uninstallation
-
-To perform a thorough cleanup during uninstallation:
-```bash
-sudo ./scripts/uninstall-service.sh --cleanup
-```
-
-### Status Check
-
-```bash
-sudo ./scripts/check-service.sh
-```
-
-The status check script provides comprehensive information about:
-- Systemd service status
-- Docker containers, images, and volumes
-- Project files and directories
-- Network connections
-- Bot operational status with detailed diagnostics
-- Recent logs from both systemd and Docker
 
 ## Bot Commands
 
@@ -262,273 +45,173 @@ The status check script provides comprehensive information about:
 - `/list_users` - List all registered users (admin only)
 - `/list_admins` - List all admin users (admin only)
 
-## Development
+## Requirements
 
-All scripts use docker-compose for container management. The main services are:
-- `bot` - Main bot service
-- `test` - Test service for running integration tests
+- Docker and Docker Compose
+- Systemd (for service management)
+- curl (for token validation and conflict detection)
 
-Container names are fixed:
-- Main bot: `quit-smoking-bot`
-- Test container: `quit-smoking-bot-test`
+## Running as a Service
 
-For development and debugging, you can use standard docker-compose commands:
-```bash
-# Build services
-docker-compose build
-
-# Start bot in background
-docker-compose up -d bot
-
-# Run tests
-docker-compose run --rm test
-
-# View logs
-docker-compose logs -f bot
-
-# Stop all services
-docker-compose down
-```
-
-## Project Structure
-
-```
-quit-smoking-bot/
-├── src/
-│   ├── __init__.py
-│   ├── bot.py           # Main bot class and handlers
-│   ├── config.py         # Configuration and constants
-│   ├── quotes.py        # Quotes management
-│   ├── status.py        # Status information and calculations
-│   ├── users.py         # User management and storage
-│   └── utils.py         # Utility functions and helpers
-├── tests/
-│   ├── __init__.py
-│   ├── integration/     # Integration tests
-│   │   ├── __init__.py
-│   │   └── test_notifications.py  # Notification system tests
-│   └── unit/            # Unit tests
-│       ├── __init__.py
-│       └── test_utils.py # Utility functions tests
-├── scripts/             # Shell scripts
-│   ├── common.sh        # Common functions
-│   ├── run.sh           # Run bot script
-│   ├── test.sh          # Test script
-│   ├── install-service.sh # Service installation
-│   ├── uninstall-service.sh # Service removal
-│   ├── check-service.sh # Status check
-│   └── entrypoint.sh    # Container entrypoint script
-├── data/                # Data storage
-│   ├── bot_users.json
-│   ├── bot_admins.json
-│   ├── quotes.json
-├── logs/                # Log files
-├── Dockerfile            # Docker configuration
-├── docker-compose.yml   # Docker Compose configuration
-├── .dockerignore        # Docker ignore patterns
-├── .gitignore           # Git ignore patterns
-├── main.py              # Legacy entry point (redirects to src/bot.py)
-├── setup.py             # Package configuration
-├── .env.example         # Environment variables example
-└── README.md            # Documentation
-```
-
-The `entrypoint.sh` script is used as the container's entry point and handles:
-- Environment variable setup
-- Log directory creation
-- Prevention of multiple bot instances
-- Bot startup with proper configuration
-- Signal handling for graceful shutdown
-
-## Configuration
-
-The bot can be configured using environment variables:
-
-- `BOT_TOKEN` - Telegram bot token (required, use quotes)
-- `SYSTEM_NAME` - Name for Docker containers and systemd service (required, use quotes)
-- `SYSTEM_DISPLAY_NAME` - Display name for the service and logs (required, use quotes)
-- `TZ` - Timezone (default: "Asia/Novosibirsk", use quotes)
-- `NOTIFICATION_HOUR` - Hour for monthly notifications (default: 21, numeric value)
-- `NOTIFICATION_MINUTE` - Minute for monthly notifications (default: 58, numeric value)
-- `NOTIFICATION_DAY` - Day of month for notifications (default: 23, numeric value)
-
-## Token Validation and Conflict Detection
-
-The bot includes intelligent token validation and conflict detection features:
-
-- **Token Persistence**: When providing a token through command line arguments with `--token`, it's automatically validated and saved to the `.env` file for future use.
-- **Token Validation**: The system validates the token with the Telegram API before using it.
-- **Conflict Detection**: The system checks for other bot instances using the same token, which could cause conflicts.
-- **Instance Management**: The entrypoint script prevents multiple bot processes within the same container.
-- **Detailed Error Messages**: Clear error messages and troubleshooting guides if conflicts or validation issues are detected.
-
-## Automatic Startup on VPS
-
-To configure automatic startup of the bot when the VPS server reboots:
-
-1. Install the systemd service:
+Install and start as a systemd service:
 ```bash
 sudo ./scripts/install-service.sh
 ```
 
-2. Start the service:
+Manage the service:
 ```bash
-sudo systemctl start quit-smoking-bot.service
+sudo systemctl start|stop|restart|status quit-smoking-bot.service
+sudo journalctl -u quit-smoking-bot.service -f  # View logs
 ```
 
-3. Check service status:
+Uninstall:
 ```bash
-sudo systemctl status quit-smoking-bot.service
+sudo ./scripts/uninstall-service.sh
 ```
 
-The service will:
-- Start automatically when the server boots
-- Wait for Docker service to be ready
-- Run the bot in a container
-- Use restart policies to handle temporary failures
-- Monitor bot health and restart if needed
+## Environment Variables
 
-To stop the service:
-```bash
-sudo systemctl stop quit-smoking-bot.service
-```
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `BOT_TOKEN` | Yes | - | Your Telegram bot token from BotFather |
+| `SYSTEM_NAME` | Yes | quit-smoking-bot | Name for Docker containers and systemd service |
+| `SYSTEM_DISPLAY_NAME` | Yes | Quit Smoking Bot | Display name for the service and logs |
+| `TZ` | No | Asia/Novosibirsk | Timezone for scheduled notifications |
+| `NOTIFICATION_DAY` | No | 23 | Day of month for notifications |
+| `NOTIFICATION_HOUR` | No | 21 | Hour for notifications (24-hour format) |
+| `NOTIFICATION_MINUTE` | No | 58 | Minute for notifications |
 
-## Troubleshooting
+**Note:** All string values should be enclosed in double quotes in the `.env` file.
 
-### General Help
-
-For any script, you can use the `--help` flag to see available options and usage information:
-```bash
-./scripts/run.sh --help
-./scripts/install-service.sh --help
-./scripts/check-service.sh --help
-```
-
-Each script provides its own customized help message with specific options, descriptions, and examples relevant to that script's functionality.
-
-### Bot doesn't start or reports conflicts
-
-If the bot fails to start and reports conflicts with another instance:
-
-1. Check if another bot is running with the same token:
-```bash
-sudo ./scripts/check-service.sh
-```
-
-2. If you have multiple servers or machines running the bot, make sure only one is active with a given token.
-
-3. If a conflict persists but no other instances are running:
-```bash
-# Wait for Telegram API connections to time out (typically 1-2 minutes)
-sudo systemctl stop quit-smoking-bot.service
-# Wait 2 minutes
-sudo systemctl start quit-smoking-bot.service
-```
-
-4. If all else fails, try creating a new bot token with BotFather and update your `.env` file.
-
-### Checking if bot is running correctly
-
-The bot provides comprehensive status information:
-```bash
-sudo ./scripts/check-service.sh
-```
-
-Look for the "Bot Operational Status" section which will indicate if the bot is fully operational and connected to the Telegram API.
-
-### Docker build issues
-
-If you're experiencing Docker build issues or suspect cached layers are causing problems:
-```bash
-./scripts/run.sh --force-rebuild
-```
-This forces Docker to rebuild all images from scratch without using the cache.
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Docker Usage
-
-### Running with Docker
-
-The bot is designed to be run using Docker and Docker Compose. The provided scripts handle all Docker operations for you.
+## Common Commands
 
 ```bash
 # Start the bot
 ./scripts/run.sh
 
 # Stop the bot
-./scripts/stop.sh
-```
+./scripts/stop.sh [--cleanup]
 
-### Docker Manual Usage
+# Check service status
+sudo ./scripts/check-service.sh
 
-If you prefer to use Docker commands directly:
-
-```bash
-# Build the Docker image
-docker-compose build
-
-# Start the container
-docker-compose up -d
+# Run tests
+./scripts/test.sh
 
 # View logs
-docker-compose logs -f
-
-# Stop containers
-docker-compose down
+docker-compose logs -f bot
 ```
 
-### Docker Configuration
+## Command-Line Options
 
-The Docker setup includes:
+All scripts support these options:
 
-- Multi-stage build for optimized image size
-- Non-root user for security
-- Volume mapping for persistent data
-- Healthcheck to ensure bot is running correctly
-- Resource limits to control container resource usage
+- `--token YOUR_BOT_TOKEN` - Specify the Telegram bot token
+- `--force-rebuild` - Forces a complete rebuild of Docker images
+- `--cleanup` - Performs additional cleanup of Docker resources
+- `--help` - Displays usage information and options
 
-### Docker Environment Variables
+## Troubleshooting
 
-Additional environment variables for Docker configuration:
+### Bot doesn't start or reports conflicts
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `USER_ID` | 1000 | User ID for the container user (maps to your host UID) |
-| `GROUP_ID` | 1000 | Group ID for the container user (maps to your host GID) |
-| `BUILD_ID` | latest | Build identifier for the Docker image |
-
-You can set these when building the image:
-
+1. Check if another bot is running with the same token:
 ```bash
-USER_ID=$(id -u) GROUP_ID=$(id -g) BUILD_ID=$(date +%Y%m%d) ./scripts/run.sh
+sudo ./scripts/check-service.sh
 ```
 
-### Docker Health Monitoring
-
-The container includes a health check system that:
-- Verifies the bot process is running
-- Checks that the bot is responding correctly
-- Logs health status for diagnostics
-
-Check the container health status with:
-
+2. If conflict persists:
 ```bash
-docker inspect --format='{{.State.Health.Status}}' quit-smoking-bot
+sudo systemctl stop quit-smoking-bot.service
+# Wait 2 minutes
+sudo systemctl start quit-smoking-bot.service
 ```
 
-View health check logs:
+3. If all else fails, create a new bot token with BotFather.
 
+### Docker build issues
+
+Force a complete rebuild:
 ```bash
-docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' quit-smoking-bot
+./scripts/run.sh --force-rebuild
 ```
+
+## Project Structure
+
+```
+quit-smoking-bot/
+├── src/                            # Source code directory
+│   ├── __init__.py                 # Python package initialization
+│   ├── bot.py                      # Main bot class and handlers (323 lines)
+│   ├── config.py                    # Configuration and constants (85 lines)
+│   ├── quotes.py                   # Quotes management (34 lines)
+│   ├── status.py                   # Status information and calculations (85 lines)
+│   ├── users.py                    # User management and storage (63 lines)
+│   ├── utils.py                    # Utility functions and helpers (68 lines)
+│   └── send_results.py             # Test results notification system (73 lines)
+├── tests/                          # Tests directory
+│   ├── __init__.py                 # Tests package initialization
+│   ├── integration/                # Integration tests
+│   │   ├── __init__.py             # Integration tests package initialization
+│   │   └── test_notifications.py    # Notification system tests
+│   └── unit/                       # Unit tests
+│       ├── __init__.py             # Unit tests package initialization
+│       └── test_utils.py           # Utility functions tests
+├── scripts/                        # Shell scripts for operations
+│   ├── check-service.sh            # Comprehensive service status check (418 lines)
+│   ├── common.sh                   # Common functions used by other scripts (832 lines)
+│   ├── entrypoint.sh               # Container entrypoint script (223 lines)
+│   ├── healthcheck.sh              # Container health check (185 lines)
+│   ├── install-service.sh          # Systemd service installation (255 lines)
+│   ├── run.sh                      # Start bot script (75 lines)
+│   ├── stop.sh                     # Stop bot script (60 lines)
+│   ├── test.sh                     # Run tests script (40 lines)
+│   └── uninstall-service.sh        # Service removal script (125 lines)
+├── data/                           # Data storage directory (persistent)
+│   ├── bot_users.json              # Registered users data
+│   ├── bot_admins.json             # Admin users data
+│   └── quotes.json                 # Motivational quotes data
+├── logs/                           # Log files directory
+│   └── bot.log                     # Main bot log file
+├── main.py                         # Legacy entry point (redirects to src/bot.py)
+├── setup.py                        # Python package configuration (18 lines)
+├── Dockerfile                       # Docker container configuration (60 lines)
+├── docker-compose.yml              # Docker Compose services definition (68 lines)
+├── .dockerignore                   # Docker build exclude patterns (65 lines)
+├── .gitignore                      # Git exclude patterns (40 lines)
+└── README.md                       # This documentation file
+```
+
+The project follows a modular structure with clear separation of concerns:
+
+- **Core Bot Logic** (`src/`): Handles bot commands, user management, and status calculations
+- **Testing** (`tests/`): Contains both unit and integration tests
+- **Operations** (`scripts/`): Shell scripts for running, installing, and managing the bot
+- **Configuration** (`Dockerfile`, `docker-compose.yml`): Docker container setup
+- **Persistence** (`data/`): Stores user data and quotes
+
+The `entrypoint.sh` script is used as the container's entry point and handles:
+- Environment variable setup
+- Log directory creation
+- Prevention of multiple bot processes
+- Bot startup with proper configuration
+- Signal handling for graceful shutdown
+
+## Docker Configuration
+
+The bot is containerized using Docker for consistent deployment across different environments. For detailed information about the Docker setup, container lifecycle, networking, and advanced configurations, see [DOCKER.md](DOCKER.md).
+
+Key features of the Docker implementation include:
+- Multi-stage build process for optimized image size
+- Non-root user execution for enhanced security 
+- Persistent volume mapping for data and logs
+- Comprehensive health checking system
+- Resource limits and container management
+- Bridge network isolation for services
+- JSON logging with rotation
+
+Container management is handled through shell scripts that provide a simple interface to the underlying Docker operations.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
