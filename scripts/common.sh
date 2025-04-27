@@ -424,6 +424,8 @@ parse_arguments() {
                     return 1
                 fi
                 export BOT_TOKEN="$TOKEN_ARG"
+                # Update BOT_TOKEN in .env file
+                update_env_token "$TOKEN_ARG"
                 shift 2
                 ;;
             --force-rebuild)
@@ -449,15 +451,32 @@ parse_arguments() {
     return 0
 }
 
-# Show help message
-show_help() {
-    echo "Usage: $0 [options]"
-    echo ""
-    echo "Options:"
-    echo "  --token TOKEN       Specify the Telegram bot token"
-    echo "  --force-rebuild     Force rebuild of Docker containers"
-    echo "  --cleanup           Perform additional cleanup of Docker resources"
-    echo "  --help              Show this help message"
+# Update BOT_TOKEN in .env file
+update_env_token() {
+    local token="$1"
+    local env_file=".env"
+    
+    # Create .env file if it doesn't exist
+    if [ ! -f "$env_file" ]; then
+        touch "$env_file"
+    fi
+    
+    # Check if BOT_TOKEN already exists in the file
+    if grep -q "^BOT_TOKEN=" "$env_file"; then
+        # Replace existing BOT_TOKEN
+        if [ "$(uname)" == "Darwin" ]; then
+            # macOS version
+            sed -i "" "s|^BOT_TOKEN=.*|BOT_TOKEN=\"$token\"|" "$env_file"
+        else
+            # Linux version
+            sed -i "s|^BOT_TOKEN=.*|BOT_TOKEN=\"$token\"|" "$env_file"
+        fi
+    else
+        # Add new BOT_TOKEN entry
+        echo "BOT_TOKEN=\"$token\"" >> "$env_file"
+    fi
+    
+    print_message "Updated BOT_TOKEN in $env_file" "$GREEN"
 }
 
 # Show available service commands

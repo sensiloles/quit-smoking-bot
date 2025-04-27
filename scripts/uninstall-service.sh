@@ -3,6 +3,22 @@
 # Source common functions
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
+
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Uninstall the Telegram bot service completely from the system."
+    echo "This script requires root privileges (sudo)."
+    echo ""
+    echo "Options:"
+    echo "  --cleanup           Perform thorough cleanup (remove all Docker resources including volumes)"
+    echo "  --help              Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  sudo $0                  # Uninstall the bot service"
+    echo "  sudo $0 --cleanup        # Uninstall with thorough cleanup"
+}
+
 # Ensure SYSTEM_NAME is available for docker-compose
 if [ -z "$SYSTEM_NAME" ]; then
     print_error "SYSTEM_NAME is not set"

@@ -3,6 +3,22 @@
 # Source common functions
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
+
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Run tests for the Telegram bot in a dedicated container."
+    echo ""
+    echo "Options:"
+    echo "  --token TOKEN       Specify the Telegram bot token for integration tests"
+    echo "  --force-rebuild     Force rebuild of test container without using cache"
+    echo "  --help              Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 --token 123456789:ABCDEF... # Run tests with specific token"
+    echo "  $0                             # Run tests using token from .env file"
+}
+
 # Parse command line arguments
 if ! parse_arguments "$@"; then
     exit 1

@@ -13,6 +13,7 @@ Telegram bot that helps track smoke-free periods and motivates users with quotes
 - Token validation during setup to ensure proper connectivity
 - Conflict detection with external bot instances
 - Improved service monitoring and diagnostics
+- Automatic token persistence when provided via command line
 
 ## Requirements
 
@@ -56,11 +57,16 @@ You can also pass the bot token directly as a parameter:
 ```bash
 ./scripts/run.sh --token YOUR_BOT_TOKEN
 ```
-The token will be validated against the Telegram API and saved to the `.env` file if valid.
+The token will be validated against the Telegram API, saved to the `.env` file, and persisted for future runs.
 
 ### Additional Command-Line Options
 
 All scripts support these additional options:
+
+- `--token YOUR_BOT_TOKEN` - Specify the Telegram bot token (will be saved to .env file automatically)
+```bash
+./scripts/run.sh --token YOUR_BOT_TOKEN
+```
 
 - `--force-rebuild` - Forces a complete rebuild of Docker images without using the cache
 ```bash
@@ -70,6 +76,30 @@ All scripts support these additional options:
 - `--cleanup` - Performs additional cleanup of Docker resources (volumes, networks)
 ```bash
 ./scripts/stop.sh --cleanup
+```
+
+- `--help` - Displays usage information and available options for any script
+```bash
+./scripts/run.sh --help
+./scripts/install-service.sh --help
+```
+
+Example output (each script has its own customized help message):
+```
+Usage: ./scripts/run.sh [options]
+
+Start the Telegram bot in a Docker container.
+
+Options:
+  --token TOKEN       Specify the Telegram bot token (will be saved to .env file)
+  --force-rebuild     Force rebuild of Docker container without using cache
+  --cleanup           Perform additional cleanup before starting
+  --help              Show this help message
+
+Examples:
+  ./scripts/run.sh --token 123456789:ABCDEF... # Start with specific token
+  ./scripts/run.sh --force-rebuild             # Force rebuild container
+  ./scripts/run.sh                             # Start using token from .env file
 ```
 
 ## Environment Variables
@@ -145,11 +175,19 @@ You can also pass the bot token directly:
 ```bash
 sudo ./scripts/install-service.sh --token YOUR_BOT_TOKEN
 ```
+This will save the token to the .env file for future use.
 
 For a clean installation, forcing a complete rebuild:
 ```bash
 sudo ./scripts/install-service.sh --force-rebuild
 ```
+
+For full usage information and available options:
+```bash
+sudo ./scripts/install-service.sh --help
+```
+
+Each script in the project (`run.sh`, `stop.sh`, `test.sh`, `install-service.sh`, `uninstall-service.sh`, and `check-service.sh`) provides detailed, context-specific help information when run with the `--help` flag, including examples, descriptions, and available options specific to that script's purpose.
 
 ### Service Management Commands
 
@@ -316,9 +354,10 @@ The bot can be configured using environment variables:
 
 ## Token Validation and Conflict Detection
 
-The bot now includes intelligent token validation and conflict detection features:
+The bot includes intelligent token validation and conflict detection features:
 
-- **Token Validation**: When providing a token through command line arguments, the system will validate it with the Telegram API before saving it to the `.env` file.
+- **Token Persistence**: When providing a token through command line arguments with `--token`, it's automatically validated and saved to the `.env` file for future use.
+- **Token Validation**: The system validates the token with the Telegram API before using it.
 - **Conflict Detection**: The system checks for other bot instances using the same token, which could cause conflicts.
 - **Instance Management**: The entrypoint script prevents multiple bot processes within the same container.
 - **Detailed Error Messages**: Clear error messages and troubleshooting guides if conflicts or validation issues are detected.
@@ -355,6 +394,17 @@ sudo systemctl stop quit-smoking-bot.service
 ```
 
 ## Troubleshooting
+
+### General Help
+
+For any script, you can use the `--help` flag to see available options and usage information:
+```bash
+./scripts/run.sh --help
+./scripts/install-service.sh --help
+./scripts/check-service.sh --help
+```
+
+Each script provides its own customized help message with specific options, descriptions, and examples relevant to that script's functionality.
 
 ### Bot doesn't start or reports conflicts
 

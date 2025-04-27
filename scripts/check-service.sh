@@ -3,6 +3,41 @@
 # Source common functions and variables
 source "$(dirname "$0")/common.sh"
 
+
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Check the status of the Telegram bot service and provide comprehensive diagnostics."
+    echo ""
+    echo "Options:"
+    echo "  --help              Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                  # Show comprehensive status of the bot service"
+}
+
+# Parse arguments for this script
+parse_arguments_check_service() {
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+            --help)
+                show_help
+                exit 0
+                ;;
+            *)
+                print_error "Unknown argument: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+        shift
+    done
+    return 0
+}
+
+# Parse script-specific arguments
+parse_arguments_check_service "$@"
+
 # Function to check systemd service status
 check_systemd_service() {
     print_section "Systemd Service Status"

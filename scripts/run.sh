@@ -5,6 +5,24 @@ set -e
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "${SCRIPT_DIR}/common.sh"
 
+
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Start the Telegram bot in a Docker container."
+    echo ""
+    echo "Options:"
+    echo "  --token TOKEN       Specify the Telegram bot token (will be saved to .env file)"
+    echo "  --force-rebuild     Force rebuild of Docker container without using cache"
+    echo "  --cleanup           Perform additional cleanup before starting"
+    echo "  --help              Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 --token 123456789:ABCDEF... # Start with specific token"
+    echo "  $0 --force-rebuild             # Force rebuild container"
+    echo "  $0                             # Start using token from .env file"
+}
+
 # Function to check prerequisites
 check_prerequisites() {
     # Check prerequisites

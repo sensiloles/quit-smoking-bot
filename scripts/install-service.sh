@@ -7,6 +7,25 @@
 # Source common functions
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
+
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Install and configure the Telegram bot as a systemd service."
+    echo "This script requires root privileges (sudo)."
+    echo ""
+    echo "Options:"
+    echo "  --token TOKEN       Specify the Telegram bot token (will be saved to .env file)"
+    echo "  --force-rebuild     Force rebuild of Docker container without using cache"
+    echo "  --cleanup           Perform additional cleanup if installation fails"
+    echo "  --help              Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  sudo $0 --token 123456789:ABCDEF... # Install with specific token"
+    echo "  sudo $0 --force-rebuild             # Force rebuild container"
+    echo "  sudo $0                             # Install using token from .env file"
+}
+
 # Main service installation function
 install_service() {
     print_section "Checking Prerequisites"

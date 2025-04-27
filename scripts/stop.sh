@@ -5,6 +5,21 @@ set -e
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "${SCRIPT_DIR}/common.sh"
 
+
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Stop the Telegram bot and clean up Docker resources."
+    echo ""
+    echo "Options:"
+    echo "  --cleanup           Perform thorough cleanup of resources (containers, images, volumes)"
+    echo "  --help              Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                  # Stop the bot"
+    echo "  $0 --cleanup        # Stop the bot and perform thorough cleanup"
+}
+
 # Function to check prerequisites
 check_prerequisites() {
     check_docker_installation || return 1
