@@ -146,6 +146,22 @@ Force a complete rebuild:
 ./scripts/run.sh --force-rebuild
 ```
 
+If you encounter errors like `error getting credentials - err: exit status 1, out: \`\` when pulling base images (e.g., `python:3.9-slim`), it might be due to Docker Hub authentication issues. Try the following:
+- Ensure you are logged into Docker Hub (`docker login`).
+- Restart Docker Desktop or the Docker daemon.
+- Check your network connection.
+
+### Debugging Scripts
+
+If the operational scripts (`run.sh`, `install-service.sh`, etc.) are not behaving as expected or exiting prematurely, you can enable verbose debug output by prefixing the command with `DEBUG=1`
+
+```bash
+DEBUG=1 ./scripts/run.sh --force-rebuild --token YOUR_TOKEN
+DEBUG=1 sudo ./scripts/install-service.sh --tests
+```
+
+This will print detailed step-by-step information (lines starting with `DEBUG:`) to help pinpoint where the script is failing.
+
 ## Project Structure
 
 ```
@@ -307,5 +323,4 @@ This project uses `pre-commit` to manage Git hooks that run checks before commit
    pre-commit install --hook-type commit-msg --hook-type pre-commit
    ```
 
-# Test comment
 Now, the configured checks (like commit message linting) will run automatically when you run `git commit`.
