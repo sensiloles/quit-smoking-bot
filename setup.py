@@ -13,5 +13,5 @@ setup(
         "apscheduler==3.10.4",
         "python-dotenv==1.0.1",
     ],
-    python_requires='>=3.9',
+    python_requires=">=3.9",
 )

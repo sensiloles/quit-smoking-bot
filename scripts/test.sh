@@ -41,7 +41,7 @@ if ! docker-compose build --no-cache test; then
 fi
 
 # Run the tests using the freshly built image
-if ! docker-compose run --rm test; then 
+if ! docker-compose run --rm test; then
     print_error "Tests failed"
     exit 1
 fi

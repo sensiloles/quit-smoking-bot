@@ -29,34 +29,34 @@ show_help() {
 main() {
     # Parse command line arguments using the common function
     parse_args "$@"
-    
+
     # If token was passed via --token parameter, save it to .env and export it
     if [ -n "$TOKEN" ]; then
         update_env_token "$TOKEN"
         export BOT_TOKEN="$TOKEN"
     fi
-    
+
     # Check prerequisites
     check_prerequisites || return 1
-    
+
     # Check for local container and conflicts with remote bots
     # Use common function to check conflicts (don't exit on conflict)
     check_bot_conflicts "$BOT_TOKEN" 0
     conflict_status=$?
-    
+
     if [ $conflict_status -eq 1 ]; then
         # Return error for handling in main
         print_error "Cannot proceed due to remote conflict with another bot instance."
         print_message "Please stop the other bot instance before continuing." "$YELLOW"
         return 1
     fi
-    
+
     # Stop any existing running instances
     stop_running_instances $conflict_status
-    
+
     # Setup data directories with proper permissions
     setup_data_directories
-    
+
     # Determine if we should start the service immediately after building
     local start_immediately=1
     if [ "$RUN_TESTS" -eq 1 ]; then
@@ -79,10 +79,10 @@ main() {
             return 1
         fi
     fi
-    
+
     # Check if bot is healthy and operational
     check_bot_status
-    
+
     # Show logs and handle Ctrl+C gracefully
     print_message "\nBot started successfully. Press Ctrl+C to detach from logs." "$GREEN"
     trap 'print_message "\nDetaching from logs..." "$GREEN"; return 0' INT

@@ -1,0 +1,7 @@
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0" # Dummy version for commitizen config
+tag_format = "$version"
+version_files = [
+    "src/config.py:__version__" # Example, adjust if you track version elsewhere
+]

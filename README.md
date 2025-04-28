@@ -213,7 +213,7 @@ The bot is containerized using Docker for consistent deployment across different
 
 Key features of the Docker implementation include:
 - Multi-stage build process for optimized image size
-- Non-root user execution for enhanced security 
+- Non-root user execution for enhanced security
 - Persistent volume mapping for data and logs
 - Comprehensive health checking system
 - Resource limits and container management
@@ -263,3 +263,49 @@ python3 -m pip install -r requirements-dev.txt
 ```
 
 This will install all necessary libraries, including setuptools, and configure the project for development.
+
+## Commit Conventions
+
+This project follows the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for commit messages. This format helps in automating CHANGELOG generation and makes the commit history more readable.
+
+The basic format is:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+Common types include:
+
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `perf`: A code change that improves performance
+- `test`: Adding missing tests or correcting existing tests
+- `build`: Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+- `ci`: Changes to our CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, SauceLabs)
+- `chore`: Other changes that don't modify src or test files
+
+### Enforcement
+
+Commit message formatting is enforced using a Git hook managed by `pre-commit`. See the "Pre-commit Hooks" section below.
+
+## Pre-commit Hooks
+
+This project uses `pre-commit` to manage Git hooks that run checks before commits are made. This helps maintain code quality and consistency.
+
+**Installation:**
+
+1. Ensure you have set up the [Development Environment](#development-environment-setup).
+2. Install the Git hooks:
+   ```bash
+   pre-commit install --hook-type commit-msg --hook-type pre-commit
+   ```
+
+# Test comment
+Now, the configured checks (like commit message linting) will run automatically when you run `git commit`.

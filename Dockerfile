@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements first to leverage Docker cache
-COPY requirements.txt requirements-dev.txt ./ 
+COPY requirements.txt requirements-dev.txt ./
 # Install dependencies from requirements files
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
 

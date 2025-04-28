@@ -32,7 +32,7 @@ Both services share the same base image but have different configurations and en
 ├── scripts/             # Shell scripts
 ├── data/                # Persistent data (volume)
 │   ├── bot_users.json   # User data
-│   ├── bot_admins.json  # Admin data  
+│   ├── bot_admins.json  # Admin data
 │   └── quotes.json      # Motivational quotes
 ├── logs/                # Log files (volume)
 │   └── bot.log          # Main log file
@@ -120,7 +120,7 @@ version: '3.8'
 
 services:
   bot:
-    build: 
+    build:
       context: .
       args:
         - USER_ID=${USER_ID:-1000}
@@ -410,4 +410,4 @@ For local development without Docker, a Python virtual environment is recommende
    - `setuptools`: For package management
    - Project dependencies: Through the `-e .` editable install
 
-The editable install (`-e .`) allows you to modify the code and have changes take effect immediately without reinstalling the package. 
+The editable install (`-e .`) allows you to modify the code and have changes take effect immediately without reinstalling the package.

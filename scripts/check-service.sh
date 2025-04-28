@@ -41,19 +41,19 @@ parse_arguments_check_service "$@"
 # Function to check systemd service status
 check_systemd_service() {
     print_section "Systemd Service Status"
-    
+
     if systemctl is-active $SYSTEM_NAME.service >/dev/null 2>&1; then
         print_message "Service is active" "$GREEN"
     else
         print_message "Service is not active" "$RED"
     fi
-    
+
     if systemctl is-enabled $SYSTEM_NAME.service &>/dev/null; then
         print_message "Service is enabled (starts on boot)" "$GREEN"
     else
         print_message "Service is not enabled" "$YELLOW"
     fi
-    
+
     print_message "\nDetailed service status:" "$YELLOW"
     systemctl status $SYSTEM_NAME.service --no-pager
 }
@@ -61,7 +61,7 @@ check_systemd_service() {
 # Function to check Docker containers
 check_docker_containers() {
     print_section "Docker Containers"
-    
+
     local containers=$(docker ps -a --filter "name=$SYSTEM_NAME" --format "{{.Names}}")
     if [ -z "$containers" ]; then
         print_message "No $SYSTEM_NAME containers found" "$YELLOW"
@@ -74,7 +74,7 @@ check_docker_containers() {
 # Function to check Docker images
 check_docker_images() {
     print_section "Docker Images"
-    
+
     local images=$(docker images | grep $SYSTEM_NAME)
     if [ -z "$images" ]; then
         print_message "No $SYSTEM_NAME images found" "$YELLOW"
@@ -87,7 +87,7 @@ check_docker_images() {
 # Function to check Docker volumes
 check_docker_volumes() {
     print_section "Docker Volumes"
-    
+
     local volumes=$(docker volume ls | grep $SYSTEM_NAME)
     if [ -z "$volumes" ]; then
         print_message "No $SYSTEM_NAME volumes found" "$YELLOW"
@@ -100,7 +100,7 @@ check_docker_volumes() {
 # Function to check project files
 check_project_files() {
     print_section "Project Files"
-    
+
     # Check data directory
     if [ -d "./data" ]; then
         print_message "Data directory exists" "$GREEN"
@@ -108,7 +108,7 @@ check_project_files() {
     else
         print_message "Data directory not found" "$YELLOW"
     fi
-    
+
     # Check logs directory
     if [ -d "./logs" ]; then
         print_message "Logs directory exists" "$GREEN"
@@ -116,21 +116,21 @@ check_project_files() {
     else
         print_message "Logs directory not found" "$YELLOW"
     fi
-    
+
     # Check service file
     if [ -f "/etc/systemd/system/$SYSTEM_NAME.service" ]; then
         print_message "Service file exists" "$GREEN"
     else
         print_message "Service file not found" "$YELLOW"
     fi
-    
+
     # Check Docker compose files
     if [ -f "docker-compose.yml" ]; then
         print_message "docker-compose.yml exists" "$GREEN"
     else
         print_message "docker-compose.yml not found" "$YELLOW"
     fi
-    
+
     if [ -f "docker-compose.override.yml" ]; then
         print_message "docker-compose.override.yml exists" "$GREEN"
     else
@@ -141,14 +141,14 @@ check_project_files() {
 # Function to check network connections
 check_network() {
     print_section "Network Connections"
-    
+
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
     if [ -n "$container_id" ]; then
         print_message "Container network settings:" "$GREEN"
         # Get network mode
         local network_mode=$(docker inspect --format '{{.HostConfig.NetworkMode}}' $container_id)
         print_message "Network Mode: $network_mode" "$YELLOW"
-        
+
         # Get exposed ports
         local ports=$(docker inspect --format '{{range $p, $conf := .NetworkSettings.Ports}} {{$p}} -> {{(index $conf 0).HostPort}} {{end}}' $container_id)
         if [ -n "$ports" ]; then
@@ -156,11 +156,11 @@ check_network() {
         else
             print_message "No ports exposed" "$YELLOW"
         fi
-        
+
         # Get IP addresses for all networks
         print_message "\nContainer IP addresses:" "$GREEN"
         docker inspect --format '{{range $net, $config := .NetworkSettings.Networks}}{{printf "Network: %s\nIP: %s\n" $net $config.IPAddress}}{{end}}' $container_id
-        
+
         # Get network aliases
         local aliases=$(docker inspect --format '{{range $net, $config := .NetworkSettings.Networks}}{{printf "Network: %s\nAliases: %s\n" $net $config.Aliases}}{{end}}' $container_id)
         if [ -n "$aliases" ]; then
@@ -175,11 +175,11 @@ check_network() {
 # Function to check logs
 check_logs() {
     print_section "Recent Logs"
-    
+
     # Check systemd logs
     print_message "Systemd service logs (last 10 lines):" "$YELLOW"
     journalctl -u $SYSTEM_NAME.service -n 10 --no-pager
-    
+
     # Check Docker container logs
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
     if [ -n "$container_id" ]; then
@@ -191,19 +191,19 @@ check_logs() {
 # Function to check system resources
 check_resources() {
     print_section "System Resources"
-    
+
     # Check CPU usage
     print_message "CPU Usage:" "$GREEN"
     top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1"%"}'
-    
+
     # Check memory usage
     print_message "\nMemory Usage:" "$GREEN"
     free -h | grep -i mem
-    
+
     # Check disk space
     print_message "\nDisk Space:" "$GREEN"
     df -h | grep -E "(Filesystem|/$|/var)"
-    
+
     # Check Docker resources
     print_message "\nDocker Resources:" "$GREEN"
     docker info | grep -E "(containers|images|volumes|Name)"
@@ -212,31 +212,31 @@ check_resources() {
 # Function to check bot health
 check_bot_health_status() {
     print_section "Bot Health"
-    
+
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
     if [ -n "$container_id" ]; then
         # Get container health status
         local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
-        
+
         if [ -z "$health_status" ]; then
             print_message "Container has no health check defined" "$YELLOW"
         else
             print_message "Container health status: $health_status" "$YELLOW"
-            
+
             # Show last health check
             print_message "\nLast health check:" "$YELLOW"
             docker inspect --format='{{json .State.Health.Log}}' $container_id | jq -r '.[-1].Output' 2>/dev/null || \
             docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' $container_id | tail -1
         fi
-        
+
         # Check if the bot process is running
         if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
             print_message "\nBot process is running inside container" "$GREEN"
-            
-            # Get container start time 
+
+            # Get container start time
             local container_start_time=$(docker inspect --format='{{.State.StartedAt}}' $container_id)
             print_message "Container started at: $container_start_time" "$YELLOW"
-            
+
             # Check the health file
             if docker exec $container_id test -f /app/health/operational 2>/dev/null; then
                 print_message "Health file exists (/app/health/operational)" "$GREEN"
@@ -246,16 +246,16 @@ check_bot_health_status() {
             else
                 print_message "Health file does not exist (/app/health/operational)" "$RED"
             fi
-            
+
             # Check for logs that indicate the bot is operational
             if docker logs $container_id --tail 100 2>&1 | grep -q "NEW BOT SESSION STARTED"; then
                 print_message "\nFound session marker in logs - this is a fresh session" "$GREEN"
-                
+
                 # Check for operational indicator after session start
                 docker_log_with_session_start=$(docker logs $container_id 2>&1 | awk '/NEW BOT SESSION STARTED/{flag=1;next} flag')
                 if echo "$docker_log_with_session_start" | grep -q "Application started"; then
                     print_message "Bot is operational (found 'Application started' in logs)" "$GREEN"
-                    
+
                     # Check for conflict errors only in current session
                     if echo "$docker_log_with_session_start" | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
                         print_error "\nWARNING: Conflict detected in current session! Another bot instance is running with the same token."
@@ -266,13 +266,13 @@ check_bot_health_status() {
                 fi
             elif docker logs $container_id --tail 100 2>&1 | grep -q "Application started"; then
                 print_message "\nBot is operational (found 'Application started' in logs)" "$GREEN"
-                
+
                 # Check for recent conflict errors (last 10 lines)
                 if docker logs $container_id --tail 10 2>&1 | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
                     print_error "\nWARNING: Recent conflict detected in logs! Another bot instance is running with the same token."
                     print_message "This may prevent your bot from functioning correctly." "$RED"
                 fi
-                
+
                 # Inform about old conflict errors if present
                 if docker exec $container_id grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates" /app/logs/bot.log 2>/dev/null; then
                     conflict_count=$(docker exec $container_id grep -c "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates" /app/logs/bot.log 2>/dev/null || echo 0)
@@ -296,31 +296,31 @@ check_bot_health_status() {
 # Function to report overall status
 report_overall_status() {
     print_section "Overall Status"
-    
+
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
     local service_active=false
     local container_running=false
     local bot_running=false
     local health_check_ok=false
-    
+
     if systemctl is-active $SYSTEM_NAME.service >/dev/null 2>&1; then
         service_active=true
         print_message "Systemd service: ACTIVE" "$GREEN"
     else
         print_message "Systemd service: NOT ACTIVE" "$RED"
     fi
-    
+
     if [ -n "$container_id" ]; then
         container_running=true
         print_message "Docker container: RUNNING" "$GREEN"
-        
+
         if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
             bot_running=true
             print_message "Bot process: RUNNING" "$GREEN"
         else
             print_message "Bot process: NOT RUNNING" "$RED"
         fi
-        
+
         local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
         if [ "$health_status" = "healthy" ]; then
             health_check_ok=true
@@ -331,7 +331,7 @@ report_overall_status() {
     else
         print_message "Docker container: NOT RUNNING" "$RED"
     fi
-    
+
     print_message "\nSummary:" "$YELLOW"
     if $service_active && $container_running && $bot_running && $health_check_ok; then
         print_message "Bot is fully operational" "$GREEN"
@@ -344,7 +344,7 @@ report_overall_status() {
     else
         print_message "Bot is not operational" "$RED"
     fi
-    
+
     if [ -f "/etc/systemd/system/$SYSTEM_NAME.service" ]; then
         print_message "\nAvailable commands:" "$YELLOW"
         print_message "  Start: sudo systemctl start $SYSTEM_NAME.service" "$YELLOW"
@@ -352,7 +352,7 @@ report_overall_status() {
         print_message "  Restart: sudo systemctl restart $SYSTEM_NAME.service" "$YELLOW"
         print_message "  Status: sudo systemctl status $SYSTEM_NAME.service" "$YELLOW"
         print_message "  Logs: sudo journalctl -u $SYSTEM_NAME.service" "$YELLOW"
-        
+
         if [ -n "$container_id" ]; then
             print_message "  Container logs: docker logs $container_id" "$YELLOW"
         fi
@@ -367,23 +367,23 @@ check_prerequisites() {
     if ! check_system_name; then
         exit 1
     fi
-    
+
     # Check if Docker is installed
     if ! command -v docker >/dev/null 2>&1; then
         print_error "Docker is not installed. Cannot check bot status."
         exit 1
     fi
-    
+
     # Check if docker-compose is installed
     if ! command -v docker-compose >/dev/null 2>&1; then
         print_warning "docker-compose is not installed. Limited checks will be performed."
     fi
-    
+
     # Check if jq is installed (for parsing JSON)
     if ! command -v jq >/dev/null 2>&1; then
         print_warning "jq is not installed. Some health checks may not display properly."
     fi
-    
+
     return 0
 }
 
@@ -394,12 +394,12 @@ main() {
         print_error "SYSTEM_NAME is not set. Cannot check bot status."
         exit 1
     fi
-    
+
     print_message "Checking status of $SYSTEM_NAME bot service..." "$YELLOW"
-    
+
     # Run prerequisite checks
     check_prerequisites
-    
+
     # Run all check functions
     check_systemd_service
     check_docker_containers
