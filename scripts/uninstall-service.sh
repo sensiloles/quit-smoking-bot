@@ -25,7 +25,7 @@ if [ -z "$SYSTEM_NAME" ]; then
     exit 1
 fi
 
-# Ensure SYSTEM_DISPLAY_NAME is available 
+# Ensure SYSTEM_DISPLAY_NAME is available
 if [ -z "$SYSTEM_DISPLAY_NAME" ]; then
     print_error "SYSTEM_DISPLAY_NAME is not set"
     exit 1
@@ -35,10 +35,10 @@ fi
 get_service_status() {
     print_message "\nCurrent service status:" "$YELLOW"
     systemctl status $SYSTEM_NAME.service --no-pager || true
-    
+
     print_message "\nDocker container status:" "$YELLOW"
     docker ps -a --filter "name=$SYSTEM_NAME" || true
-    
+
     print_message "\nDocker images:" "$YELLOW"
     docker images | grep $SYSTEM_NAME || true
 }
@@ -48,10 +48,10 @@ stop_service() {
     print_message "\n1. Stopping service..." "$YELLOW"
     systemctl stop $SYSTEM_NAME.service || true
     systemctl disable $SYSTEM_NAME.service || true
-    
+
     print_message "\n2. Removing service file..." "$YELLOW"
     rm -f /etc/systemd/system/$SYSTEM_NAME.service
-    
+
     print_message "\n3. Reloading systemd..." "$YELLOW"
     systemctl daemon-reload
     systemctl reset-failed
@@ -88,11 +88,11 @@ cleanup_docker bot "$CLEANUP"
 print_message "\n5. Cleaning up project files..." "$YELLOW"
 # Remove data and logs directories
 rm -rf ./data ./logs
-    
+
 # Remove Docker artifacts
 rm -f .config_hash
 rm -f docker-compose.override.yml
-    
+
 # Remove build artifacts
 rm -rf __pycache__ */__pycache__ .pytest_cache
 

@@ -40,16 +40,16 @@ main() {
     if ! parse_args "$@"; then
         return 1
     fi
-    
+
     # Check prerequisites
     check_prerequisites || return 1
-    
+
     # Stop and remove containers
     stop_containers || return 1
-    
+
     # Clean up Docker resources if requested
     cleanup_resources
-    
+
     print_message "Bot has been stopped successfully." "$GREEN"
     return 0
 }

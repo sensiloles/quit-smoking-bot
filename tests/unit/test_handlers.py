@@ -4,17 +4,20 @@ Unit tests for the bot's command handlers.
 """
 
 import unittest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, AsyncMock
 import sys
 import os
 
 # Add src directory to sys.path to allow importing src modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+)
 
 # Import handlers and other necessary components from src
 # Assuming handlers are methods of QuitSmokingBot class in src/bot.py
 from bot import QuitSmokingBot
-from config import WELCOME_MESSAGE, BOT_NAME # Import necessary constants
+from config import WELCOME_MESSAGE, BOT_NAME  # Import necessary constants
+
 
 # Mock user and chat objects for Telegram context
 class MockUser:
@@ -23,10 +26,12 @@ class MockUser:
         self.first_name = first_name
         self.is_bot = is_bot
 
+
 class MockChat:
     def __init__(self, id, type="private"):
         self.id = id
         self.type = type
+
 
 class MockMessage:
     def __init__(self, text, user_id=123, chat_id=123):
@@ -38,13 +43,15 @@ class MockMessage:
         # Make reply_text an AsyncMock
         self.reply_text = AsyncMock()
 
+
 class MockUpdate:
-     def __init__(self, message):
+    def __init__(self, message):
         self.update_id = 1
         self.message = message
         # Mock effective_user and effective_chat directly from update
         self.effective_user = message.from_user
         self.effective_chat = message.chat
+
 
 class MockApplication:
     def __init__(self):
@@ -52,12 +59,13 @@ class MockApplication:
         self.bot = MagicMock()
         self.bot.send_message = AsyncMock()
 
+
 class MockContext:
     def __init__(self, application, message):
         self.application = application
         # Make bot a direct attribute for convenience if handlers use context.bot
-        self.bot = application.bot 
-        self.args = [] # Mock command arguments if needed
+        self.bot = application.bot
+        self.args = []  # Mock command arguments if needed
         self._user_data = {}
         self._chat_data = {}
         # Store the bot instance or mocked components in bot_data if needed
@@ -78,7 +86,7 @@ class MockContext:
         raise KeyError(key)
 
     def __setitem__(self, key, value):
-        self._bot_data[key] = value # Example: store bot components here
+        self._bot_data[key] = value  # Example: store bot components here
 
     def __contains__(self, key):
         return key in self._user_data or key in self._chat_data or key in self._bot_data
@@ -97,26 +105,25 @@ class MockContext:
 
 
 class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self):
         """Set up test fixtures, mocking dependencies."""
         # Create a mock instance of QuitSmokingBot
         # We don't need a real instance, just something to hold the handlers
         self.bot_instance = MagicMock(spec=QuitSmokingBot)
-        
+
         # Mock the UserManager instance *within* the mocked bot instance
         self.mock_user_manager = MagicMock()
         self.bot_instance.user_manager = self.mock_user_manager
-        
+
         # Mock other managers if needed by handlers
         self.mock_status_manager = MagicMock()
         self.bot_instance.status_manager = self.mock_status_manager
-        
+
         # Create mock application and context base for tests
         self.mock_application = MockApplication()
         # Context needs application and message, message is created per test
         # self.mock_context = MockContext(self.mock_application, None)
-        
+
     async def test_start_command_new_user_first_ever(self):
         """Test /start for the very first user (becomes admin)."""
         # --- Arrange ---
@@ -129,7 +136,7 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # Simulate no admins exist initially
         self.mock_user_manager.get_all_admins.return_value = []
         # Simulate add_user returning True (new user)
-        self.mock_user_manager.add_user.return_value = True 
+        self.mock_user_manager.add_user.return_value = True
 
         # --- Act ---
         # Call the handler method on the *mocked* bot instance
@@ -140,12 +147,14 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         self.mock_user_manager.get_all_admins.assert_called_once()
         self.mock_user_manager.add_admin.assert_called_once_with(user_id)
         self.mock_user_manager.add_user.assert_called_once_with(user_id)
-        
+
         # Check the reply message (should mention becoming admin)
         update.message.reply_text.assert_called_once()
         call_args, _ = update.message.reply_text.call_args
-        expected_text = WELCOME_MESSAGE.format(bot_name=BOT_NAME) + "\n\n" \
-                        "You have been set as the first administrator of the bot."
+        expected_text = (
+            WELCOME_MESSAGE.format(bot_name=BOT_NAME) + "\n\n"
+            "You have been set as the first administrator of the bot."
+        )
         self.assertEqual(call_args[0], expected_text)
 
     async def test_start_command_new_user_not_first(self):
@@ -158,7 +167,7 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         context = MockContext(self.mock_application, message)
 
         # Simulate admins already exist
-        self.mock_user_manager.get_all_admins.return_value = [111] # From previous test
+        self.mock_user_manager.get_all_admins.return_value = [111]  # From previous test
         # Simulate add_user returning True (new user)
         self.mock_user_manager.add_user.return_value = True
 
@@ -168,9 +177,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Assert ---
         # Check user was added, but not made admin
         self.mock_user_manager.get_all_admins.assert_called_once()
-        self.mock_user_manager.add_admin.assert_not_called() 
+        self.mock_user_manager.add_admin.assert_not_called()
         self.mock_user_manager.add_user.assert_called_once_with(user_id)
-        
+
         # Check the standard welcome reply message
         update.message.reply_text.assert_called_once()
         call_args, _ = update.message.reply_text.call_args
@@ -199,7 +208,7 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         self.mock_user_manager.add_admin.assert_not_called()
         # Check add_user was called, even if user exists
         self.mock_user_manager.add_user.assert_called_once_with(user_id)
-        
+
         # Check the standard welcome reply message is still sent
         update.message.reply_text.assert_called_once()
         call_args, _ = update.message.reply_text.call_args
@@ -248,11 +257,11 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(admin_user_id)
         self.mock_user_manager.get_all_users.assert_called_once()
-        
+
         # Check the reply text formatting
         expected_text = "List of users:\n1. 100\n2. 200\n3. 300\n"
         update.message.reply_text.assert_called_once_with(expected_text)
-        
+
     async def test_list_users_admin_no_users(self):
         """Test /list_users command by an admin when no users exist."""
         # --- Arrange ---
@@ -291,8 +300,10 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
 
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(non_admin_user_id)
-        self.mock_user_manager.get_all_users.assert_not_called() # Should not be called if not admin
-        update.message.reply_text.assert_called_once_with("You don't have permission to use this command.")
+        self.mock_user_manager.get_all_users.assert_not_called()  # Should not be called if not admin
+        update.message.reply_text.assert_called_once_with(
+            "You don't have permission to use this command."
+        )
 
     async def test_list_admins_admin_success(self):
         """Test /list_admins command by an admin with admins present."""
@@ -314,7 +325,7 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(admin_user_id)
         self.mock_user_manager.get_all_admins.assert_called_once()
-        
+
         # Check the reply text formatting
         expected_text = "List of administrators:\n1. 100\n2. 150\n"
         update.message.reply_text.assert_called_once_with(expected_text)
@@ -345,7 +356,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Arrange ---
         non_admin_user_id = 500
         chat_id = 500
-        message = MockMessage("/list_admins", user_id=non_admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            "/list_admins", user_id=non_admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
 
@@ -358,7 +371,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(non_admin_user_id)
         self.mock_user_manager.get_all_admins.assert_not_called()
-        update.message.reply_text.assert_called_once_with("You don't have permission to use this command.")
+        update.message.reply_text.assert_called_once_with(
+            "You don't have permission to use this command."
+        )
 
     async def test_add_admin_success(self):
         """Test /add_admin successfully adding a new admin."""
@@ -366,15 +381,21 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         admin_user_id = 100
         new_admin_id = 200
         chat_id = 100
-        message = MockMessage(f"/add_admin {new_admin_id}", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/add_admin {new_admin_id}", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
-        context.args = [str(new_admin_id)] # Set command args
+        context.args = [str(new_admin_id)]  # Set command args
 
         # Simulate command issuer is admin
         self.mock_user_manager.is_admin.side_effect = lambda uid: uid == admin_user_id
         # Simulate target user exists in user list
-        self.mock_user_manager.get_all_users.return_value = [admin_user_id, new_admin_id, 300]
+        self.mock_user_manager.get_all_users.return_value = [
+            admin_user_id,
+            new_admin_id,
+            300,
+        ]
         # Simulate add_admin operation succeeds
         self.mock_user_manager.add_admin.return_value = True
         # Mock the bot's update_commands_for_user method
@@ -385,7 +406,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
 
         # --- Assert ---
         # Check permission check
-        self.mock_user_manager.is_admin.assert_any_call(admin_user_id) # Checks command issuer
+        self.mock_user_manager.is_admin.assert_any_call(
+            admin_user_id
+        )  # Checks command issuer
         # Check if target user exists
         self.mock_user_manager.get_all_users.assert_called_once()
         # Check if target user is *already* admin
@@ -393,29 +416,40 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # Check add_admin call
         self.mock_user_manager.add_admin.assert_called_once_with(new_admin_id)
         # Check confirmation message to the issuer
-        update.message.reply_text.assert_called_once_with(f"User ID {new_admin_id} has been added as an admin.")
+        update.message.reply_text.assert_called_once_with(
+            f"User ID {new_admin_id} has been added as an admin."
+        )
         # Check notification sent to the new admin
         context.bot.send_message.assert_called_once()
         call_args, call_kwargs = context.bot.send_message.call_args
-        self.assertEqual(call_kwargs.get('chat_id'), new_admin_id)
-        self.assertIn("You have been given administrator privileges", call_kwargs.get('text'))
-        self.assertIsNotNone(call_kwargs.get('reply_markup')) # Check for decline button
+        self.assertEqual(call_kwargs.get("chat_id"), new_admin_id)
+        self.assertIn(
+            "You have been given administrator privileges", call_kwargs.get("text")
+        )
+        self.assertIsNotNone(
+            call_kwargs.get("reply_markup")
+        )  # Check for decline button
         # Check if commands were updated for the new admin
         self.bot_instance.update_commands_for_user.assert_called_once_with(new_admin_id)
-        
+
     async def test_add_admin_target_not_registered(self):
         """Test /add_admin when target user ID is not registered."""
         # --- Arrange ---
         admin_user_id = 100
-        target_user_id = 999 # Not in user list
+        target_user_id = 999  # Not in user list
         chat_id = 100
-        message = MockMessage(f"/add_admin {target_user_id}", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/add_admin {target_user_id}", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [str(target_user_id)]
 
-        self.mock_user_manager.is_admin.return_value = True # Issuer is admin
-        self.mock_user_manager.get_all_users.return_value = [100, 200] # Target not present
+        self.mock_user_manager.is_admin.return_value = True  # Issuer is admin
+        self.mock_user_manager.get_all_users.return_value = [
+            100,
+            200,
+        ]  # Target not present
 
         # --- Act ---
         await QuitSmokingBot.add_admin(self.bot_instance, update, context)
@@ -429,14 +463,16 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
             f"User ID {target_user_id} is not registered with the bot. "
             f"The user must use /start command first."
         )
-        
+
     async def test_add_admin_target_already_admin(self):
         """Test /add_admin when target user is already an admin."""
         # --- Arrange ---
         admin_user_id = 100
-        target_user_id = 150 # Already admin
+        target_user_id = 150  # Already admin
         chat_id = 100
-        message = MockMessage(f"/add_admin {target_user_id}", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/add_admin {target_user_id}", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [str(target_user_id)]
@@ -454,8 +490,10 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         self.mock_user_manager.is_admin.assert_any_call(target_user_id)
         self.mock_user_manager.add_admin.assert_not_called()
         context.bot.send_message.assert_not_called()
-        update.message.reply_text.assert_called_once_with(f"User ID {target_user_id} is already an admin.")
-        
+        update.message.reply_text.assert_called_once_with(
+            f"User ID {target_user_id} is already an admin."
+        )
+
     async def test_add_admin_no_args(self):
         """Test /add_admin without providing a user ID."""
         # --- Arrange ---
@@ -464,9 +502,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         message = MockMessage("/add_admin", user_id=admin_user_id, chat_id=chat_id)
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
-        context.args = [] # No args
+        context.args = []  # No args
 
-        self.mock_user_manager.is_admin.return_value = True # Issuer is admin
+        self.mock_user_manager.is_admin.return_value = True  # Issuer is admin
 
         # --- Act ---
         await QuitSmokingBot.add_admin(self.bot_instance, update, context)
@@ -486,19 +524,23 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         admin_user_id = 100
         chat_id = 100
         invalid_arg = "not_a_number"
-        message = MockMessage(f"/add_admin {invalid_arg}", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/add_admin {invalid_arg}", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [invalid_arg]
 
-        self.mock_user_manager.is_admin.return_value = True # Issuer is admin
+        self.mock_user_manager.is_admin.return_value = True  # Issuer is admin
 
         # --- Act ---
         await QuitSmokingBot.add_admin(self.bot_instance, update, context)
 
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(admin_user_id)
-        update.message.reply_text.assert_called_once_with("Invalid user ID. Please provide a numeric user ID.")
+        update.message.reply_text.assert_called_once_with(
+            "Invalid user ID. Please provide a numeric user ID."
+        )
         self.mock_user_manager.add_admin.assert_not_called()
         context.bot.send_message.assert_not_called()
 
@@ -508,19 +550,23 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         non_admin_user_id = 500
         target_user_id = 200
         chat_id = 500
-        message = MockMessage(f"/add_admin {target_user_id}", user_id=non_admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/add_admin {target_user_id}", user_id=non_admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [str(target_user_id)]
 
-        self.mock_user_manager.is_admin.return_value = False # Issuer is NOT admin
+        self.mock_user_manager.is_admin.return_value = False  # Issuer is NOT admin
 
         # --- Act ---
         await QuitSmokingBot.add_admin(self.bot_instance, update, context)
 
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(non_admin_user_id)
-        update.message.reply_text.assert_called_once_with("You don't have permission to use this command.")
+        update.message.reply_text.assert_called_once_with(
+            "You don't have permission to use this command."
+        )
         self.mock_user_manager.get_all_users.assert_not_called()
         self.mock_user_manager.add_admin.assert_not_called()
         context.bot.send_message.assert_not_called()
@@ -528,10 +574,12 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
     async def test_remove_admin_success(self):
         """Test /remove_admin successfully removing an admin."""
         # --- Arrange ---
-        admin_user_id = 100 # Issuer
+        admin_user_id = 100  # Issuer
         admin_to_remove = 150
         chat_id = 100
-        message = MockMessage(f"/remove_admin {admin_to_remove}", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/remove_admin {admin_to_remove}", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [str(admin_to_remove)]
@@ -542,41 +590,49 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         self.mock_user_manager.remove_admin.return_value = True
         # Mock update_commands_for_user
         self.bot_instance.update_commands_for_user = AsyncMock()
-        
+
         # --- Act ---
         await QuitSmokingBot.remove_admin(self.bot_instance, update, context)
 
         # --- Assert ---
         # Check that the permission of the issuer was checked
-        self.mock_user_manager.is_admin.assert_any_call(admin_user_id) 
+        self.mock_user_manager.is_admin.assert_any_call(admin_user_id)
         self.mock_user_manager.remove_admin.assert_called_once_with(admin_to_remove)
         # Correct expected reply text based on logs
-        update.message.reply_text.assert_called_once_with(f"User ID {admin_to_remove} has been removed from admins.")
+        update.message.reply_text.assert_called_once_with(
+            f"User ID {admin_to_remove} has been removed from admins."
+        )
         # Check notification sent to the removed admin
         context.bot.send_message.assert_called_once()
         call_args, call_kwargs = context.bot.send_message.call_args
-        self.assertEqual(call_kwargs.get('chat_id'), admin_to_remove)
+        self.assertEqual(call_kwargs.get("chat_id"), admin_to_remove)
         # Correct the expected text based on actual log output
         # Need to get the issuer admin name for the actual message
         issuer_admin_name = update.effective_user.first_name
         expected_notification_text = f"Your administrator privileges have been revoked by {issuer_admin_name} (ID: {admin_user_id})."
-        self.assertEqual(call_kwargs.get('text'), expected_notification_text)
+        self.assertEqual(call_kwargs.get("text"), expected_notification_text)
         # Check commands updated for the removed admin
-        self.bot_instance.update_commands_for_user.assert_called_once_with(admin_to_remove, is_admin=False)
+        self.bot_instance.update_commands_for_user.assert_called_once_with(
+            admin_to_remove, is_admin=False
+        )
 
     async def test_remove_admin_target_not_admin(self):
         """Test /remove_admin when target is not an admin."""
         # --- Arrange ---
         admin_user_id = 100
-        target_user_id = 200 # Not an admin
+        target_user_id = 200  # Not an admin
         chat_id = 100
-        message = MockMessage(f"/remove_admin {target_user_id}", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/remove_admin {target_user_id}", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [str(target_user_id)]
 
-        self.mock_user_manager.is_admin.return_value = True # Issuer is admin
-        self.mock_user_manager.remove_admin.return_value = False # Simulate removal fails
+        self.mock_user_manager.is_admin.return_value = True  # Issuer is admin
+        self.mock_user_manager.remove_admin.return_value = (
+            False  # Simulate removal fails
+        )
 
         # --- Act ---
         await QuitSmokingBot.remove_admin(self.bot_instance, update, context)
@@ -586,25 +642,29 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         self.mock_user_manager.is_admin.assert_any_call(admin_user_id)
         self.mock_user_manager.remove_admin.assert_called_once_with(target_user_id)
         # Correct expected reply text based on logs
-        update.message.reply_text.assert_called_once_with(f"Failed to remove user ID {target_user_id} from admins. Cannot remove the last admin.")
+        update.message.reply_text.assert_called_once_with(
+            f"Failed to remove user ID {target_user_id} from admins. Cannot remove the last admin."
+        )
         context.bot.send_message.assert_not_called()
         # Check update_commands_for_user was NOT called
         self.bot_instance.update_commands_for_user.assert_not_called()
-        
+
     async def test_remove_admin_last_admin(self):
         """Test /remove_admin attempting to remove the last admin (which is self)."""
         # --- Arrange ---
         admin_user_id = 100
-        target_user_id = 100 # Trying to remove self
+        target_user_id = 100  # Trying to remove self
         chat_id = 100
-        message = MockMessage(f"/remove_admin {target_user_id}", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/remove_admin {target_user_id}", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [str(target_user_id)]
 
-        self.mock_user_manager.is_admin.return_value = True # Issuer is admin
+        self.mock_user_manager.is_admin.return_value = True  # Issuer is admin
         # remove_admin should not be called due to self-removal check
-        self.mock_user_manager.remove_admin.return_value = False 
+        self.mock_user_manager.remove_admin.return_value = False
 
         # --- Act ---
         await QuitSmokingBot.remove_admin(self.bot_instance, update, context)
@@ -612,9 +672,11 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(admin_user_id)
         # remove_admin should NOT be called because of the self-removal check
-        self.mock_user_manager.remove_admin.assert_not_called() 
+        self.mock_user_manager.remove_admin.assert_not_called()
         # Check the specific reply text for self-removal attempt
-        update.message.reply_text.assert_called_once_with("You cannot remove yourself from admins. Use /decline_admin instead.")
+        update.message.reply_text.assert_called_once_with(
+            "You cannot remove yourself from admins. Use /decline_admin instead."
+        )
         context.bot.send_message.assert_not_called()
         self.bot_instance.update_commands_for_user.assert_not_called()
 
@@ -647,7 +709,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         admin_user_id = 100
         chat_id = 100
         invalid_arg = "not_a_number"
-        message = MockMessage(f"/remove_admin {invalid_arg}", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/remove_admin {invalid_arg}", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [invalid_arg]
@@ -659,29 +723,37 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
 
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(admin_user_id)
-        update.message.reply_text.assert_called_once_with("Invalid user ID. Please provide a numeric user ID.")
+        update.message.reply_text.assert_called_once_with(
+            "Invalid user ID. Please provide a numeric user ID."
+        )
         self.mock_user_manager.remove_admin.assert_not_called()
         context.bot.send_message.assert_not_called()
-        
+
     async def test_remove_admin_not_admin(self):
         """Test /remove_admin command by a non-admin user."""
         # --- Arrange ---
         non_admin_user_id = 500
         target_user_id = 100
         chat_id = 500
-        message = MockMessage(f"/remove_admin {target_user_id}", user_id=non_admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            f"/remove_admin {target_user_id}",
+            user_id=non_admin_user_id,
+            chat_id=chat_id,
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
         context.args = [str(target_user_id)]
 
-        self.mock_user_manager.is_admin.return_value = False # Issuer is NOT admin
+        self.mock_user_manager.is_admin.return_value = False  # Issuer is NOT admin
 
         # --- Act ---
         await QuitSmokingBot.remove_admin(self.bot_instance, update, context)
 
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(non_admin_user_id)
-        update.message.reply_text.assert_called_once_with("You don't have permission to use this command.")
+        update.message.reply_text.assert_called_once_with(
+            "You don't have permission to use this command."
+        )
         self.mock_user_manager.remove_admin.assert_not_called()
         context.bot.send_message.assert_not_called()
 
@@ -693,7 +765,7 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         chat_id = 12345
         # Pass user_name to MockUser
         message = MockMessage("/my_id", user_id=user_id, chat_id=chat_id)
-        message.from_user = MockUser(id=user_id, first_name=user_name) 
+        message.from_user = MockUser(id=user_id, first_name=user_name)
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
 
@@ -714,7 +786,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Arrange ---
         admin_user_id = 100
         chat_id = 100
-        message = MockMessage("/manual_notification", user_id=admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            "/manual_notification", user_id=admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
 
@@ -728,14 +802,18 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(admin_user_id)
         self.bot_instance.send_monthly_notification.assert_called_once_with(context)
-        update.message.reply_text.assert_called_once_with("Notifications sent to all users.")
+        update.message.reply_text.assert_called_once_with(
+            "Notifications sent to all users."
+        )
 
     async def test_manual_notification_not_admin(self):
         """Test /manual_notification command by non-admin."""
         # --- Arrange ---
         non_admin_user_id = 500
         chat_id = 500
-        message = MockMessage("/manual_notification", user_id=non_admin_user_id, chat_id=chat_id)
+        message = MockMessage(
+            "/manual_notification", user_id=non_admin_user_id, chat_id=chat_id
+        )
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
 
@@ -748,9 +826,11 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # --- Assert ---
         self.mock_user_manager.is_admin.assert_called_once_with(non_admin_user_id)
         self.bot_instance.send_monthly_notification.assert_not_called()
-        update.message.reply_text.assert_called_once_with("You don't have permission to use this command.")
+        update.message.reply_text.assert_called_once_with(
+            "You don't have permission to use this command."
+        )
 
-    # --- Tests for Callback Queries --- 
+    # --- Tests for Callback Queries ---
 
     # Mock CallbackQuery
     class MockCallbackQuery:
@@ -758,7 +838,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
             self.id = "callback_id_123"
             self.data = data
             self.from_user = MockUser(id=user_id)
-            self.message = message or MockMessage("Button message", user_id=user_id) # Associate with a message
+            self.message = message or MockMessage(
+                "Button message", user_id=user_id
+            )  # Associate with a message
             self.answer = AsyncMock()
             # Mock edit_message_text if the handler modifies the original message
             if self.message:
@@ -770,21 +852,24 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
             self.update_id = 2
             self.callback_query = callback_query
             # Make effective_user accessible directly
-            self.effective_user = callback_query.from_user 
+            self.effective_user = callback_query.from_user
 
     async def test_decline_admin_command(self):
         """Test the /decline_admin command."""
         # --- Arrange ---
-        user_id = 150 # User who wants to decline
+        user_id = 150  # User who wants to decline
         chat_id = 150
         message = MockMessage("/decline_admin", user_id=user_id, chat_id=chat_id)
         update = MockUpdate(message)
         context = MockContext(self.mock_application, message)
 
         # Simulate user is currently an admin and removal succeeds
-        self.mock_user_manager.is_admin.return_value = True 
+        self.mock_user_manager.is_admin.return_value = True
         # Add mock for get_all_admins to simulate multiple admins existing
-        self.mock_user_manager.get_all_admins.return_value = [user_id, 999] # Current user and another admin
+        self.mock_user_manager.get_all_admins.return_value = [
+            user_id,
+            999,
+        ]  # Current user and another admin
         self.mock_user_manager.remove_admin.return_value = True
         # Mock update_commands_for_user
         self.bot_instance.update_commands_for_user = AsyncMock()
@@ -802,8 +887,10 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
             "You have successfully declined your administrator privileges."
         )
         # Check commands were updated
-        self.bot_instance.update_commands_for_user.assert_called_once_with(user_id, is_admin=False)
-        
+        self.bot_instance.update_commands_for_user.assert_called_once_with(
+            user_id, is_admin=False
+        )
+
     async def test_decline_admin_command_not_admin(self):
         """Test /decline_admin command by someone who is not an admin."""
         # --- Arrange ---
@@ -816,7 +903,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # Simulate user is not admin
         self.mock_user_manager.is_admin.return_value = False
         # Also mock get_all_admins as it might be called before the is_admin check in some logic paths
-        self.mock_user_manager.get_all_admins.return_value = [999] # Some other admin exists
+        self.mock_user_manager.get_all_admins.return_value = [
+            999
+        ]  # Some other admin exists
 
         # --- Act ---
         await QuitSmokingBot.decline_admin(self.bot_instance, update, context)
@@ -829,11 +918,11 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # Use the already corrected text
         update.message.reply_text.assert_called_once_with("You are not an admin.")
         self.bot_instance.update_commands_for_user.assert_not_called()
-        
+
     async def test_decline_admin_command_last_admin(self):
         """Test /decline_admin command by the last admin."""
         # --- Arrange ---
-        user_id = 100 # The only admin
+        user_id = 100  # The only admin
         chat_id = 100
         message = MockMessage("/decline_admin", user_id=user_id, chat_id=chat_id)
         update = MockUpdate(message)
@@ -842,9 +931,13 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # Simulate user is admin
         self.mock_user_manager.is_admin.return_value = True
         # Add mock for get_all_admins to simulate only one admin existing
-        self.mock_user_manager.get_all_admins.return_value = [user_id] # Only the current user is admin
+        self.mock_user_manager.get_all_admins.return_value = [
+            user_id
+        ]  # Only the current user is admin
         # remove_admin should not be called in this case
-        self.mock_user_manager.remove_admin.return_value = False # Set return value just in case, though it shouldn't be called
+        self.mock_user_manager.remove_admin.return_value = (
+            False  # Set return value just in case, though it shouldn't be called
+        )
 
         # --- Act ---
         await QuitSmokingBot.decline_admin(self.bot_instance, update, context)
@@ -854,7 +947,7 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # Check get_all_admins was called to check if last admin
         self.mock_user_manager.get_all_admins.assert_called_once()
         # remove_admin should NOT be called if it's the last admin
-        self.mock_user_manager.remove_admin.assert_not_called() 
+        self.mock_user_manager.remove_admin.assert_not_called()
         # Check the correct error message for last admin
         update.message.reply_text.assert_called_once_with(
             "You are the last administrator and cannot decline your privileges. "
@@ -868,7 +961,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         user_id = 150
         callback_query = self.MockCallbackQuery(data="decline_admin", user_id=user_id)
         update = self.MockCallbackUpdate(callback_query)
-        context = MockContext(self.mock_application, callback_query.message) # Context needs message
+        context = MockContext(
+            self.mock_application, callback_query.message
+        )  # Context needs message
 
         # Simulate user is admin and removal succeeds
         self.mock_user_manager.is_admin.return_value = True
@@ -889,9 +984,11 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         callback_query.message.reply_text.assert_called_once_with(
             "You have successfully declined your administrator privileges."
         )
-        callback_query.message.edit_text.assert_not_called() # Ensure edit was not called
+        callback_query.message.edit_text.assert_not_called()  # Ensure edit was not called
         # Check commands updated
-        self.bot_instance.update_commands_for_user.assert_called_once_with(user_id, is_admin=False)
+        self.bot_instance.update_commands_for_user.assert_called_once_with(
+            user_id, is_admin=False
+        )
 
     async def test_handle_callback_query_decline_admin_not_admin(self):
         """Test callback query handler for 'decline_admin' by non-admin."""
@@ -904,7 +1001,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         # Simulate user is not admin
         self.mock_user_manager.is_admin.return_value = False
         # Mock get_all_admins as it's checked in the handler
-        self.mock_user_manager.get_all_admins.return_value = [100] # Some other admin exists
+        self.mock_user_manager.get_all_admins.return_value = [
+            100
+        ]  # Some other admin exists
 
         # --- Act ---
         await QuitSmokingBot.handle_callback_query(self.bot_instance, update, context)
@@ -916,7 +1015,9 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         self.mock_user_manager.is_admin.assert_called_once_with(user_id)
         self.mock_user_manager.remove_admin.assert_not_called()
         # Check message was replied to, not edited, with correct text
-        callback_query.message.reply_text.assert_called_once_with("You are not an admin.")
+        callback_query.message.reply_text.assert_called_once_with(
+            "You are not an admin."
+        )
         callback_query.message.edit_text.assert_not_called()
         self.bot_instance.update_commands_for_user.assert_not_called()
 
@@ -930,8 +1031,8 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
 
         # Simulate user is the last admin
         self.mock_user_manager.is_admin.return_value = True
-        self.mock_user_manager.get_all_admins.return_value = [user_id] # Only this user
-        self.mock_user_manager.remove_admin.return_value = False # Removal would fail
+        self.mock_user_manager.get_all_admins.return_value = [user_id]  # Only this user
+        self.mock_user_manager.remove_admin.return_value = False  # Removal would fail
 
         # --- Act ---
         await QuitSmokingBot.handle_callback_query(self.bot_instance, update, context)
@@ -942,7 +1043,7 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         self.mock_user_manager.get_all_admins.assert_called_once()
         # is_admin might not be called if last admin check happens first
         # self.mock_user_manager.is_admin.assert_called_once_with(user_id)
-        self.mock_user_manager.remove_admin.assert_not_called() # remove_admin is not called for last admin
+        self.mock_user_manager.remove_admin.assert_not_called()  # remove_admin is not called for last admin
         # Check message was replied to, not edited, with correct text
         callback_query.message.reply_text.assert_called_once_with(
             "You are the last administrator and cannot decline your privileges. "
@@ -950,12 +1051,14 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
         )
         callback_query.message.edit_text.assert_not_called()
         self.bot_instance.update_commands_for_user.assert_not_called()
-        
+
     async def test_handle_callback_query_unknown(self):
         """Test callback query handler with unknown callback data."""
         # --- Arrange ---
         user_id = 123
-        callback_query = self.MockCallbackQuery(data="unknown_callback", user_id=user_id)
+        callback_query = self.MockCallbackQuery(
+            data="unknown_callback", user_id=user_id
+        )
         update = self.MockCallbackUpdate(callback_query)
         context = MockContext(self.mock_application, callback_query.message)
 
@@ -997,11 +1100,16 @@ class TestCommandHandlers(unittest.IsolatedAsyncioTestCase):
 
     # Add more test methods for other commands (/stop, admin commands, etc.)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Ensure src directory is in path for imports when run directly
-    if 'src' not in sys.path[0]:
-         sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
+    if "src" not in sys.path[0]:
+        sys.path.insert(
+            0,
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src")),
+        )
     # Re-import if necessary
     from bot import QuitSmokingBot
     from config import WELCOME_MESSAGE, BOT_NAME
+
     unittest.main()

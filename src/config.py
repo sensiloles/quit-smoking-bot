@@ -3,7 +3,7 @@ import pytz
 from pathlib import Path
 
 # Timezone settings
-NOVOSIBIRSK_TZ = pytz.timezone('Asia/Novosibirsk')
+NOVOSIBIRSK_TZ = pytz.timezone("Asia/Novosibirsk")
 
 # Start date components
 START_YEAR = 2025
@@ -15,7 +15,9 @@ NOTIFICATION_HOUR = 21  # hour (24-hour format)
 NOTIFICATION_MINUTE = 58  # minute
 
 # Start date - January 23, 2025 at 21:58
-START_DATE = datetime.datetime(START_YEAR, START_MONTH, NOTIFICATION_DAY, NOTIFICATION_HOUR, NOTIFICATION_MINUTE)
+START_DATE = datetime.datetime(
+    START_YEAR, START_MONTH, NOTIFICATION_DAY, NOTIFICATION_HOUR, NOTIFICATION_MINUTE
+)
 
 # Prize fund settings
 MONTHLY_AMOUNT = 5000  # amount in rubles
@@ -25,7 +27,14 @@ MAX_PRIZE_FUND = 100000  # maximum prize fund amount
 # Bot settings
 BOT_NAME = "Quit Smoking Bot"
 USER_COMMANDS = ["/start", "/status", "/my_id"]
-ADMIN_COMMANDS = ["/notify_all", "/list_users", "/list_admins", "/add_admin", "/remove_admin", "/decline_admin"] + USER_COMMANDS
+ADMIN_COMMANDS = [
+    "/notify_all",
+    "/list_users",
+    "/list_admins",
+    "/add_admin",
+    "/remove_admin",
+    "/decline_admin",
+] + USER_COMMANDS
 
 # Message templates
 WELCOME_MESSAGE = (
@@ -60,23 +69,15 @@ LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "default": {
-            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        }
+        "default": {"format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"}
     },
     "handlers": {
         "file": {
             "class": "logging.FileHandler",
             "filename": str(LOG_FILE),
-            "formatter": "default"
+            "formatter": "default",
         },
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "default"
-        }
+        "console": {"class": "logging.StreamHandler", "formatter": "default"},
     },
-    "root": {
-        "handlers": ["file", "console"],
-        "level": "INFO"
-    }
+    "root": {"handlers": ["file", "console"], "level": "INFO"},
 }
