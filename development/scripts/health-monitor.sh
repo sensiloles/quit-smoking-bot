@@ -30,18 +30,18 @@ log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] $message" | tee -a "$LOG_FILE"
 }
 
-# Check CPU usage
+# Check CPU usage (simplified)
 check_cpu_usage() {
-    if command -v top >/dev/null 2>&1; then
-        local cpu_usage
-        cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
-        cpu_usage=${cpu_usage%.*}  # Remove decimal part
+    if [ -f "/proc/loadavg" ]; then
+        local load_avg=$(cat /proc/loadavg | cut -d' ' -f1)
+        local cpu_count=$(nproc 2>/dev/null || echo 1)
+        local load_percent=$(echo "$load_avg * 100 / $cpu_count" | bc -l 2>/dev/null | cut -d'.' -f1 || echo 0)
         
-        if [ "$cpu_usage" -gt $ALERT_THRESHOLD_CPU ]; then
-            log_message "WARN" "High CPU usage: ${cpu_usage}%"
+        if [ "$load_percent" -gt $ALERT_THRESHOLD_CPU ]; then
+            log_message "WARN" "High system load: ${load_avg} (${load_percent}%)"
             return 1
         else
-            log_message "INFO" "CPU usage: ${cpu_usage}%"
+            log_message "INFO" "System load: ${load_avg}"
         fi
     fi
     return 0

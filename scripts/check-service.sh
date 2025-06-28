@@ -18,13 +18,17 @@ show_help() {
 
 # Parse arguments for this script
 parse_arguments_check_service() {
+    debug_print "Starting argument parsing for check-service script"
     while [[ "$#" -gt 0 ]]; do
+        debug_print "Processing argument: $1"
         case $1 in
             --help)
+                debug_print "Help requested"
                 show_help
                 exit 0
                 ;;
             *)
+                debug_print "Unknown argument: $1"
                 print_error "Unknown argument: $1"
                 show_help
                 exit 1
@@ -32,56 +36,77 @@ parse_arguments_check_service() {
         esac
         shift
     done
+    debug_print "Argument parsing completed"
     return 0
 }
 
 # Parse script-specific arguments
+debug_print "Starting check-service.sh script with arguments: $@"
 parse_arguments_check_service "$@"
 
 # Function to check systemd service status
 check_systemd_service() {
+    debug_print "Starting systemd service status check"
     print_section "Systemd Service Status"
 
+    debug_print "Checking if service is active: $SYSTEM_NAME.service"
     if systemctl is-active $SYSTEM_NAME.service >/dev/null 2>&1; then
+        debug_print "Service is active"
         print_message "Service is active" "$GREEN"
     else
+        debug_print "Service is not active"
         print_message "Service is not active" "$RED"
     fi
 
+    debug_print "Checking if service is enabled: $SYSTEM_NAME.service"
     if systemctl is-enabled $SYSTEM_NAME.service &>/dev/null; then
+        debug_print "Service is enabled"
         print_message "Service is enabled (starts on boot)" "$GREEN"
     else
+        debug_print "Service is not enabled"
         print_message "Service is not enabled" "$YELLOW"
     fi
 
+    debug_print "Getting detailed service status"
     print_message "\nDetailed service status:" "$YELLOW"
     systemctl status $SYSTEM_NAME.service --no-pager
+    debug_print "Systemd service check completed"
 }
 
 # Function to check Docker containers
 check_docker_containers() {
+    debug_print "Starting Docker containers check"
     print_section "Docker Containers"
 
+    debug_print "Searching for containers with name: $SYSTEM_NAME"
     local containers=$(docker ps -a --filter "name=$SYSTEM_NAME" --format "{{.Names}}")
     if [ -z "$containers" ]; then
+        debug_print "No containers found"
         print_message "No $SYSTEM_NAME containers found" "$YELLOW"
     else
+        debug_print "Found containers: $containers"
         print_message "Found containers:" "$GREEN"
         docker ps -a --filter "name=$SYSTEM_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
     fi
+    debug_print "Docker containers check completed"
 }
 
 # Function to check Docker images
 check_docker_images() {
+    debug_print "Starting Docker images check"
     print_section "Docker Images"
 
+    debug_print "Searching for images with name: $SYSTEM_NAME"
     local images=$(docker images | grep $SYSTEM_NAME)
     if [ -z "$images" ]; then
+        debug_print "No images found"
         print_message "No $SYSTEM_NAME images found" "$YELLOW"
     else
+        debug_print "Found images"
         print_message "Found images:" "$GREEN"
         docker images | grep $SYSTEM_NAME
     fi
+    debug_print "Docker images check completed"
 }
 
 # Function to check Docker volumes

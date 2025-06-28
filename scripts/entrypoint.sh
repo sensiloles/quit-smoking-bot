@@ -17,6 +17,11 @@ log_message() {
     local level="$1"
     local message="$2"
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] [$level] $message"
+    
+    # Also use debug_print if DEBUG mode is enabled
+    if [ "${DEBUG:-0}" = "1" ]; then
+        echo "DEBUG: [entrypoint.sh] [$level] $message" >&2
+    fi
 }
 
 # Initialize the health monitoring system

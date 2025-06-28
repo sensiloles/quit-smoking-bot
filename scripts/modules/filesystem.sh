@@ -6,27 +6,40 @@
 
 # Setup data directories with proper permissions
 setup_data_directories() {
+    debug_print "Starting data directories setup"
     print_message "Setting up data and log directories..." "$YELLOW"
 
     # Create local data directory
+    debug_print "Checking if ./data directory exists"
     if [ ! -d "./data" ]; then
+        debug_print "Creating ./data directory"
         mkdir -p ./data
         print_message "Created data directory" "$GREEN"
+    else
+        debug_print "./data directory already exists"
     fi
 
     # Create local logs directory
+    debug_print "Checking if ./logs directory exists"
     if [ ! -d "./logs" ]; then
+        debug_print "Creating ./logs directory"
         mkdir -p ./logs
         print_message "Created logs directory" "$GREEN"
+    else
+        debug_print "./logs directory already exists"
     fi
 
     # Ensure correct ownership (current user)
+    debug_print "Getting current user and group information"
     local current_user=$(id -u)
     local current_group=$(id -g)
+    debug_print "Current user: $current_user, group: $current_group"
 
     # Give liberal permissions temporarily to avoid permission issues during build and startup
+    debug_print "Setting permissions to 777 on ./data and ./logs directories"
     chmod -R 777 ./data ./logs
 
+    debug_print "Directory permissions set successfully"
     print_message "Fixed permissions on data and log directories" "$GREEN"
 
     # Ensure docker-compose.yml exists and has correct volume mappings

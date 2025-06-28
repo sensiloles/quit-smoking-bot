@@ -10,28 +10,35 @@
 
 # Check if bot is healthy using Docker healthcheck
 is_bot_healthy() {
+    debug_print "Starting is_bot_healthy check"
     # Ensure SYSTEM_NAME is properly exported before running docker-compose commands
     check_system_name
     local container_id=$(docker-compose ps -q bot)
+    debug_print "Container ID: $container_id"
 
     if [ -z "$container_id" ]; then
+        debug_print "Container is not running - no container ID found"
         print_error "Container is not running"
         return 1
     fi
 
     # Get container health status
     local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
+    debug_print "Container health status: $health_status"
 
     if [ "$health_status" = "healthy" ]; then
+        debug_print "Container health check passed"
         print_message "Bot is healthy - container health check passed" "$GREEN"
         # Print the most recent health check log
         print_message "Last health check result:" "$YELLOW"
         docker inspect --format='{{range .State.Health.Log}}{{if eq .ExitCode 0}}{{.Output}}{{end}}{{end}}' $container_id | tail -1
         return 0
     elif [ "$health_status" = "starting" ]; then
+        debug_print "Health check is still starting"
         print_message "Bot health check is still initializing" "$YELLOW"
         return 1
     else
+        debug_print "Health check failed with status: $health_status"
         print_error "Bot health check failed - status: $health_status"
         # Print the most recent health check log
         print_message "Last health check result:" "$YELLOW"
@@ -42,24 +49,31 @@ is_bot_healthy() {
 
 # Check if bot is operational
 is_bot_operational() {
+    debug_print "Starting is_bot_operational check"
     local max_attempts=30
     local attempt=1
     # Ensure SYSTEM_NAME is properly exported before running docker-compose commands
     check_system_name
     local container_id=$(docker-compose ps -q bot)
+    debug_print "Container ID for operational check: $container_id"
 
     if [ -z "$container_id" ]; then
+        debug_print "Container is not running for operational check"
         print_error "Container is not running"
         return 1
     fi
 
     # Check if Python process is running
+    debug_print "Checking if Python bot process is running"
     if ! docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
+        debug_print "Bot process is not running inside container"
         print_error "Bot process is not running inside container"
         return 1
     fi
+    debug_print "Bot process is running inside container"
 
     # Check container logs for operational messages
+    debug_print "Checking logs for operational status"
     print_message "Checking logs for operational status..." "$YELLOW"
     logs=$(docker logs $container_id --tail 50 2>&1)
 

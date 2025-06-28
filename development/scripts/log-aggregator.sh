@@ -1,5 +1,5 @@
 #!/bin/bash
-# log-aggregator.sh - Centralized log aggregation for development environment
+# log-aggregator.sh - Simplified log aggregation for development environment
 
 set -e
 
@@ -9,29 +9,18 @@ LOG_DIR="$WORKSPACE_PATH/logs"
 AGGREGATED_LOG="$LOG_DIR/development.log"
 SUPERVISOR_LOG_DIR="/var/log/supervisor"
 AGGREGATION_INTERVAL=30
-MAX_LOG_SIZE=52428800  # 50MB
-MAX_LOGS_KEEP=5
+MAX_LOG_SIZE=10485760  # 10MB (reduced from 50MB)
+MAX_LOGS_KEEP=3        # Keep fewer logs
 
 # Ensure log directory exists
 mkdir -p "$LOG_DIR"
 
-# Rotate aggregated log if too large
+# Simplified log rotation
 rotate_aggregated_log() {
-    if [ -f "$AGGREGATED_LOG" ]; then
-        local log_size
-        log_size=$(stat -f%z "$AGGREGATED_LOG" 2>/dev/null || stat -c%s "$AGGREGATED_LOG" 2>/dev/null || echo 0)
-        
-        if [ "$log_size" -gt $MAX_LOG_SIZE ]; then
-            # Keep only last N logs
-            for i in $(seq $((MAX_LOGS_KEEP - 1)) -1 1); do
-                if [ -f "${AGGREGATED_LOG}.$i" ]; then
-                    mv "${AGGREGATED_LOG}.$i" "${AGGREGATED_LOG}.$((i + 1))"
-                fi
-            done
-            
-            mv "$AGGREGATED_LOG" "${AGGREGATED_LOG}.1"
-            echo "$(date '+%Y-%m-%d %H:%M:%S') [SYSTEM] Log aggregation started" > "$AGGREGATED_LOG"
-        fi
+    if [ -f "$AGGREGATED_LOG" ] && [ $(stat -c%s "$AGGREGATED_LOG" 2>/dev/null || echo 0) -gt $MAX_LOG_SIZE ]; then
+        mv "$AGGREGATED_LOG" "${AGGREGATED_LOG}.1"
+        [ -f "${AGGREGATED_LOG}.2" ] && rm -f "${AGGREGATED_LOG}.2"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [SYSTEM] Log aggregation started" > "$AGGREGATED_LOG"
     fi
 }
 
@@ -42,74 +31,54 @@ log_with_source() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [$source] $message" >> "$AGGREGATED_LOG"
 }
 
-# Aggregate supervisor logs
+# Simplified supervisor logs aggregation
 aggregate_supervisor_logs() {
-    if [ -d "$SUPERVISOR_LOG_DIR" ]; then
-        for logfile in "$SUPERVISOR_LOG_DIR"/*.log; do
-            if [ -f "$logfile" ] && [ -r "$logfile" ]; then
-                local source
-                source=$(basename "$logfile" .log)
-                
-                # Get new lines since last check
-                if [ -f "/tmp/last_${source}_line" ]; then
-                    local last_line
-                    last_line=$(cat "/tmp/last_${source}_line")
-                    tail -n +"$((last_line + 1))" "$logfile" | head -n 100 | while read -r line; do
-                        if [ -n "$line" ]; then
-                            log_with_source "SUPERVISOR-$source" "$line"
-                        fi
-                    done
-                else
-                    # First time, get last 10 lines
-                    tail -n 10 "$logfile" | while read -r line; do
-                        if [ -n "$line" ]; then
-                            log_with_source "SUPERVISOR-$source" "$line"
-                        fi
-                    done
-                fi
-                
-                # Update line counter
-                wc -l < "$logfile" > "/tmp/last_${source}_line"
-            fi
-        done
-    fi
+    [ ! -d "$SUPERVISOR_LOG_DIR" ] && return
+    
+    for logfile in "$SUPERVISOR_LOG_DIR"/*.log; do
+        [ ! -f "$logfile" ] && continue
+        
+        local source=$(basename "$logfile" .log)
+        local marker="/tmp/last_${source}_line"
+        
+        if [ -f "$marker" ]; then
+            tail -n +$((($(cat "$marker") + 1))) "$logfile" | head -n 50 | while read -r line; do
+                [ -n "$line" ] && log_with_source "SUPERVISOR-$source" "$line"
+            done
+        else
+            tail -n 5 "$logfile" | while read -r line; do
+                [ -n "$line" ] && log_with_source "SUPERVISOR-$source" "$line"
+            done
+        fi
+        
+        wc -l < "$logfile" > "$marker"
+    done
 }
 
-# Aggregate application logs
+# Simplified application logs aggregation
 aggregate_app_logs() {
     local app_logs=(
         "$WORKSPACE_PATH/logs/quit-smoking-bot.log"
-        "$WORKSPACE_PATH/logs/health-monitor.log"
         "$WORKSPACE_PATH/data/bot.log"
     )
     
     for logfile in "${app_logs[@]}"; do
-        if [ -f "$logfile" ] && [ -r "$logfile" ]; then
-            local source
-            source=$(basename "$logfile" .log)
-            
-            # Get new lines since last check
-            local marker_file="/tmp/last_${source}_app_line"
-            if [ -f "$marker_file" ]; then
-                local last_line
-                last_line=$(cat "$marker_file")
-                tail -n +"$((last_line + 1))" "$logfile" | head -n 100 | while read -r line; do
-                    if [ -n "$line" ]; then
-                        log_with_source "APP-$source" "$line"
-                    fi
-                done
-            else
-                # First time, get last 5 lines
-                tail -n 5 "$logfile" | while read -r line; do
-                    if [ -n "$line" ]; then
-                        log_with_source "APP-$source" "$line"
-                    fi
-                done
-            fi
-            
-            # Update line counter
-            wc -l < "$logfile" > "$marker_file"
+        [ ! -f "$logfile" ] && continue
+        
+        local source=$(basename "$logfile" .log)
+        local marker="/tmp/last_${source}_app_line"
+        
+        if [ -f "$marker" ]; then
+            tail -n +$((($(cat "$marker") + 1))) "$logfile" | head -n 50 | while read -r line; do
+                [ -n "$line" ] && log_with_source "APP-$source" "$line"
+            done
+        else
+            tail -n 3 "$logfile" | while read -r line; do
+                [ -n "$line" ] && log_with_source "APP-$source" "$line"
+            done
         fi
+        
+        wc -l < "$logfile" > "$marker"
     done
 }
 

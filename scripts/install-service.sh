@@ -31,9 +31,11 @@ show_help() {
 # Create systemd service file
 create_systemd_service() {
     if [[ "$(uname)" != "Linux" ]]; then
+        debug_print "Non-Linux system, skipping systemd service creation"
         print_warning "Systemd service creation is skipped on non-Linux systems."
         return 0
     fi
+    debug_print "Creating systemd service file for ${SYSTEM_NAME}"
     print_message "Creating systemd service file..." "$YELLOW"
 
     cat > /etc/systemd/system/${SYSTEM_NAME}.service << EOF
@@ -54,24 +56,30 @@ TimeoutStartSec=0
 WantedBy=multi-user.target
 EOF
 
+    debug_print "Service file created successfully"
     print_message "Service file created at /etc/systemd/system/${SYSTEM_NAME}.service" "$GREEN"
 }
 
 # Wait for bot to become operational
 wait_for_bot_startup() {
+    debug_print "Starting wait_for_bot_startup function"
     print_message "Waiting for bot to become operational..." "$YELLOW"
 
     # We'll give the bot up to 30 seconds to start
     local max_attempts=30
     local attempt=1
     local container_id=""
+    debug_print "Will attempt up to $max_attempts times to verify bot startup"
 
     # First wait for the container to start
+    debug_print "Starting container startup verification loop"
     while [ $attempt -le 10 ]; do
+        debug_print "Container startup attempt $attempt/10"
         print_message "Waiting for container to start (attempt $attempt/10)..." "$YELLOW"
         container_id=$(docker-compose ps -q bot)
 
         if [ -n "$container_id" ]; then
+            debug_print "Container found with ID: $container_id"
             print_message "Container started with ID: $container_id" "$GREEN"
             break
         fi
@@ -81,6 +89,7 @@ wait_for_bot_startup() {
     done
 
     if [ -z "$container_id" ]; then
+        debug_print "Container failed to start after 10 attempts"
         print_error "Container failed to start after 10 attempts"
         print_message "Checking Docker logs:" "$YELLOW"
         docker-compose logs bot
@@ -92,26 +101,34 @@ wait_for_bot_startup() {
     fi
 
     # Check health status
+    debug_print "Starting health status check"
     check_bot_health "$container_id"
 
     # Check operational status
+    debug_print "Starting operational status check"
     check_bot_operational "$container_id"
+    debug_print "wait_for_bot_startup completed"
 }
 
 # Check bot health status
 check_bot_health() {
     local container_id="$1"
+    debug_print "Starting check_bot_health for container: $container_id"
     print_message "\nStarting bot health check..." "$YELLOW"
     local max_health_attempts=30
     local health_attempt=1
+    debug_print "Will attempt up to $max_health_attempts health checks"
 
     while [ $health_attempt -le $max_health_attempts ]; do
+        debug_print "Health check attempt $health_attempt/$max_health_attempts"
         print_message "Checking bot health (attempt $health_attempt/$max_health_attempts)..." "$YELLOW"
 
         # Get container health status
         local health_status=$(docker inspect --format '{{.State.Health.Status}}' "$container_id" 2>/dev/null)
+        debug_print "Container health status: $health_status"
 
         if [ "$health_status" = "healthy" ]; then
+            debug_print "Health check passed successfully"
             print_message "Bot health check passed!" "$GREEN"
             return 0
         fi
@@ -120,6 +137,7 @@ check_bot_health() {
         ((health_attempt++))
     done
 
+    debug_print "Health check did not pass within timeout, but continuing"
     print_warning "Bot health check did not pass within timeout, but service might still be operational"
     return 0
 }
@@ -127,36 +145,50 @@ check_bot_health() {
 # Check if bot is operational
 check_bot_operational() {
     local container_id="$1"
+    debug_print "Starting check_bot_operational for container: $container_id"
     print_message "\nChecking if bot is operational..." "$YELLOW"
     local max_op_attempts=5
     local op_attempt=1
+    debug_print "Will attempt up to $max_op_attempts operational checks"
 
     while [ $op_attempt -le $max_op_attempts ]; do
+        debug_print "Operational check attempt $op_attempt/$max_op_attempts"
         print_message "Operational check (attempt $op_attempt/$max_op_attempts)..." "$YELLOW"
 
         # Check if Python process is running
+        debug_print "Checking if Python bot process is running in container"
         if docker exec "$container_id" pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
+            debug_print "Bot process found running in container"
             print_message "Bot process is running inside container" "$GREEN"
 
             # Check logs for operational indicators
+            debug_print "Checking logs for operational indicators"
             logs=$(docker logs "$container_id" --tail 50 2>&1)
             if echo "$logs" | grep -q "Application started"; then
+                debug_print "Found 'Application started' in logs - bot is operational"
                 print_message "Bot is fully operational!" "$GREEN"
 
                 # Check for conflict errors
+                debug_print "Checking for conflict errors in logs"
                 if echo "$logs" | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
+                    debug_print "Found conflict errors in logs"
                     print_warning "Warning: Detected conflict with another bot instance using the same token"
                     print_message "You may need to stop the other bot instance for this one to function properly." "$YELLOW"
                 fi
 
                 return 0
+            else
+                debug_print "Application started message not found in logs yet"
             fi
+        else
+            debug_print "Bot process not found running in container"
         fi
 
         sleep 2
         ((op_attempt++))
     done
 
+    debug_print "Could not confirm bot is fully operational, but service is installed"
     print_warning "Could not confirm bot is fully operational yet, but service is installed"
     print_message "Check status later with: systemctl status ${SYSTEM_NAME}.service" "$YELLOW"
     return 0
@@ -164,40 +196,53 @@ check_bot_operational() {
 
 # Main service installation function
 install_service() {
+    debug_print "Starting install_service function"
     print_section "Checking Prerequisites"
 
     # Parse command line arguments using common function
+    debug_print "Parsing command line arguments"
     parse_args "$@"
 
     # If token was passed via --token parameter, save it to .env and export it
     if [ -n "$TOKEN" ]; then
+        debug_print "Token provided via --token parameter, updating .env"
         update_env_token "$TOKEN"
         export BOT_TOKEN="$TOKEN"
+        debug_print "Token updated and exported"
     fi
 
     # Check prerequisites
+    debug_print "Checking prerequisites"
     check_prerequisites || exit 1
     check_system_display_name
+    debug_print "Prerequisites check passed"
 
     # Check if running as root
+    debug_print "Checking if running as root"
     check_root
+    debug_print "Root check completed"
 
     # Check if OS is Linux before proceeding with service-specific steps
     if [[ "$(uname)" != "Linux" ]]; then
+        debug_print "Non-Linux system detected, skipping systemd service setup"
         print_warning "Systemd service installation is only supported on Linux."
         print_message "Building image and running tests (if requested), but skipping service setup." "$YELLOW"
         # Set a flag or modify logic if needed based on this warning
     fi
 
     print_section "Checking for Conflicts"
+    debug_print "Starting conflicts check section"
 
     # Check for local container and conflicts with remote bots
     # For service we use a longer wait time (10 seconds)
+    debug_print "Checking bot conflicts with extended wait time"
     check_bot_conflicts "$BOT_TOKEN" 1 5
     conflict_status=$?
+    debug_print "Conflicts check completed with status: $conflict_status"
 
     if [ $conflict_status -eq 1 ]; then
         # Exit if there's a conflict with a remote bot
+        debug_print "Remote conflict detected, exiting installation"
         exit 1
     fi
 

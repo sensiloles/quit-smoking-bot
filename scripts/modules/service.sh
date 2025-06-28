@@ -13,38 +13,50 @@ build_and_start_service() {
     local service=${1:-"bot"}  # Default to "bot" if no service specified
     local start_after_build=${2:-1} # Default to starting the service after build
 
+    debug_print "Entering build_and_start_service function"
+    debug_print "Service: $service, start_after_build: $start_after_build"
+    
     print_message "=== BUILD_AND_START_SERVICE DEBUG ===" "$BLUE"
     print_message "Service: $service" "$BLUE"
     print_message "Start after build: $start_after_build" "$BLUE"
     print_message "=================================" "$BLUE"
 
     # Ensure SYSTEM_NAME is properly exported
+    debug_print "Checking system name configuration"
     check_system_name
 
     # Always remove images if force rebuild is requested
     if [ "$FORCE_REBUILD" == "1" ]; then
+        debug_print "Force rebuild requested, removing existing images"
         print_message "Force rebuild requested. Removing existing images..." "$YELLOW"
         docker rmi ${SYSTEM_NAME} ${SYSTEM_NAME}-test >/dev/null 2>&1 || true
         # Also remove all build cache
         docker builder prune -f >/dev/null 2>&1 || true
+        debug_print "Images and build cache removed"
     fi
 
+    debug_print "Starting Docker build process"
     print_message "Building $service service..." "$GREEN"
 
     # Use --no-cache if force rebuild is requested
     if [ "$FORCE_REBUILD" == "1" ]; then
+        debug_print "Building with --no-cache flag"
         print_message "Building from scratch (no cache)..." "$YELLOW"
         if ! execute_docker_compose "build" "$service" "--no-cache"; then
+            debug_print "Docker build failed (no-cache)"
             print_error "Failed to build the $service service."
             return 1
         fi
     else
+        debug_print "Building with cache"
         if ! execute_docker_compose "build" "$service"; then
+            debug_print "Docker build failed (with cache)"
             print_error "Failed to build the $service service."
             return 1
         fi
     fi
 
+    debug_print "Docker build completed successfully"
     print_message "Build completed successfully for $service service." "$GREEN"
 
     # Start the service if requested

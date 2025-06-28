@@ -22,6 +22,11 @@ log_message() {
 
     # Also output to console for Docker health check logs
     echo "[$level] $message"
+    
+    # Also use debug_print if DEBUG mode is enabled
+    if [ "${DEBUG:-0}" = "1" ]; then
+        echo "DEBUG: [healthcheck.sh] [$level] $message" >&2
+    fi
 
     # Truncate log file if it gets too big
     if [[ -f "$LOG_FILE" ]] && [[ $(wc -l < "$LOG_FILE") -gt $MAX_LOG_SIZE ]]; then
