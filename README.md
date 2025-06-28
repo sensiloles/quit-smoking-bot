@@ -183,6 +183,15 @@ quit-smoking-bot/
 │   └── unit/                       # Unit tests
 │       ├── __init__.py             # Unit tests package initialization
 │       └── test_utils.py           # Utility functions tests
+├── development/                    # Development environment (see development/README.md)
+│   ├── README.md                   # Development environment documentation
+│   ├── start-dev.sh                # Quick start script for dev environment
+│   ├── Dockerfile                  # Ubuntu 22.04 development image
+│   ├── docker-compose.yml          # Development container orchestration
+│   ├── Makefile                    # Development commands
+│   └── scripts/                    # Development helper scripts
+│       ├── setup-env.sh            # Environment setup inside container
+│       └── test-scripts.sh         # Comprehensive script testing
 ├── scripts/                        # Shell scripts for operations
 │   ├── check-service.sh            # Comprehensive service status check (418 lines)
 │   ├── common.sh                   # Common functions used by other scripts (832 lines)
@@ -212,9 +221,35 @@ The project follows a modular structure with clear separation of concerns:
 
 - **Core Bot Logic** (`src/`): Handles bot commands, user management, and status calculations
 - **Testing** (`tests/`): Contains both unit and integration tests
+- **Development Environment** (`development/`): Docker-based cross-platform development tools
 - **Operations** (`scripts/`): Shell scripts for running, installing, and managing the bot
 - **Configuration** (`Dockerfile`, `docker-compose.yml`): Docker container setup
 - **Persistence** (`data/`): Stores user data and quotes
+
+## Development Environment
+
+For cross-platform development and testing, this project includes a complete Docker-based development environment. This is particularly useful for:
+
+- **Testing on any OS**: Run Linux environment on macOS, Windows, or any system with Docker
+- **systemd testing**: Test service installation and management without affecting your host system
+- **Consistent environment**: Ensure all developers work in the same environment
+- **Safe experimentation**: Test scripts and configurations in isolated containers
+
+**Quick Start:**
+```bash
+# Interactive Linux development environment
+./development/start-dev.sh
+
+# With systemd support for service testing
+./development/start-dev.sh --systemd
+```
+
+**See [development/README.md](development/README.md) for complete documentation including:**
+- Detailed usage instructions for `start-dev.sh`
+- Available development environments (standard vs systemd)
+- Testing workflows and best practices
+- Makefile commands and Docker Compose usage
+- Troubleshooting common issues
 
 The `entrypoint.sh` script is used as the container's entry point and handles:
 - Environment variable setup

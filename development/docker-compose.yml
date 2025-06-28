@@ -1,0 +1,293 @@
+version: '3.8'
+
+services:
+  # Enhanced development environment with security and monitoring
+  dev-env:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - DOCKER_VERSION=24.0.7
+        - DOCKER_COMPOSE_VERSION=2.21.0
+        - PYTHON_VERSION=3.10
+    container_name: quit-smoking-bot-dev
+    hostname: dev-env
+    restart: unless-stopped
+    
+    # Security settings
+    user: "1000:1000"
+    read_only: false
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:unconfined
+    cap_add:
+      - SYS_PTRACE  # For debugging tools
+    cap_drop:
+      - ALL
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Environment variables
+    environment:
+      - SYSTEM_NAME=quit-smoking-bot
+      - SYSTEM_DISPLAY_NAME=Quit Smoking Bot
+      - DEVELOPMENT=1
+      - PYTHONPATH=/workspace/src
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - DOCKER_BUILDKIT=1
+      - COMPOSE_DOCKER_CLI_BUILD=1
+    
+    # Volume mounts
+    volumes:
+      # Project workspace (read-write)
+      - ../:/workspace:rw
+      # Persistent home directory
+      - dev-home:/home/developer:rw
+      # Temporary directory
+      - dev-tmp:/tmp:rw
+      # Log directory
+      - dev-logs:/var/log:rw
+      # Docker socket (conditional, see docker-compose.override.yml)
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    
+    # Network settings
+    networks:
+      - dev-network
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+      - "9090:9090"
+    
+    # Working directory
+    working_dir: /workspace
+    
+    # Process management
+    stdin_open: true
+    tty: true
+    
+    # Dependencies
+    depends_on:
+      redis:
+        condition: service_healthy
+    
+    # Labels for monitoring
+    labels:
+      - "dev.quit-smoking-bot.component=development"
+      - "dev.quit-smoking-bot.version=2.0"
+
+  # Lightweight environment without systemd (for basic testing)  
+  dev-env-basic:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    container_name: quit-smoking-bot-dev-basic
+    hostname: dev-basic
+    restart: "no"
+    
+    # Security settings
+    user: "1000:1000"
+    read_only: false
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    
+    # Resource limits (lighter than full environment)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Environment variables
+    environment:
+      - SYSTEM_NAME=quit-smoking-bot
+      - SYSTEM_DISPLAY_NAME=Quit Smoking Bot
+      - DEVELOPMENT=1
+      - PYTHONPATH=/workspace/src
+    
+    # Volume mounts (minimal)
+    volumes:
+      - ../:/workspace:rw
+      - dev-basic-home:/home/developer:rw
+    
+    # Network settings
+    networks:
+      - dev-network
+    
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    
+    labels:
+      - "dev.quit-smoking-bot.component=development-basic"
+      - "dev.quit-smoking-bot.version=2.0"
+
+  # Redis for caching and session management (development)
+  redis:
+    image: redis:7-alpine
+    container_name: quit-smoking-bot-redis-dev
+    hostname: redis-dev
+    restart: unless-stopped
+    
+    # Security
+    user: "999:999"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    # Configuration
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+    
+    # Volumes
+    volumes:
+      - redis-data:/data:rw
+      - /tmp:/tmp:rw
+    
+    # Network
+    networks:
+      - dev-network
+    
+    # Don't expose ports externally for security
+    expose:
+      - "6379"
+    
+    labels:
+      - "dev.quit-smoking-bot.component=redis"
+      - "dev.quit-smoking-bot.version=2.0"
+
+  # PostgreSQL for development (optional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: quit-smoking-bot-postgres-dev
+    hostname: postgres-dev
+    restart: unless-stopped
+    profiles:
+      - database  # Only start when database profile is active
+    
+    # Security
+    user: "999:999"
+    read_only: false
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U developer"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    
+    # Environment
+    environment:
+      - POSTGRES_DB=quit_smoking_bot_dev
+      - POSTGRES_USER=developer
+      - POSTGRES_PASSWORD=developer
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    
+    # Volumes
+    volumes:
+      - postgres-data:/var/lib/postgresql/data:rw
+    
+    # Network
+    networks:
+      - dev-network
+    
+    expose:
+      - "5432"
+    
+    labels:
+      - "dev.quit-smoking-bot.component=postgres"
+      - "dev.quit-smoking-bot.version=2.0"
+
+# Named volumes for data persistence
+volumes:
+  dev-home:
+    driver: local
+    name: quit-smoking-bot-dev-home
+  dev-basic-home:
+    driver: local
+    name: quit-smoking-bot-dev-basic-home
+  dev-tmp:
+    driver: local
+    name: quit-smoking-bot-dev-tmp
+  dev-logs:
+    driver: local
+    name: quit-smoking-bot-dev-logs
+  redis-data:
+    driver: local
+    name: quit-smoking-bot-redis-data
+  postgres-data:
+    driver: local
+    name: quit-smoking-bot-postgres-data
+
+# Custom network for development
+networks:
+  dev-network:
+    driver: bridge
+    name: quit-smoking-bot-dev-network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+    labels:
+      - "dev.quit-smoking-bot.network=development"
