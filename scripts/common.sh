@@ -237,6 +237,11 @@ build_and_start_service() {
     local service=${1:-"bot"}  # Default to "bot" if no service specified
     local start_after_build=${2:-1} # Default to starting the service after build
 
+    print_message "=== BUILD_AND_START_SERVICE DEBUG ===" "$BLUE"
+    print_message "Service: $service" "$BLUE"
+    print_message "Start after build: $start_after_build" "$BLUE"
+    print_message "=================================" "$BLUE"
+
     # Ensure SYSTEM_NAME is properly exported
     check_system_name
 
@@ -253,26 +258,55 @@ build_and_start_service() {
     # Use --no-cache if force rebuild is requested
     if [ "$FORCE_REBUILD" == "1" ]; then
         print_message "Building from scratch (no cache)..." "$YELLOW"
-        if ! docker-compose build --no-cache $service; then
-            print_error "Failed to build the $service service. Please check the logs above for details."
+        if ! execute_docker_compose "build" "$service" "--no-cache"; then
+            print_error "Failed to build the $service service."
             return 1
         fi
     else
-        if ! docker-compose build $service; then
-            print_error "Failed to build the $service service. Please check the logs above for details."
+        if ! execute_docker_compose "build" "$service"; then
+            print_error "Failed to build the $service service."
             return 1
         fi
     fi
 
+    print_message "Build completed successfully for $service service." "$GREEN"
+
     # Start the service if requested
     if [ "$start_after_build" -eq 1 ]; then
-        print_message "Starting $service service..." "$GREEN"
-        if ! docker-compose up -d $service; then
-            print_error "Failed to start the $service service. Please check the logs above for details."
+        print_message "Starting $service service (start_after_build=$start_after_build)..." "$GREEN"
+        
+        # Check if service is already running
+        if docker-compose ps $service | grep -q "Up"; then
+            print_warning "Service $service is already running. Stopping it first..."
+            docker-compose stop $service
+            sleep 2
+        fi
+        
+        if ! execute_docker_compose "up" "$service" "-d"; then
+            print_error "Failed to start the $service service with docker-compose up -d."
             return 1
         fi
+        
+        # Wait a moment and verify the container actually started
+        print_message "Waiting for container to initialize..." "$YELLOW"
+        sleep 3
+        
+        # Verify container is running
+        if ! docker-compose ps $service | grep -q "Up"; then
+            print_error "Container $service failed to start or immediately stopped!"
+            print_message "Container status:" "$YELLOW"
+            docker-compose ps $service
+            print_message "Container logs:" "$YELLOW"
+            docker-compose logs --tail 30 $service
+            return 1
+        fi
+        
+        print_message "Service $service started successfully and is running." "$GREEN"
+        print_message "Container status:" "$YELLOW"
+        docker-compose ps $service
+        
     else
-        print_message "Build complete. Service not started yet." "$YELLOW"
+        print_message "Build complete. Service not started (start_after_build=$start_after_build)." "$YELLOW"
     fi
 
     return 0
@@ -410,16 +444,23 @@ detect_remote_bot_conflict() {
 
         # Make a getUpdates request to check if someone else is polling
         print_message "Testing Telegram API connection..." "$YELLOW"
-        debug_print "Making getUpdates request"
+        debug_print "Making getUpdates request with timeout=1"
         local getUpdates_response=$(curl -s "https://api.telegram.org/bot${bot_token}/getUpdates?timeout=1&offset=-1&limit=1")
+        debug_print "getUpdates curl command completed"
         debug_print "getUpdates response received"
         print_message "GetUpdates response received" "$YELLOW"
 
         # Check for conflict error
         debug_print "Checking for error_code:409"
-        # Store grep result first
-        echo "$getUpdates_response" | grep -q "\"error_code\":409"
-        local grep_result_409=$?
+        debug_print "getUpdates_response content: $getUpdates_response"
+        debug_print "About to run grep for error_code:409"
+        # Store grep result first - fix the grep pattern to be simpler
+        local grep_result_409=1
+        if echo "$getUpdates_response" | grep -F "error_code" | grep -F "409" >/dev/null 2>&1; then
+            grep_result_409=0
+        fi
+        debug_print "grep command completed"
+        debug_print "grep result for 409: $grep_result_409"
         if [ $grep_result_409 -eq 0 ]; then # Check the exit status of grep
             debug_print "Found error_code:409"
             print_error "Conflict detected: Another bot instance is already polling updates."
@@ -427,12 +468,16 @@ detect_remote_bot_conflict() {
             print_message "Please stop the other bot instance before starting this one." "$YELLOW"
             return 1  # Remote conflict
         fi
+        debug_print "No error_code:409 found"
         
         # Additional check for "terminated by other getUpdates" in error description
         debug_print "Checking for 'terminated by other getUpdates'"
-        # Store grep result first
-        echo "$getUpdates_response" | grep -q "terminated by other getUpdates"
-        local grep_result_term=$?
+        # Store grep result first - use simpler pattern
+        local grep_result_term=1
+        if echo "$getUpdates_response" | grep -F "terminated by other getUpdates" >/dev/null 2>&1; then
+            grep_result_term=0
+        fi
+        debug_print "grep result for terminated: $grep_result_term"
         if [ $grep_result_term -eq 0 ]; then # Check the exit status of grep
             debug_print "Found 'terminated by other getUpdates'"
             print_error "Conflict detected: Another bot instance is already polling updates."
@@ -440,35 +485,55 @@ detect_remote_bot_conflict() {
             print_message "Please stop the other bot instance before starting this one." "$YELLOW"
             return 1  # Remote conflict
         fi
+        debug_print "No 'terminated by other getUpdates' found"
 
         # Check webhook info
+        debug_print "Starting webhook info check"
         print_message "Checking webhook info..." "$YELLOW"
         local webhook_info=$(curl -s "https://api.telegram.org/bot${bot_token}/getWebhookInfo")
+        debug_print "Webhook info request completed"
         print_message "Webhook info received" "$YELLOW"
 
         # Check if webhook is set
+        debug_print "Checking if webhook is set"
         if echo "$webhook_info" | grep -q '"url":"[^"]*"'; then
             local webhook_url=$(echo "$webhook_info" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
+            debug_print "Found webhook URL: $webhook_url"
 
             if [ -n "$webhook_url" ] && [ "$webhook_url" != "\"\"" ] && [ "$webhook_url" != "" ]; then
+                debug_print "Webhook is set and not empty, this is a conflict"
                 print_error "This bot already has a webhook set: ${webhook_url}"
                 print_message "This indicates it is in use by another server." "$RED"
                 print_message "Please remove the webhook or use another bot token." "$YELLOW"
                 return 1  # Remote conflict
             fi
         fi
+        debug_print "No active webhook found"
 
         # Check for local processes using docker ps
+        debug_print "Starting local Docker container check"
         print_message "Checking for local Docker containers..." "$YELLOW"
         if [ -z "$SYSTEM_NAME" ]; then
+            debug_print "SYSTEM_NAME is not set"
             print_warning "SYSTEM_NAME is not set, skipping local container check"
         else
-            if docker ps | grep -q ${SYSTEM_NAME}; then
+            debug_print "Checking for containers with exact name: ${SYSTEM_NAME}"
+            # Use docker-compose ps instead of docker ps to check for the specific service
+            if docker-compose ps bot | grep -q "Up"; then
+                debug_print "Found running bot service via docker-compose"
                 print_warning "Found local bot container using the same token."
                 return 2  # Local conflict
             fi
+            # Also check for exact container name match (not partial)
+            if docker ps --format "table {{.Names}}" | grep -q "^${SYSTEM_NAME}$"; then
+                debug_print "Found exact container name match"
+                print_warning "Found local bot container using the same token."
+                return 2  # Local conflict
+            fi
+            debug_print "No conflicting local containers found"
         fi
 
+        debug_print "All conflict checks passed, returning 0"
         print_message "No conflicts detected" "$GREEN"
         return 0  # No conflict
     else
@@ -493,14 +558,31 @@ stop_local_bot_instance() {
     debug_print "Inside stop_local_bot_instance, about to check docker ps | grep..."
     local local_bot_running=0
     
-    if docker ps | grep -q "${SYSTEM_NAME}"; then
-        debug_print "docker ps | grep found running container."
+    # Check for running bot service via docker-compose (more precise)
+    if docker-compose ps bot | grep -q "Up"; then
+        debug_print "docker-compose ps found running bot service."
         print_warning "Bot is already running on this machine."
         
         # Stop existing container
         print_message "Stopping existing bot container..." "$YELLOW"
         docker-compose stop bot
         docker-compose rm -f bot
+
+        # Wait for Telegram API connections to release
+        print_message "Waiting for Telegram API connections to release (${wait_time} seconds)..." "$YELLOW"
+        sleep $wait_time
+
+        print_message "Local bot instance stopped" "$GREEN"
+        return 0  # Container was stopped
+    # Also check for exact container name match (fallback)
+    elif docker ps --format "table {{.Names}}" | grep -q "^${SYSTEM_NAME}$"; then
+        debug_print "docker ps found exact container name match."
+        print_warning "Bot container with exact name is running."
+        
+        # Stop existing container
+        print_message "Stopping existing bot container..." "$YELLOW"
+        docker stop "${SYSTEM_NAME}" || true
+        docker rm -f "${SYSTEM_NAME}" || true
 
         # Wait for Telegram API connections to release
         print_message "Waiting for Telegram API connections to release (${wait_time} seconds)..." "$YELLOW"
@@ -569,8 +651,11 @@ check_bot_conflicts() {
              debug_print "No conflict detected in this attempt."
              # If we are on the last attempt and status is 0, we are good.
              if [ $attempt -eq $max_attempts ]; then
+                 debug_print "This was the last attempt and no conflict found"
                  print_message "No conflicts detected after $max_attempts attempts" "$GREEN"
                  break # Exit loop successfully
+             else
+                 debug_print "No conflict in attempt $attempt, but not the last attempt yet"
              fi
         # Handle unexpected return codes?
         else
@@ -584,9 +669,12 @@ check_bot_conflicts() {
              fi
         fi
         
+        debug_print "Incrementing attempt from $attempt to $((attempt + 1))"
         ((attempt++))
     done
     
+    debug_print "Exited conflict detection loop"
+    debug_print "Final conflict_status: $conflict_status"
     debug_print "Exiting check_bot_conflicts function with status: $conflict_status"
     return $conflict_status # Return the final determined status
 }
@@ -700,32 +788,89 @@ check_prerequisites() {
 
 # Function to stop any running bot instances
 stop_running_instances() {
+    print_message "=== STOPPING RUNNING INSTANCES ===" "$BLUE"
     print_message "Checking for existing bot instances..." "$YELLOW"
 
-    if docker-compose ps -q bot >/dev/null 2>&1; then
+    # Check if there are any containers for this service
+    local container_count=$(docker-compose ps -q bot 2>/dev/null | wc -l)
+    print_message "Found $container_count bot containers" "$YELLOW"
+
+    if [ "$container_count" -gt 0 ]; then
+        print_message "Current bot container status:" "$YELLOW"
+        docker-compose ps bot
+        
         print_message "Stopping existing bot container..." "$YELLOW"
-        docker-compose stop bot
-        docker-compose rm -f bot
+        if execute_docker_compose "stop" "bot"; then
+            print_message "✅ Container stopped successfully" "$GREEN"
+        else
+            print_warning "Failed to stop container gracefully, forcing removal..."
+        fi
+        
+        print_message "Removing stopped container..." "$YELLOW"
+        if execute_docker_compose "rm" "bot" "-f"; then
+            print_message "✅ Container removed successfully" "$GREEN"
+        else
+            print_warning "Failed to remove container"
+        fi
 
         # If there was a conflict, wait a bit to let Telegram API release connections
-        if [ $1 -eq 2 ]; then
+        if [ "${1:-0}" -eq 2 ]; then
             print_message "Waiting for Telegram API connections to release (5 seconds)..." "$YELLOW"
             sleep 5
         fi
+        
+        print_message "Verifying no containers remain..." "$YELLOW"
+        local remaining_count=$(docker-compose ps -q bot 2>/dev/null | wc -l)
+        if [ "$remaining_count" -eq 0 ]; then
+            print_message "✅ All bot containers successfully removed" "$GREEN"
+        else
+            print_warning "Warning: $remaining_count containers still remain"
+            docker-compose ps bot
+        fi
+    else
+        print_message "No existing bot containers found" "$GREEN"
     fi
+    
+    print_message "=== END STOPPING INSTANCES ===" "$BLUE"
 }
 
 # Function to check bot health and status after startup
 check_bot_status() {
-    print_message "\nChecking bot status after startup..." "$YELLOW"
+    print_message "\n=== BOT STATUS CHECK ===" "$BLUE"
+    print_message "Checking bot status after startup..." "$YELLOW"
     local max_attempts=30
     local attempt=1
 
+    # First, verify container is still running
+    print_message "Step 1: Verifying container is running..." "$YELLOW"
+    if ! docker-compose ps bot | grep -q "Up"; then
+        print_error "Container is not running!"
+        docker-compose ps bot
+        return 1
+    fi
+    print_message "✅ Container is running" "$GREEN"
+
     # Wait a moment for the container to initialize
+    print_message "Step 2: Waiting for container initialization (5 seconds)..." "$YELLOW"
     sleep 5
 
+    # Show current container logs
+    print_message "Step 3: Recent container logs:" "$YELLOW"
+    docker-compose logs --tail 10 bot
+
+    print_message "Step 4: Health check loop (max $max_attempts attempts)..." "$YELLOW"
     while [ $attempt -le $max_attempts ]; do
         print_message "Checking bot health (attempt $attempt/$max_attempts)..." "$YELLOW"
+
+        # Check if container is still running (might have crashed)
+        if ! docker-compose ps bot | grep -q "Up"; then
+            print_error "Container stopped running during health check!"
+            print_message "Container status:" "$RED"
+            docker-compose ps bot
+            print_message "Recent logs:" "$RED"
+            docker-compose logs --tail 20 bot
+            return 1
+        fi
 
         # Check if bot is healthy using Docker healthcheck
         if is_bot_healthy; then
@@ -735,6 +880,9 @@ check_bot_status() {
             if [ $attempt -eq $max_attempts ]; then
                 print_message "Bot health check did not pass within timeout, but bot might still be functioning." "$YELLOW"
                 print_message "Continuing with operational check..." "$YELLOW"
+                # Show recent logs for debugging
+                print_message "Recent logs for debugging:" "$YELLOW"
+                docker-compose logs --tail 15 bot
             else
                 print_message "Bot health check not yet passing, waiting..." "$YELLOW"
                 sleep 5
@@ -746,14 +894,33 @@ check_bot_status() {
         ((attempt++))
     done
 
+    print_message "Step 5: Operational check..." "$YELLOW"
     # Check if bot is operational
     if is_bot_operational; then
         print_message "Bot operational check: PASSED" "$GREEN"
-        print_message "Bot is fully operational!" "$GREEN"
+        print_message "🎉 Bot is fully operational!" "$GREEN"
+        
+        # Show final status summary
+        print_message "\n=== FINAL STATUS SUMMARY ===" "$GREEN"
+        print_message "Container status:" "$GREEN"
+        docker-compose ps bot
+        print_message "Most recent logs:" "$GREEN"
+        docker-compose logs --tail 5 bot
+        print_message "=== END STATUS SUMMARY ===" "$GREEN"
+        
         return 0
     else
         print_message "Bot operational check: NOT PASSED" "$YELLOW"
         print_message "Bot is running but might not be fully operational." "$YELLOW"
+        
+        # Detailed diagnostic info
+        print_message "\n=== DIAGNOSTIC INFORMATION ===" "$YELLOW"
+        print_message "Container status:" "$YELLOW"
+        docker-compose ps bot
+        print_message "Extended logs for diagnostics:" "$YELLOW"
+        docker-compose logs --tail 25 bot
+        print_message "=== END DIAGNOSTICS ===" "$YELLOW"
+        
         print_message "Use './scripts/check-service.sh' for detailed diagnostics." "$YELLOW"
         return 1
     fi
@@ -854,6 +1021,70 @@ run_tests_in_docker() {
         return 0
     else
         print_error "Tests Failed! Check the output above for details."
+        return 1
+    fi
+}
+
+# Function to log detailed docker-compose error information
+log_docker_compose_error() {
+    local operation="$1" # e.g., "build", "up", "stop"
+    local service="$2"   # e.g., "bot"
+    
+    print_error "Docker Compose $operation failed for service $service"
+    print_message "=== DOCKER COMPOSE ERROR DIAGNOSTICS ===" "$RED"
+    
+    print_message "Current working directory: $(pwd)" "$YELLOW"
+    print_message "Docker Compose version:" "$YELLOW"
+    docker-compose --version 2>&1 || echo "docker-compose command not found"
+    
+    print_message "Docker version:" "$YELLOW"
+    docker --version 2>&1 || echo "docker command not found"
+    
+    print_message "Docker daemon status:" "$YELLOW"
+    if docker info >/dev/null 2>&1; then
+        echo "✅ Docker daemon is running"
+    else
+        echo "❌ Docker daemon is not accessible"
+    fi
+    
+    print_message "Docker Compose file check:" "$YELLOW"
+    if [ -f "docker-compose.yml" ]; then
+        echo "✅ docker-compose.yml exists"
+        print_message "Validating docker-compose.yml syntax:" "$YELLOW"
+        docker-compose config --quiet 2>&1 || echo "❌ docker-compose.yml has syntax errors"
+    else
+        echo "❌ docker-compose.yml not found"
+    fi
+    
+    print_message "Environment variables:" "$YELLOW"
+    echo "SYSTEM_NAME=${SYSTEM_NAME:-NOT_SET}"
+    echo "BOT_TOKEN=${BOT_TOKEN:+SET_BUT_HIDDEN}"
+    
+    if [ -n "$service" ]; then
+        print_message "Service $service status:" "$YELLOW"
+        docker-compose ps $service 2>&1 || echo "Failed to get service status"
+        
+        print_message "Recent logs for $service:" "$YELLOW"
+        docker-compose logs --tail 10 $service 2>&1 || echo "Failed to get logs"
+    fi
+    
+    print_message "=== END DOCKER COMPOSE DIAGNOSTICS ===" "$RED"
+}
+
+# Function to execute docker-compose commands with enhanced error handling
+execute_docker_compose() {
+    local operation="$1"
+    local service="$2"
+    shift 2
+    local additional_args="$@"
+    
+    print_message "Executing: docker-compose $operation $service $additional_args" "$YELLOW"
+    
+    if docker-compose "$operation" "$service" $additional_args; then
+        print_message "✅ docker-compose $operation $service completed successfully" "$GREEN"
+        return 0
+    else
+        log_docker_compose_error "$operation" "$service"
         return 1
     fi
 }

@@ -64,7 +64,12 @@ main() {
     fi
 
     # Build the service (potentially without starting)
-    build_and_start_service "bot" $start_immediately || return 1
+    print_message "=== CALLING BUILD_AND_START_SERVICE ===" "$BLUE"
+    if ! build_and_start_service "bot" $start_immediately; then
+        print_error "build_and_start_service failed. Stopping execution."
+        return 1
+    fi
+    print_message "=== BUILD_AND_START_SERVICE COMPLETED ===" "$BLUE"
 
     # Run tests if requested
     if [ "$RUN_TESTS" -eq 1 ]; then
@@ -78,13 +83,42 @@ main() {
             print_error "Failed to start the bot service after tests."
             return 1
         fi
+        
+        # Verify container started after tests
+        print_message "Verifying container started after tests..." "$YELLOW"
+        sleep 3
+        if ! docker-compose ps bot | grep -q "Up"; then
+            print_error "Container failed to start after tests!"
+            docker-compose ps bot
+            docker-compose logs --tail 20 bot
+            return 1
+        fi
     fi
+
+    # Final verification that container is actually running
+    print_message "=== FINAL CONTAINER STATUS VERIFICATION ===" "$BLUE"
+    if ! docker-compose ps bot | grep -q "Up"; then
+        print_error "CRITICAL: Bot container is not running despite successful build process!"
+        print_message "Container status:" "$YELLOW"
+        docker-compose ps bot
+        print_message "Recent logs:" "$YELLOW"
+        docker-compose logs --tail 30 bot
+        print_error "This indicates a problem with the container startup process."
+        return 1
+    fi
+    print_message "✅ Container verification passed - bot is running." "$GREEN"
+    print_message "=== END VERIFICATION ===" "$BLUE"
 
     # Check if bot is healthy and operational
     check_bot_status
 
     # Show logs and handle Ctrl+C gracefully
-    print_message "\nBot started successfully. Press Ctrl+C to detach from logs." "$GREEN"
+    print_message "\n🎉 Bot started successfully! 🎉" "$GREEN"
+    print_message "=== STARTUP COMPLETED SUCCESSFULLY ===" "$GREEN"
+    print_message "Bot is now running and ready to receive messages." "$GREEN"
+    print_message "Press Ctrl+C to detach from logs (bot will continue running)." "$GREEN"
+    print_message "========================================" "$GREEN"
+    
     trap 'print_message "\nDetaching from logs..." "$GREEN"; return 0' INT
     docker-compose logs -f --no-color bot 2>/dev/null
 }

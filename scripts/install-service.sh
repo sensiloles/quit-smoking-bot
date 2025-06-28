@@ -234,12 +234,12 @@ install_service() {
         # Also remove all build cache
         docker builder prune -f >/dev/null 2>&1 || true
 
-        if ! docker-compose build --no-cache bot; then
+        if ! execute_docker_compose "build" "bot" "--no-cache"; then
             print_error "Failed to build bot image"
             exit 1
         fi
     else
-        if ! docker-compose build bot; then
+        if ! execute_docker_compose "build" "bot"; then
             print_error "Failed to build bot image"
             exit 1
         fi
@@ -275,7 +275,7 @@ install_service() {
     print_message "Starting service..." "$YELLOW"
     # Start using docker-compose directly, as systemd won't manage it on non-Linux
     # We already built the image, now just bring it up.
-    if ! docker-compose up -d bot; then
+    if ! execute_docker_compose "up" "bot" "-d"; then
         print_error "Failed to start bot container using docker-compose."
         exit 1
     fi
