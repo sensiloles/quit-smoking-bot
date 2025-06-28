@@ -137,7 +137,7 @@ check_docker() {
 # Check workspace integrity
 check_workspace() {
     # Check if main project files exist
-    local required_files=("main.py" "pyproject.toml" "scripts/common.sh")
+    local required_files=("main.py" "pyproject.toml" "scripts/bootstrap.sh")
     local missing_files=()
     
     for file in "${required_files[@]}"; do

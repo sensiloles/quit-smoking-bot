@@ -1,6 +1,6 @@
 #!/bin/bash
 # clean-dev.sh - Comprehensive cleanup script for development environment
-# Based on production cleanup logic from scripts/common.sh
+# Based on production cleanup logic from scripts/bootstrap.sh
 
 set -e
 

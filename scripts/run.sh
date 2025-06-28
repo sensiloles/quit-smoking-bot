@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-# Source common functions
+# Source bootstrap (loads all modules)
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-source "${SCRIPT_DIR}/common.sh"
+source "${SCRIPT_DIR}/bootstrap.sh"
 
 
 show_help() {

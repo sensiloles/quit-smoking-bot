@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Source common functions and variables
-source "$(dirname "$0")/common.sh"
+# Source bootstrap (loads all modules)
+source "$(dirname "$0")/bootstrap.sh"
 
 
 show_help() {

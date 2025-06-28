@@ -85,7 +85,7 @@ print_message "🚀 Starting comprehensive script testing..." "$BLUE"
 print_message "📂 Working directory: $(pwd)" "$YELLOW"
 
 # Check if we're in the right directory
-if [ ! -f "scripts/common.sh" ]; then
+if [ ! -f "scripts/bootstrap.sh" ]; then
     print_message "❌ Error: Not in project root or scripts not found" "$RED"
     exit 1
 fi
@@ -114,13 +114,13 @@ run_test_with_output "check-service.sh --help" "./scripts/check-service.sh --hel
 run_test "install-service.sh syntax" "bash -n scripts/install-service.sh"
 run_test "uninstall-service.sh syntax" "bash -n scripts/uninstall-service.sh"
 
-print_section "Common Functions"
+print_section "Bootstrap Functions"
 
-# Test that common.sh loads without errors
-run_test "Load common.sh" "source scripts/common.sh"
+# Test that bootstrap.sh loads without errors
+run_test "Load bootstrap.sh" "source scripts/bootstrap.sh"
 
 # Test environment variable checking
-run_test "SYSTEM_NAME check" "source scripts/common.sh && [ -n \"\$SYSTEM_NAME\" ]"
+run_test "SYSTEM_NAME check" "source scripts/bootstrap.sh && [ -n \"\$SYSTEM_NAME\" ]"
 
 print_section "Docker Integration"
 
