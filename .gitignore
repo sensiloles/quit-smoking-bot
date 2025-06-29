@@ -46,3 +46,6 @@ test_log.txt
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Backup files
+backups/

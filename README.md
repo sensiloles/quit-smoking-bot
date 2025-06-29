@@ -19,22 +19,22 @@ git clone https://github.com/sensiloles/quit-smoking-bot.git
 cd quit-smoking-bot
 ```
 
-2. Create a `.env` file with required environment variables:
+> **🚀 Automatic Setup**: Project setup is automatically performed after cloning via git hooks. For manual setup, run: `make setup`
+
+2. Update the `.env` file with your bot token:
 ```bash
+# The .env template is created automatically, just update the BOT_TOKEN:
 BOT_TOKEN="your_telegram_bot_token_here"  # Get from BotFather
-SYSTEM_NAME="quit-smoking-bot"            # For Docker containers
-SYSTEM_DISPLAY_NAME="Quit Smoking Bot"    # For service and logs
 ```
 
 3. Start the bot:
 ```bash
-chmod +x scripts/*.sh
-./scripts/run.sh
+make start
 ```
 
-You can also pass the bot token directly:
+**Alternative quick start:**
 ```bash
-./scripts/run.sh --token YOUR_BOT_TOKEN
+make install    # Full installation with Docker setup
 ```
 
 ## Bot Commands
@@ -104,30 +104,36 @@ Uninstall the service:
 
 ## Common Commands
 
+**Using Makefile (Recommended):**
 ```bash
-# Start the bot
-./scripts/run.sh
+# Project setup
+make setup              # Initial setup after cloning
+make install            # Full installation with Docker
 
-# Stop the bot  
-./scripts/stop.sh
+# Service management  
+make start              # Start the bot
+make stop               # Stop the bot
+make restart            # Restart the bot
+make status             # Show service status
 
-# Start with additional services
-./scripts/run.sh --monitoring --logging
+# Development & testing
+make test               # Run tests
+make dev                # Start development environment
+make logs               # View logs
+make shell              # Open shell in container
 
-# Check comprehensive service status
-./scripts/check-service.sh
+# Maintenance
+make update             # Update and restart
+make backup             # Backup bot data
+make clean              # Clean up containers
+```
 
-# Run tests
-./scripts/test.sh
-
-# Run tests using Docker Compose
-docker-compose --profile test run --rm test
-
-# View logs
-docker-compose logs -f bot
-
-# Update bot
-./scripts/run.sh --force-rebuild
+**Legacy script commands (still supported):**
+```bash
+./scripts/run.sh        # Start the bot
+./scripts/stop.sh       # Stop the bot
+./scripts/test.sh       # Run tests
+./scripts/check-service.sh  # Check status
 ```
 
 ## Command-Line Options

@@ -13,7 +13,11 @@ RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezo
 # Create non-root user with the same UID as the host user
 ARG USER_ID=1000
 ARG GROUP_ID=1000
-RUN groupadd -g ${GROUP_ID} appuser && \
+RUN if ! getent group ${GROUP_ID} > /dev/null 2>&1; then \
+        groupadd -g ${GROUP_ID} appuser; \
+    else \
+        groupadd appuser; \
+    fi && \
     useradd -m -u ${USER_ID} -g appuser appuser
 
 # Install system packages as root

@@ -102,8 +102,13 @@ setup_data_directories() {
     execute_or_simulate "Create data and logs directories" '
         mkdir -p "$PROJECT_ROOT/logs"
         mkdir -p "$PROJECT_ROOT/data"
-        chmod 755 "$PROJECT_ROOT/logs"
-        chmod 755 "$PROJECT_ROOT/data"
+        # Use centralized permission setup
+        if [ -f "$PROJECT_ROOT/scripts/setup-permissions.sh" ]; then
+            bash "$PROJECT_ROOT/scripts/setup-permissions.sh"
+        else
+            chmod 755 "$PROJECT_ROOT/logs"
+            chmod 755 "$PROJECT_ROOT/data"
+        fi
     '
 }
 

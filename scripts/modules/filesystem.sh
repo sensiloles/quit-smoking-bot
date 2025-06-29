@@ -29,18 +29,16 @@ setup_data_directories() {
         debug_print "./logs directory already exists"
     fi
 
-    # Ensure correct ownership (current user)
-    debug_print "Getting current user and group information"
-    local current_user=$(id -u)
-    local current_group=$(id -g)
-    debug_print "Current user: $current_user, group: $current_group"
-
-    # Give liberal permissions temporarily to avoid permission issues during build and startup
-    debug_print "Setting permissions to 777 on ./data and ./logs directories"
-    chmod -R 777 ./data ./logs
-
-    debug_print "Directory permissions set successfully"
-    print_message "Fixed permissions on data and log directories" "$GREEN"
+    # Setup secure permissions using dedicated script
+    debug_print "Setting up secure permissions"
+    if [ -f "./scripts/setup-permissions.sh" ]; then
+        bash ./scripts/setup-permissions.sh
+    else
+        # Fallback: set basic secure permissions
+        chmod 755 ./data ./logs 2>/dev/null || true
+        find ./data -type f -name "*.json" -exec chmod 644 {} \; 2>/dev/null || true
+        print_message "Applied basic secure permissions" "$GREEN"
+    fi
 
     # Ensure docker-compose.yml exists and has correct volume mappings
     if [ -f "docker-compose.yml" ]; then

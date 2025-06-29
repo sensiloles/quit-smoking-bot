@@ -1,101 +1,66 @@
 #!/bin/bash
-# common.sh - Main entry point for common utilities
+# bootstrap.sh - Initial project setup for quit-smoking-bot
 #
-# This script loads all utility modules and provides shared functions
-# for all bot management scripts. It replaces the original monolithic
-# common.sh file with a modular approach.
+# This script performs the initial setup after cloning the repository.
+# It can be run manually or automatically via git hooks.
 
-# Get the directory where this script is located
-# Handle both direct execution and sourcing
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    # Direct execution
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-else
-    # Being sourced - use the script path
-    if [[ -n "${BASH_SOURCE[0]}" ]]; then
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    else
-        # Fallback: assume we're in scripts directory or being called from project root
-        if [[ -d "modules" ]]; then
-            SCRIPT_DIR="$(pwd)"
-        elif [[ -d "scripts/modules" ]]; then
-            SCRIPT_DIR="$(pwd)/scripts"
-        else
-            echo "ERROR: Cannot determine script directory" >&2
-            return 1
-        fi
+set -euo pipefail
+
+# Colors for output
+readonly GREEN='\033[0;32m'
+readonly BLUE='\033[0;34m'
+readonly YELLOW='\033[1;33m'
+readonly NC='\033[0m'
+
+# Project root directory
+readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+print_message() {
+    local message="$1"
+    local color="${2:-$NC}"
+    echo -e "${color}${message}${NC}"
+}
+
+main() {
+    print_message "🚀 Bootstrapping quit-smoking-bot project..." "$BLUE"
+    
+    cd "$PROJECT_ROOT"
+    
+    # Setup secure permissions
+    if [[ -f "scripts/setup-permissions.sh" ]]; then
+        print_message "🔐 Setting up secure file permissions..." "$YELLOW"
+        bash scripts/setup-permissions.sh
     fi
+    
+    # Create .env template if it doesn't exist
+    if [[ ! -f ".env" ]]; then
+        print_message "📝 Creating .env template..." "$YELLOW"
+        cat > .env << 'EOF'
+# Telegram Bot Configuration
+BOT_TOKEN="your_telegram_bot_token_here"
+
+# System Configuration
+SYSTEM_NAME="quit-smoking-bot"
+SYSTEM_DISPLAY_NAME="Quit Smoking Bot"
+
+# Timezone (optional)
+TZ="Asia/Novosibirsk"
+
+# Notification Settings (optional)
+NOTIFICATION_DAY="23"
+NOTIFICATION_HOUR="21"
+NOTIFICATION_MINUTE="58"
+EOF
+        print_message "✅ Created .env template - please update with your bot token" "$GREEN"
+    fi
+    
+    print_message "🎉 Project bootstrap completed!" "$GREEN"
+    print_message "📋 Next steps:" "$BLUE"
+    print_message "  1. Update .env file with your bot token" "$BLUE"
+    print_message "  2. Run: ./scripts/run.sh" "$BLUE"
+}
+
+# Run if executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
 fi
-
-MODULES_DIR="${SCRIPT_DIR}/modules"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-
-# Export PROJECT_ROOT for use in modules
-export PROJECT_ROOT
-
-# Load environment variables from .env file if it exists
-if [ -f ".env" ]; then
-    source ".env"
-fi
-
-# Load all utility modules in the correct order
-# Order matters due to dependencies between modules
-
-# 1. Output utilities (no dependencies)
-source "${MODULES_DIR}/output.sh"
-
-# 2. Environment utilities (depends on output)
-source "${MODULES_DIR}/environment.sh"
-
-# 3. Docker utilities (depends on output and environment)
-source "${MODULES_DIR}/docker.sh"
-
-# 4. Error handling utilities (depends on output and docker)
-source "${MODULES_DIR}/errors.sh"
-
-# 5. Service management utilities (depends on output, environment, docker, errors)
-source "${MODULES_DIR}/service.sh"
-
-# 6. Health check utilities (depends on output, environment, docker)
-source "${MODULES_DIR}/health.sh"
-
-# 7. Conflict detection utilities (depends on output, environment, docker)
-source "${MODULES_DIR}/conflicts.sh"
-
-# 8. Command line argument parsing (depends on output and environment)
-source "${MODULES_DIR}/args.sh"
-
-# 9. File system utilities (depends on output)
-source "${MODULES_DIR}/filesystem.sh"
-
-# 10. System utilities (depends on output and environment)
-source "${MODULES_DIR}/system.sh"
-
-# 11. Testing utilities (depends on output and errors)
-source "${MODULES_DIR}/testing.sh"
-
-# 12. Action logging and dry-run utilities (depends on output)
-source "${MODULES_DIR}/actions.sh"
-
-# Initialize environment
-load_env_file
-auto_export_bot_token
-
-# Ensure all modules are loaded successfully
-if ! declare -f print_message >/dev/null 2>&1; then
-    echo "ERROR: Failed to load output utilities module" >&2
-    exit 1
-fi
-
-if ! declare -f check_docker_installation >/dev/null 2>&1; then
-    echo "ERROR: Failed to load docker utilities module" >&2
-    exit 1
-fi
-
-if ! declare -f check_bot_token >/dev/null 2>&1; then
-    echo "ERROR: Failed to load environment utilities module" >&2
-    exit 1
-fi
-
-# All modules loaded successfully
-debug_print "All common utility modules loaded successfully"
