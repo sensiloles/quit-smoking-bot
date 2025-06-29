@@ -28,6 +28,10 @@ else
 fi
 
 MODULES_DIR="${SCRIPT_DIR}/modules"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Export PROJECT_ROOT for use in modules
+export PROJECT_ROOT
 
 # Load environment variables from .env file if it exists
 if [ -f ".env" ]; then
@@ -69,6 +73,9 @@ source "${MODULES_DIR}/system.sh"
 
 # 11. Testing utilities (depends on output and errors)
 source "${MODULES_DIR}/testing.sh"
+
+# 12. Action logging and dry-run utilities (depends on output)
+source "${MODULES_DIR}/actions.sh"
 
 # Initialize environment
 load_env_file

@@ -52,7 +52,7 @@ print_success() {
 
 # Add a function for debug output
 debug_print() {
-    if [ "${DEBUG:-0}" = "1" ]; then
+    if [ "${DEBUG:-0}" = "1" ] || [ "${VERBOSE:-0}" = "1" ]; then
         echo "DEBUG: $1" >&2
     fi
 } 

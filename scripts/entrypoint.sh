@@ -102,13 +102,13 @@ setup_data_directory() {
     ls -la "$DATA_DIR/" | sed 's/^/    /'
 }
 
-# Run integration tests if BOT_TOKEN is available
+# Run integration tests only if explicitly enabled
 run_integration_tests() {
-    if [ -n "$BOT_TOKEN" ]; then
-        log_message "INFO" "Running integration tests"
+    if [ "${RUN_INTEGRATION_TESTS:-0}" = "1" ] && [ -n "$BOT_TOKEN" ]; then
+        log_message "INFO" "Running integration tests (enabled via RUN_INTEGRATION_TESTS=1)"
 
-        # Run tests and save output to file
-        cd /app && python -m tests.integration.test_notifications --token "$BOT_TOKEN" > /app/test_results.txt 2>&1
+        # Run tests with timeout to prevent infinite hang
+        cd /app && timeout 60 python -m tests.integration.test_notifications --token "$BOT_TOKEN" > /app/test_results.txt 2>&1
         local test_status=$?
 
         # Check if tests were successful
@@ -121,11 +121,13 @@ run_integration_tests() {
                 cd /app && python -m src.send_results --token "$BOT_TOKEN" || \
                     log_message "WARN" "Failed to send test results to admins"
             fi
+        elif [ $test_status -eq 124 ]; then
+            log_message "WARN" "Integration tests timed out after 60 seconds"
         else
             log_message "WARN" "Integration tests failed with status $test_status"
         fi
     else
-        log_message "INFO" "Skipping integration tests - BOT_TOKEN not provided"
+        log_message "INFO" "Skipping integration tests (set RUN_INTEGRATION_TESTS=1 to enable)"
     fi
 }
 
@@ -197,6 +199,13 @@ terminate_existing_processes() {
 
 # Main execution flow
 main() {
+    # Check if this is a testing container FIRST, before any initialization
+    if [ "${TESTING:-false}" = "true" ]; then
+        log_message "INFO" "Testing mode detected, running tests instead of bot"
+        cd /app
+        exec "$@"  # Execute the command passed to the container
+    fi
+
     log_message "INFO" "Starting bot container initialization"
 
     # Create logs directory if it doesn't exist

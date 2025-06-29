@@ -54,7 +54,7 @@ You can also pass the bot token directly:
 
 Install Docker and start the bot service:
 ```bash
-./scripts/install-service.sh
+./scripts/run.sh --install
 ```
 
 This will:
@@ -85,7 +85,7 @@ docker-compose restart bot
 
 Uninstall the service:
 ```bash
-./scripts/uninstall-service.sh
+./scripts/stop.sh --uninstall
 ```
 
 ## Environment Variables
@@ -109,7 +109,7 @@ Uninstall the service:
 ./scripts/run.sh
 
 # Stop the bot  
-./scripts/stop.sh [--cleanup]
+./scripts/stop.sh
 
 # Start with additional services
 ./scripts/run.sh --monitoring --logging
@@ -132,28 +132,32 @@ docker-compose logs -f bot
 
 ## Command-Line Options
 
-### run.sh and install-service.sh options:
+### run.sh options:
 
+- `--install` - Full installation with Docker setup and auto-restart
 - `--token YOUR_BOT_TOKEN` - Specify the Telegram bot token
 - `--force-rebuild` - Forces a complete rebuild of Docker images
 - `--tests` - Runs the test suite after building. If tests fail, the script will stop
 - `--monitoring` - Enable health monitoring service
 - `--logging` - Enable log aggregation service
+- `--dry-run` - Show what would be done without executing
+- `--status` - Show system status and exit
+- `--quiet` - Minimal output (errors only)
+- `--verbose` - Detailed output and debugging
 - `--help` - Displays usage information and options
 
 ### stop.sh options:
 
+- `--uninstall` - Complete uninstallation (removes images and cleans Docker)
+- `--keep-data` - Keep logs when uninstalling (data is always preserved)
 - `--all` - Stop all services including monitoring and logging
-- `--cleanup` - Perform thorough cleanup of Docker resources
-- `--volumes` - Remove volumes (WARNING: this will delete data)
-- `--images` - Remove bot images after stopping
+- `--dry-run` - Show what would be done without executing
+- `--force` - Skip confirmation prompts
+- `--quiet` - Minimal output (errors only)
+- `--verbose` - Detailed output and debugging
+- `--help` - Show help message
 
-### uninstall-service.sh options:
-
-- `--keep-data` - Keep data directory and logs
-- `--keep-images` - Keep Docker images
-- `--full-cleanup` - Remove everything including Docker volumes
-- `--remove-legacy` - Remove legacy systemd/supervisor services if exist
+> **⚠️ Important**: The `data/` directory (user database) is always preserved and never deleted automatically.
 
 ## Service Profiles
 
@@ -213,6 +217,45 @@ The bot includes several automatic features:
 - **Resource limits**: Memory and CPU usage limits for stability
 - **Conflict detection**: Automatically detects and handles token conflicts
 
+## Enhanced Script Features
+
+The management scripts include advanced features for better operational experience:
+
+### Dry-Run Mode
+Preview what actions will be performed without executing them:
+```bash
+# Preview installation
+./scripts/run.sh --dry-run --install --monitoring
+
+# Preview uninstallation
+./scripts/stop.sh --dry-run --uninstall
+```
+
+### Action Logging
+All operations are logged to `logs/actions.log` for audit trail:
+```bash
+# View recent actions
+tail -f logs/actions.log
+
+# Check action history
+grep "SUCCESS\|ERROR" logs/actions.log
+```
+
+### Interactive Confirmations
+Dangerous operations require explicit confirmation:
+```bash
+./scripts/stop.sh --uninstall
+# ⚠️  WARNING: This action may result in data loss!
+# Are you sure you want to proceed? (y/N):
+```
+
+### Comprehensive Status Reporting
+Get detailed system information:
+```bash
+./scripts/run.sh --status
+# Shows: containers, images, data directories, recent actions, installation status
+```
+
 ## Troubleshooting
 
 ### Bot doesn't start or reports conflicts
@@ -240,7 +283,7 @@ Force a complete rebuild:
 
 Clean up Docker resources:
 ```bash
-./scripts/stop.sh --cleanup
+./scripts/stop.sh --uninstall
 docker system prune -f
 ```
 
@@ -260,8 +303,8 @@ This will show:
 
 Enable verbose debug output:
 ```bash
-DEBUG=1 ./scripts/run.sh --force-rebuild --token YOUR_TOKEN
-DEBUG=1 ./scripts/install-service.sh --tests
+./scripts/run.sh --verbose --force-rebuild --token YOUR_TOKEN
+./scripts/run.sh --verbose --install --tests
 ```
 
 This will print detailed step-by-step information to help pinpoint issues.
@@ -284,15 +327,25 @@ quit-smoking-bot/
 │   └── unit/                       # Unit tests
 ├── scripts/                        # Shell scripts for operations
 │   ├── modules/                    # Common script modules
-│   ├── bootstrap.sh               # Script initialization
-│   ├── check-service.sh           # Service status check
+│   │   ├── actions.sh             # Action logging and dry-run functionality
+│   │   ├── args.sh                # Argument parsing utilities
+│   │   ├── conflicts.sh           # Bot conflict detection
+│   │   ├── docker.sh              # Docker management functions
+│   │   ├── environment.sh         # Environment setup and validation
+│   │   ├── errors.sh              # Error handling utilities
+│   │   ├── filesystem.sh          # File system operations
+│   │   ├── health.sh              # Health checking utilities
+│   │   ├── output.sh              # Output formatting and messaging
+│   │   ├── service.sh             # Service management functions
+│   │   ├── system.sh              # System detection and setup
+│   │   └── testing.sh             # Testing utilities
+│   ├── bootstrap.sh               # Script initialization and module loading
+│   ├── check-service.sh           # Service status check and diagnostics
 │   ├── entrypoint.sh              # Container entrypoint script
 │   ├── healthcheck.sh             # Container health check
-│   ├── install-service.sh         # Service installation
-│   ├── run.sh                     # Start bot service
-│   ├── stop.sh                    # Stop bot service
-│   ├── test.sh                    # Run tests
-│   └── uninstall-service.sh       # Service uninstallation
+│   ├── run.sh                     # Universal start/install script
+│   ├── stop.sh                    # Universal stop/uninstall script
+│   └── test.sh                    # Run tests
 ├── data/                          # Bot data directory (created on first run)
 ├── logs/                          # Log files directory (created on first run)
 ├── docker-compose.yml             # Docker Compose configuration
@@ -305,6 +358,8 @@ quit-smoking-bot/
 ## Docker Configuration
 
 The bot is containerized using Docker for consistent deployment across different environments. For detailed information about the Docker setup, container lifecycle, networking, and advanced configurations, see [DOCKER.md](DOCKER.md).
+
+For comprehensive usage guide of the management scripts, see [SCRIPT_USAGE.md](SCRIPT_USAGE.md).
 
 Key features of the Docker implementation include:
 - Multi-stage build process for optimized image size
