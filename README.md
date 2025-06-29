@@ -22,7 +22,7 @@ cd quit-smoking-bot
 2. Create a `.env` file with required environment variables:
 ```bash
 BOT_TOKEN="your_telegram_bot_token_here"  # Get from BotFather
-SYSTEM_NAME="quit-smoking-bot"            # For Docker containers and systemd service
+SYSTEM_NAME="quit-smoking-bot"            # For Docker containers
 SYSTEM_DISPLAY_NAME="Quit Smoking Bot"    # For service and logs
 ```
 
@@ -48,28 +48,44 @@ You can also pass the bot token directly:
 ## Requirements
 
 - Docker and Docker Compose
-- Systemd (for service management on Linux)
 - curl (for token validation and conflict detection)
 
 ## Running as a Service
 
-> **Compatibility Note:** Running as a systemd service is fully supported only on **Linux distributions** that use systemd (like Ubuntu).
-> On macOS and other systems, the `install-service.sh` script will build the Docker image and run tests (if `--tests` is used), but it cannot install or manage a systemd service. The bot container will be started directly using `docker-compose`.
-
-Install and start as a systemd service (Linux only):
+Install Docker and start the bot service:
 ```bash
-sudo ./scripts/install-service.sh
+./scripts/install-service.sh
 ```
 
-Manage the service (Linux only):
+This will:
+- Install Docker and Docker Compose (if not already installed)
+- Build and start the bot with automatic restart on failures
+- Enable Docker for automatic startup on system boot
+
+Manage the service:
 ```bash
-sudo systemctl start|stop|restart|status quit-smoking-bot.service
-sudo journalctl -u quit-smoking-bot.service -f  # View logs (Linux only)
+# Start the bot
+./scripts/run.sh
+
+# Stop the bot
+./scripts/stop.sh
+
+# Check status and diagnostics
+./scripts/check-service.sh
+
+# View logs
+docker-compose logs -f bot
+
+# Restart the bot
+docker-compose restart bot
+
+# Update and restart
+./scripts/run.sh --force-rebuild
 ```
 
-Uninstall the service (Linux only):
+Uninstall the service:
 ```bash
-sudo ./scripts/uninstall-service.sh
+./scripts/uninstall-service.sh
 ```
 
 ## Environment Variables
@@ -77,7 +93,7 @@ sudo ./scripts/uninstall-service.sh
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `BOT_TOKEN` | Yes | - | Your Telegram bot token from BotFather |
-| `SYSTEM_NAME` | Yes | quit-smoking-bot | Name for Docker containers and systemd service |
+| `SYSTEM_NAME` | Yes | quit-smoking-bot | Name for Docker containers |
 | `SYSTEM_DISPLAY_NAME` | Yes | Quit Smoking Bot | Display name for the service and logs |
 | `TZ` | No | Asia/Novosibirsk | Timezone for scheduled notifications |
 | `NOTIFICATION_DAY` | No | 23 | Day of month for notifications |
@@ -92,52 +108,128 @@ sudo ./scripts/uninstall-service.sh
 # Start the bot
 ./scripts/run.sh
 
-# Stop the bot
+# Stop the bot  
 ./scripts/stop.sh [--cleanup]
 
-# Check service status
-sudo ./scripts/check-service.sh
+# Start with additional services
+./scripts/run.sh --monitoring --logging
+
+# Check comprehensive service status
+./scripts/check-service.sh
 
 # Run tests
 ./scripts/test.sh
 
 # Run tests using Docker Compose
-docker-compose run --rm test
+docker-compose --profile test run --rm test
 
 # View logs
 docker-compose logs -f bot
+
+# Update bot
+./scripts/run.sh --force-rebuild
 ```
 
 ## Command-Line Options
 
-All `run.sh` and `install-service.sh` scripts support these options:
+### run.sh and install-service.sh options:
 
 - `--token YOUR_BOT_TOKEN` - Specify the Telegram bot token
 - `--force-rebuild` - Forces a complete rebuild of Docker images
-- `--cleanup` - Performs additional cleanup of Docker resources
-- `--tests` - Runs the test suite after building the image. If tests fail, the script will stop (won't start the bot or install the service).
+- `--tests` - Runs the test suite after building. If tests fail, the script will stop
+- `--monitoring` - Enable health monitoring service
+- `--logging` - Enable log aggregation service
 - `--help` - Displays usage information and options
 
-*Note:* Test configuration is managed by `pytest.ini` located in the `tests/` directory.
+### stop.sh options:
+
+- `--all` - Stop all services including monitoring and logging
+- `--cleanup` - Perform thorough cleanup of Docker resources
+- `--volumes` - Remove volumes (WARNING: this will delete data)
+- `--images` - Remove bot images after stopping
+
+### uninstall-service.sh options:
+
+- `--keep-data` - Keep data directory and logs
+- `--keep-images` - Keep Docker images
+- `--full-cleanup` - Remove everything including Docker volumes
+- `--remove-legacy` - Remove legacy systemd/supervisor services if exist
+
+## Service Profiles
+
+The bot supports additional services through Docker Compose profiles:
+
+### Health Monitoring
+```bash
+# Start with health monitoring
+./scripts/run.sh --monitoring
+
+# Or directly with docker-compose
+docker-compose --profile monitoring up -d
+```
+
+### Log Aggregation
+```bash
+# Start with log aggregation
+./scripts/run.sh --logging
+
+# Or directly with docker-compose
+docker-compose --profile logging up -d
+```
+
+### Testing
+```bash
+# Run tests
+docker-compose --profile test run --rm test
+```
+
+## Architecture and Technology Stack
+
+The bot is fully containerized using **Docker Compose** for modern, portable deployment:
+
+- **Container Runtime**: Docker with Docker Compose orchestration
+- **Service Management**: Native Docker restart policies (no systemd/supervisor needed)
+- **Health Monitoring**: Built-in Docker health checks with custom scripts
+- **Log Management**: Docker logging with automatic rotation
+- **Resource Control**: Container-level CPU and memory limits
+- **Network Isolation**: Dedicated Docker bridge network
+- **Data Persistence**: Docker volumes for user data and logs
+
+This architecture provides:
+- ✅ **Portability**: Runs identically on any Docker-capable system
+- ✅ **Simplicity**: No complex service managers or system dependencies
+- ✅ **Reliability**: Automatic restart and health monitoring
+- ✅ **Security**: Process isolation and non-root execution
+- ✅ **Scalability**: Easy to extend with additional services
+
+## Automatic Features
+
+The bot includes several automatic features:
+
+- **Auto-restart**: Bot automatically restarts if it crashes (Docker restart policy)
+- **Boot startup**: Bot starts automatically when Docker starts (if Docker auto-starts)
+- **Health checks**: Built-in health monitoring to detect issues
+- **Log rotation**: Automatic log file management with size limits
+- **Resource limits**: Memory and CPU usage limits for stability
+- **Conflict detection**: Automatically detects and handles token conflicts
 
 ## Troubleshooting
 
 ### Bot doesn't start or reports conflicts
 
-1. Check if another bot is running with the same token:
+1. Check comprehensive service status:
 ```bash
-./scripts/check-service.sh # Can be run with sudo on Linux for more details
+./scripts/check-service.sh
 ```
 
-2. If conflict persists (and you are on Linux):
+2. Stop all running instances:
 ```bash
-sudo systemctl stop quit-smoking-bot.service
-# Wait 2 minutes
-sudo systemctl start quit-smoking-bot.service
+./scripts/stop.sh --all
+# Wait a moment, then restart
+./scripts/run.sh
 ```
-If not on Linux, ensure no other `docker-compose` instance is running the bot.
 
-3. If all else fails, create a new bot token with BotFather.
+3. If conflict persists, create a new bot token with BotFather.
 
 ### Docker build issues
 
@@ -146,21 +238,33 @@ Force a complete rebuild:
 ./scripts/run.sh --force-rebuild
 ```
 
-If you encounter errors like `error getting credentials - err: exit status 1, out: \`\` when pulling base images (e.g., `python:3.9-slim`), it might be due to Docker Hub authentication issues. Try the following:
-- Ensure you are logged into Docker Hub (`docker login`).
-- Restart Docker Desktop or the Docker daemon.
-- Check your network connection.
-
-### Debugging Scripts
-
-If the operational scripts (`run.sh`, `install-service.sh`, etc.) are not behaving as expected or exiting prematurely, you can enable verbose debug output by prefixing the command with `DEBUG=1`
-
+Clean up Docker resources:
 ```bash
-DEBUG=1 ./scripts/run.sh --force-rebuild --token YOUR_TOKEN
-DEBUG=1 sudo ./scripts/install-service.sh --tests
+./scripts/stop.sh --cleanup
+docker system prune -f
 ```
 
-This will print detailed step-by-step information (lines starting with `DEBUG:`) to help pinpoint where the script is failing.
+### Service Status and Debugging
+
+Get comprehensive diagnostics:
+```bash
+./scripts/check-service.sh
+```
+
+This will show:
+- Docker Compose service status
+- Container health and resource usage
+- Bot process status and logs
+- Network and volume information
+- Recent errors and operational status
+
+Enable verbose debug output:
+```bash
+DEBUG=1 ./scripts/run.sh --force-rebuild --token YOUR_TOKEN
+DEBUG=1 ./scripts/install-service.sh --tests
+```
+
+This will print detailed step-by-step information to help pinpoint issues.
 
 ## Project Structure
 
@@ -168,95 +272,35 @@ This will print detailed step-by-step information (lines starting with `DEBUG:`)
 quit-smoking-bot/
 ├── src/                            # Source code directory
 │   ├── __init__.py                 # Python package initialization
-│   ├── bot.py                      # Main bot class and handlers (323 lines)
-│   ├── config.py                    # Configuration and constants (85 lines)
-│   ├── quotes.py                   # Quotes management (34 lines)
-│   ├── status.py                   # Status information and calculations (85 lines)
-│   ├── users.py                    # User management and storage (63 lines)
-│   ├── utils.py                    # Utility functions and helpers (68 lines)
-│   └── send_results.py             # Test results notification system (73 lines)
+│   ├── bot.py                      # Main bot class and handlers
+│   ├── config.py                   # Configuration and constants
+│   ├── quotes.py                   # Quotes management
+│   ├── status.py                   # Status information and calculations
+│   ├── users.py                    # User management and storage
+│   ├── utils.py                    # Utility functions and helpers
+│   └── send_results.py             # Test results notification system
 ├── tests/                          # Tests directory
-│   ├── __init__.py                 # Tests package initialization
 │   ├── integration/                # Integration tests
-│   │   ├── __init__.py             # Integration tests package initialization
-│   │   └── test_notifications.py    # Notification system tests
 │   └── unit/                       # Unit tests
-│       ├── __init__.py             # Unit tests package initialization
-│       └── test_utils.py           # Utility functions tests
-├── development/                    # Development environment (see development/README.md)
-│   ├── README.md                   # Development environment documentation
-│   ├── start-dev.sh                # Quick start script for dev environment
-│   ├── Dockerfile                  # Ubuntu 22.04 development image
-│   ├── docker-compose.yml          # Development container orchestration
-│   ├── Makefile                    # Development commands
-│   └── scripts/                    # Development helper scripts
-│       ├── setup-env.sh            # Environment setup inside container
-│       └── test-scripts.sh         # Comprehensive script testing
 ├── scripts/                        # Shell scripts for operations
-│   ├── check-service.sh            # Comprehensive service status check (418 lines)
-│   ├── common.sh                   # Common functions used by other scripts (832 lines)
-│   ├── entrypoint.sh               # Container entrypoint script (223 lines)
-│   ├── healthcheck.sh              # Container health check (185 lines)
-│   ├── install-service.sh          # Systemd service installation (255 lines)
-│   ├── run.sh                      # Start bot script (75 lines)
-│   ├── stop.sh                     # Stop bot script (60 lines)
-│   ├── test.sh                     # Run tests script (40 lines)
-│   └── uninstall-service.sh        # Service removal script (125 lines)
-├── data/                           # Data storage directory (persistent)
-│   ├── bot_users.json              # Registered users data
-│   ├── bot_admins.json             # Admin users data
-│   └── quotes.json                 # Motivational quotes data
-├── logs/                           # Log files directory
-│   └── bot.log                     # Main bot log file
-├── main.py                         # Legacy entry point (redirects to src/bot.py)
-├── setup.py                        # Python package configuration (18 lines)
-├── Dockerfile                       # Docker container configuration (60 lines)
-├── docker-compose.yml              # Docker Compose services definition (68 lines)
-├── .dockerignore                   # Docker build exclude patterns (65 lines)
-├── .gitignore                      # Git exclude patterns (40 lines)
-└── README.md                       # This documentation file
+│   ├── modules/                    # Common script modules
+│   ├── bootstrap.sh               # Script initialization
+│   ├── check-service.sh           # Service status check
+│   ├── entrypoint.sh              # Container entrypoint script
+│   ├── healthcheck.sh             # Container health check
+│   ├── install-service.sh         # Service installation
+│   ├── run.sh                     # Start bot service
+│   ├── stop.sh                    # Stop bot service
+│   ├── test.sh                    # Run tests
+│   └── uninstall-service.sh       # Service uninstallation
+├── data/                          # Bot data directory (created on first run)
+├── logs/                          # Log files directory (created on first run)
+├── docker-compose.yml             # Docker Compose configuration
+├── Dockerfile                     # Docker image definition
+├── requirements.txt               # Python dependencies
+├── setup.py                       # Python package setup
+└── main.py                        # Application entry point
 ```
-
-The project follows a modular structure with clear separation of concerns:
-
-- **Core Bot Logic** (`src/`): Handles bot commands, user management, and status calculations
-- **Testing** (`tests/`): Contains both unit and integration tests
-- **Development Environment** (`development/`): Docker-based cross-platform development tools
-- **Operations** (`scripts/`): Shell scripts for running, installing, and managing the bot
-- **Configuration** (`Dockerfile`, `docker-compose.yml`): Docker container setup
-- **Persistence** (`data/`): Stores user data and quotes
-
-## Development Environment
-
-For cross-platform development and testing, this project includes a complete Docker-based development environment. This is particularly useful for:
-
-- **Testing on any OS**: Run Linux environment on macOS, Windows, or any system with Docker
-- **systemd testing**: Test service installation and management without affecting your host system
-- **Consistent environment**: Ensure all developers work in the same environment
-- **Safe experimentation**: Test scripts and configurations in isolated containers
-
-**Quick Start:**
-```bash
-# Interactive Linux development environment
-./development/start-dev.sh
-
-# With systemd support for service testing
-./development/start-dev.sh --systemd
-```
-
-**See [development/README.md](development/README.md) for complete documentation including:**
-- Detailed usage instructions for `start-dev.sh`
-- Available development environments (standard vs systemd)
-- Testing workflows and best practices
-- Makefile commands and Docker Compose usage
-- Troubleshooting common issues
-
-The `entrypoint.sh` script is used as the container's entry point and handles:
-- Environment variable setup
-- Log directory creation
-- Prevention of multiple bot processes
-- Bot startup with proper configuration
-- Signal handling for graceful shutdown
 
 ## Docker Configuration
 
@@ -272,6 +316,62 @@ Key features of the Docker implementation include:
 - JSON logging with rotation
 
 Container management is handled through shell scripts that provide a simple interface to the underlying Docker operations.
+
+## Development Setup
+
+For local development and testing:
+
+### Using Docker (Recommended)
+
+The easiest way to develop and test is using the existing Docker setup:
+
+```bash
+# Start development environment
+./scripts/run.sh --token YOUR_DEV_TOKEN
+
+# Run tests
+./scripts/test.sh
+
+# Access container for debugging
+docker exec -it quit-smoking-bot sh
+```
+
+### Native Python Environment
+
+For native development without Docker:
+
+```bash
+# Install development dependencies
+python3 -m pip install -r requirements-dev.txt
+
+# Install project in editable mode
+pip install -e .
+
+# Run tests
+python -m pytest tests/
+```
+
+This approach is useful for:
+- IDE integration and debugging
+- Faster iteration during development
+- Direct access to Python debugging tools
+
+### Testing Environment
+
+The project includes comprehensive testing:
+
+```bash
+# Run all tests with Docker
+./scripts/test.sh
+
+# Run specific test categories
+docker-compose --profile test run --rm test python -m pytest tests/unit/
+docker-compose --profile test run --rm test python -m pytest tests/integration/
+
+# Run tests natively
+python -m pytest tests/unit/
+python -m pytest tests/integration/ --token YOUR_TOKEN
+```
 
 ## Future Development Plans
 
@@ -292,10 +392,10 @@ The migration will be implemented in phases:
 
 ### Extended OS Support
 
-While the current implementation has limited support for macOS and primarily targets Linux, future versions will include:
+While the current implementation works on any Docker-compatible system, future versions will include:
 
-- **Full macOS Support**: Improved service management and native integration
-- **Windows Support**: Adding Windows compatibility for broader user adoption
+- **Enhanced macOS Support**: Improved native integration and service management
+- **Windows Support**: Native Windows container support and PowerShell scripts
 - **Cross-platform Abstractions**: Using Python to create OS-independent operational scripts
 
 This extended platform support will primarily be enabled by the migration to Python-based scripts, which offer better cross-platform capabilities than Bash.
@@ -303,17 +403,6 @@ This extended platform support will primarily be enabled by the migration to Pyt
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Development Environment Setup
-
-To set up the development environment for this project:
-
-```bash
-# Install development dependencies
-python3 -m pip install -r requirements-dev.txt
-```
-
-This will install all necessary libraries, including setuptools, and configure the project for development.
 
 ## Commit Conventions
 
@@ -344,18 +433,4 @@ Common types include:
 
 ### Enforcement
 
-Commit message formatting is enforced using a Git hook managed by `pre-commit`. See the "Pre-commit Hooks" section below.
-
-## Pre-commit Hooks
-
-This project uses `pre-commit` to manage Git hooks that run checks before commits are made. This helps maintain code quality and consistency.
-
-**Installation:**
-
-1. Ensure you have set up the [Development Environment](#development-environment-setup).
-2. Install the Git hooks:
-   ```bash
-   pre-commit install --hook-type commit-msg --hook-type pre-commit
-   ```
-
-Now, the configured checks (like commit message linting) will run automatically when you run `git commit`.
+Commit message formatting can be enforced using Git hooks or CI/CD pipelines to maintain consistency across the project.

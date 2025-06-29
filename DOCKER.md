@@ -4,24 +4,45 @@ This document provides a comprehensive overview of the Docker setup for the Quit
 
 ## Overview
 
-The Quit Smoking Bot is containerized using Docker to ensure consistent and reliable operation across different environments. The Docker implementation provides:
+The Quit Smoking Bot is fully containerized using **Docker Compose** to ensure consistent and reliable operation across different environments. The Docker implementation provides:
 
-- Isolated execution environment
-- Automatic dependency management
-- Configuration through environment variables
-- Persistent data storage with volumes
-- Health monitoring and self-healing capabilities
-- Resource control and limitation
-- Standardized deployment process
+- **Pure Container Architecture**: No systemd, supervisor, or host system dependencies
+- **Isolated execution environment**: Complete process and network isolation
+- **Automatic dependency management**: All dependencies contained within images
+- **Configuration through environment variables**: 12-factor app methodology
+- **Persistent data storage with volumes**: Data survives container updates
+- **Health monitoring and self-healing**: Built-in Docker health checks
+- **Resource control and limitation**: Container-level resource management
+- **Standardized deployment process**: Identical deployment across environments
 
 ## Container Architecture
 
-The project uses a multi-container setup defined in `docker-compose.yml`:
+The project uses a modern multi-container setup defined in `docker-compose.yml`:
+
+### Core Services
 
 1. **Main Bot Service** (`bot`): The primary container running the Telegram bot
-2. **Test Service** (`test`): A separate container for running integration tests
+   - **Restart Policy**: `unless-stopped` for automatic recovery
+   - **Health Checks**: Custom health monitoring every 30 seconds
+   - **Resource Limits**: 256MB memory limit with 128MB reservation
+   - **Logging**: JSON format with automatic rotation (10MB, 5 files)
 
-Both services share the same base image but have different configurations and entrypoints.
+2. **Test Service** (`test`): A separate container for running integration tests
+   - **Profile-based**: Only runs when explicitly requested
+   - **Isolated Testing**: Separate environment for testing
+   - **Shared Volumes**: Access to data for integration testing
+
+### Additional Services (Profile-based)
+
+3. **Health Monitor Service** (`health-monitor`): Advanced health monitoring
+   - **Profile**: `monitoring`
+   - **Purpose**: Extended health metrics and alerting
+
+4. **Log Aggregator Service** (`log-aggregator`): Centralized logging
+   - **Profile**: `logging`  
+   - **Purpose**: Log collection, processing, and rotation
+
+All services share the same base image but have different configurations and entrypoints, following the DRY principle while maintaining service isolation.
 
 ### Directory Structure in Container
 
@@ -46,7 +67,7 @@ Both services share the same base image but have different configurations and en
 The `Dockerfile` uses a multi-stage build process to create an optimized image:
 
 ```dockerfile
-# Base image - slim Python for smaller footprint
+# Multi-stage build for optimized image size
 FROM python:3.9-slim as base
 
 # Environment variable configuration
@@ -64,7 +85,7 @@ ARG GROUP_ID=1000
 RUN groupadd -g ${GROUP_ID} appuser && \
     useradd -m -u ${USER_ID} -g appuser appuser
 
-# Install system dependencies
+# Install minimal system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     apt-utils \
@@ -85,7 +106,7 @@ RUN mkdir -p /app/data /app/logs /app/health \
 COPY --chown=appuser:appuser . .
 RUN chmod +x /app/scripts/*.sh
 
-# Switch to non-root user
+# Switch to non-root user for security
 USER appuser
 ENV PATH="/home/appuser/.local/bin:${PATH}"
 
@@ -101,19 +122,19 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 ### Key Dockerfile Components
 
-1. **Base Image**: Uses Python 3.9 slim for a smaller footprint while maintaining Python functionality
-2. **Environment Setup**: Configures timezone and Python settings
-3. **Security**: Creates a non-root user to run the application
-4. **Dependencies**: Installs minimal required system packages
+1. **Base Image**: Python 3.9 slim for minimal footprint while maintaining functionality
+2. **Environment Setup**: Configures timezone and Python settings for container execution
+3. **Security**: Creates non-root user to run the application (principle of least privilege)
+4. **Dependencies**: Installs only essential system packages to reduce attack surface
 5. **Application**: Copies code and installs Python dependencies
-6. **Permissions**: Sets appropriate permissions for directories
+6. **Permissions**: Sets appropriate permissions for directories and files
 7. **Volumes**: Defines persistent storage for data and logs
 8. **Entrypoint**: Uses custom script for initialization and startup
-9. **Health Check**: Configures container health monitoring
+9. **Health Check**: Configures container health monitoring with Docker native features
 
 ## Docker Compose Configuration
 
-The `docker-compose.yml` file orchestrates the services:
+The `docker-compose.yml` file orchestrates the services using modern Docker Compose features:
 
 ```yaml
 version: '3.8'
@@ -126,15 +147,17 @@ services:
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
         - BUILD_ID=${BUILD_ID:-latest}
-    image: ${SYSTEM_NAME:-quit-smoking-bot}
+    image: ${SYSTEM_NAME:-quit-smoking-bot}:latest
     container_name: ${SYSTEM_NAME:-quit-smoking-bot}
     restart: unless-stopped
     deploy:
       resources:
         limits:
           memory: 256M
+          cpus: '0.5'
         reservations:
           memory: 128M
+          cpus: '0.25'
     env_file:
       - .env
     volumes:
@@ -153,7 +176,43 @@ services:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "3"
+        max-file: "5"
+        compress: "true"
+    networks:
+      - bot-network
+
+  # Extended services available via profiles
+  health-monitor:
+    profiles: ["monitoring"]
+    build:
+      context: .
+      args:
+        - USER_ID=${USER_ID:-1000}
+        - GROUP_ID=${GROUP_ID:-1000}
+    image: ${SYSTEM_NAME:-quit-smoking-bot}:latest
+    container_name: ${SYSTEM_NAME:-quit-smoking-bot}-monitor
+    restart: unless-stopped
+    depends_on:
+      - bot
+    volumes:
+      - ./logs:/app/logs:ro
+    networks:
+      - bot-network
+
+  log-aggregator:
+    profiles: ["logging"]
+    build:
+      context: .
+      args:
+        - USER_ID=${USER_ID:-1000}
+        - GROUP_ID=${GROUP_ID:-1000}
+    image: ${SYSTEM_NAME:-quit-smoking-bot}:latest
+    container_name: ${SYSTEM_NAME:-quit-smoking-bot}-logs
+    restart: unless-stopped
+    depends_on:
+      - bot
+    volumes:
+      - ./logs:/app/logs:rw
     networks:
       - bot-network
 
@@ -163,7 +222,7 @@ services:
       args:
         - USER_ID=${USER_ID:-1000}
         - GROUP_ID=${GROUP_ID:-1000}
-    image: ${SYSTEM_NAME:-quit-smoking-bot}-test
+    image: ${SYSTEM_NAME:-quit-smoking-bot}:test
     container_name: ${SYSTEM_NAME:-quit-smoking-bot}-test
     profiles: ["test"]
     env_file:
@@ -182,220 +241,454 @@ services:
 networks:
   bot-network:
     driver: bridge
+    name: ${SYSTEM_NAME:-quit-smoking-bot}-network
 ```
 
 ### Key Docker Compose Components
 
-1. **Services**: Defines bot and test services
-2. **Build Arguments**: Passes user and group IDs for proper permissions matching
-3. **Container Names**: Uses environment variables for consistent naming
-4. **Restart Policy**: Configures automatic restart on failure
-5. **Resource Limits**: Controls memory usage
-6. **Volumes**: Maps data and logs directories to host for persistence
-7. **Environment**: Sets required environment variables
-8. **Health Check**: Configures container health monitoring
-9. **Logging**: Sets up log rotation and format
-10. **Networks**: Creates isolated network for containers
-11. **Profiles**: Enables selective service execution (test container only runs when explicitly specified)
+1. **Services**: Defines multiple services with profile-based activation
+2. **Build Arguments**: Passes user and group IDs for proper permission matching
+3. **Container Names**: Uses environment variables for consistent, configurable naming
+4. **Restart Policy**: `unless-stopped` for automatic recovery without manual intervention
+5. **Resource Limits**: Controls CPU and memory usage with limits and reservations
+6. **Volumes**: Maps data and logs directories to host for persistence across updates
+7. **Environment**: Sets required environment variables for container execution
+8. **Health Check**: Configures native Docker health monitoring with custom scripts
+9. **Logging**: Sets up JSON logging with rotation, compression, and size limits
+10. **Networks**: Creates isolated bridge network for inter-container communication
+11. **Profiles**: Enables selective service execution (monitoring, logging, testing)
+12. **Dependencies**: Defines service startup order and dependencies
 
 ## Container Lifecycle
 
 ### Startup Process
 
-When the container starts, the `entrypoint.sh` script performs several initialization steps:
+When the container starts, the `entrypoint.sh` script performs initialization:
 
-1. **Health System Setup**: Initializes health monitoring directories and files
-2. **Log Rotation**: Rotates logs to prevent large log files
-3. **Data Directory Setup**: Creates required data files if missing
-4. **Process Management**: Terminates any existing bot instances to prevent conflicts
-5. **Health Monitor**: Starts a background process that monitors bot health
-6. **Bot Startup**: Launches the Python bot application
+1. **Environment Validation**: Checks required environment variables
+2. **Health System Setup**: Initializes health monitoring directories and files
+3. **Log Management**: Sets up log rotation and directory permissions
+4. **Data Directory Setup**: Creates required data files if missing
+5. **Process Management**: Terminates any existing bot instances to prevent conflicts
+6. **Health Monitor**: Starts background health monitoring process
+7. **Bot Startup**: Launches the Python bot application with proper signal handling
 
-### Health Monitoring
+### Health Monitoring System
 
-The health monitoring system consists of:
+The comprehensive health monitoring consists of:
 
-1. **Background Monitor** (in `entrypoint.sh`): Continuously checks if the bot process is running and updates the health marker file
-2. **Health Check Script** (`healthcheck.sh`): Runs periodically by Docker to determine container health status
-3. **Operational File**: Acts as a marker that the bot is fully operational
+1. **Background Monitor** (in `entrypoint.sh`): 
+   - Continuously monitors bot process status
+   - Updates health marker files
+   - Tracks resource usage
+   - Logs health status changes
 
-The health check script performs these checks:
+2. **Docker Health Check** (`healthcheck.sh`): 
+   - Runs every 30 seconds by Docker daemon
+   - Performs comprehensive health validation
+   - Reports status to Docker for restart decisions
 
-1. Verifies that the bot process is running
-2. Confirms the operational marker file exists and is fresh
-3. Scans logs for critical errors or conflict patterns
-4. Reports container status back to Docker
+3. **Health Markers**: 
+   - `operational` file: Indicates bot is fully functional
+   - `status.log`: Detailed health monitoring logs
+   - Process validation: Confirms bot process is running
 
-If health checks repeatedly fail, Docker's restart policy will attempt to recover the container.
+The health check script performs these validations:
+
+1. **Process Check**: Verifies bot process is running
+2. **Operational File**: Confirms health marker exists and is current
+3. **Log Analysis**: Scans for critical errors or conflict patterns
+4. **API Connectivity**: Validates Telegram API communication
+5. **Resource Monitoring**: Checks memory and CPU usage
+
+If health checks fail repeatedly, Docker's restart policy automatically recovers the container.
 
 ### Shutdown Process
 
-The bot handles graceful shutdown through signal handlers in the Python application that:
+The bot handles graceful shutdown through Python signal handlers:
 
-1. Stop accepting new commands
-2. Complete any in-progress operations
-3. Save state if necessary
-4. Release resources
-5. Remove the operational marker file
+1. **Signal Reception**: Captures SIGTERM/SIGINT signals
+2. **Graceful Stop**: Stops accepting new commands
+3. **Operation Completion**: Finishes in-progress operations
+4. **State Persistence**: Saves any pending state changes
+5. **Resource Cleanup**: Releases file handles and connections
+6. **Health Cleanup**: Removes operational marker files
+
+## Service Management (No systemd/supervisor)
+
+Unlike traditional deployments, this bot uses **pure Docker Compose** for service management:
+
+### Traditional vs. Docker Approach
+
+❌ **Traditional (systemd/supervisor)**:
+- Requires root access for service installation
+- System-specific configuration files
+- Manual dependency management
+- Complex log rotation setup
+- OS-specific service commands
+
+✅ **Docker Compose**:
+- No root access required (after Docker installation)
+- Portable configuration across all systems
+- Automatic dependency resolution
+- Built-in log management
+- Consistent commands across platforms
+
+### Service Management Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# Stop services  
+docker-compose down
+
+# Restart services
+docker-compose restart
+
+# View service status
+docker-compose ps
+
+# Follow logs
+docker-compose logs -f
+
+# Scale services (if needed)
+docker-compose up -d --scale bot=2
+```
+
+### Advantages of Docker-only Approach
+
+1. **Simplicity**: No complex service manager configuration
+2. **Portability**: Works identically on any Docker-capable system
+3. **Isolation**: Complete process and filesystem isolation
+4. **Consistency**: Same behavior in development, testing, and production
+5. **Updates**: Easy to update by rebuilding containers
+6. **Rollback**: Simple rollback by switching image tags
 
 ## Networking
 
-The project uses a dedicated bridge network (`bot-network`) to:
+The project uses a dedicated bridge network (`bot-network`) for:
 
-1. Isolate container traffic
-2. Enable communication between services
-3. Provide DNS resolution between containers
-4. Maintain security through network isolation
+1. **Service Isolation**: Containers communicate only within the network
+2. **DNS Resolution**: Services can reach each other by service name
+3. **Security**: Network traffic is isolated from host and other containers
+4. **Scalability**: Easy to add new services to the same network
 
-No ports are exposed to the host by default, as the Telegram bot communicates outbound to the Telegram API and doesn't require incoming connections.
+Network configuration:
+- **Driver**: Bridge (standard Docker networking)
+- **Name**: Configurable via `SYSTEM_NAME` environment variable
+- **Scope**: Local to the Docker Compose stack
+- **Port Exposure**: No ports exposed to host (outbound API calls only)
 
 ## Data Persistence
 
-Two Docker volumes are configured for data persistence:
+Two Docker volumes ensure data persists across container lifecycles:
 
-1. **Data Volume** (`/app/data`): Stores user information, admin lists, and quotes
-2. **Logs Volume** (`/app/logs`): Contains application logs for monitoring and debugging
+### Data Volume (`/app/data`)
+- **Purpose**: Stores user information, admin lists, and quotes
+- **Mount**: `./data:/app/data:rw` (read-write)
+- **Backup**: Easy to backup by copying the `data` directory
+- **Migration**: Portable data format (JSON files)
 
-These volumes are mapped to host directories to ensure data persists across container restarts and updates.
+### Logs Volume (`/app/logs`)  
+- **Purpose**: Contains application logs for monitoring and debugging
+- **Mount**: `./logs:/app/logs:rw` (read-write)
+- **Rotation**: Automatic log rotation with Docker logging driver
+- **Analysis**: Standard log format for easy parsing
+
+### Volume Benefits
+- **Persistence**: Data survives container restarts and updates
+- **Performance**: Native filesystem performance
+- **Accessibility**: Direct access from host for backup/analysis
+- **Portability**: Easy to migrate between systems
 
 ## Resource Management
 
-The container has resource limits configured to:
+Container resource management ensures stable operation:
 
-1. Set maximum memory usage (256MB)
-2. Reserve minimum memory (128MB)
-3. Prevent resource exhaustion on the host
+### Memory Management
+- **Limit**: 256MB maximum memory usage
+- **Reservation**: 128MB guaranteed memory allocation
+- **Swap**: Limited to prevent system impact
+- **OOM Handling**: Container restart on out-of-memory
 
-These limits ensure the bot operates efficiently while preventing it from consuming excessive resources.
+### CPU Management
+- **Limit**: 0.5 CPU cores maximum
+- **Reservation**: 0.25 CPU cores guaranteed
+- **Scheduling**: CFS (Completely Fair Scheduler)
+- **Throttling**: Automatic CPU throttling when limit exceeded
+
+### Benefits
+- **System Stability**: Prevents resource exhaustion
+- **Predictable Performance**: Guaranteed resource allocation
+- **Cost Control**: Efficient resource utilization
+- **Monitoring**: Easy resource usage tracking
 
 ## Build Process
 
-When building the Docker image:
+The Docker build process is optimized for efficiency:
 
-1. Base image is pulled from Docker Hub
-2. System dependencies are installed
-3. Python dependencies are installed
-4. Application code is copied
-5. Permissions are set
-6. Entrypoint and health check are configured
+### Build Stages
+1. **Base Setup**: Install system dependencies
+2. **User Creation**: Create non-root user for security
+3. **Application Install**: Install Python dependencies
+4. **Code Copy**: Copy application code with proper permissions
+5. **Configuration**: Set entrypoint and health check
 
-Build arguments allow customization:
-- `USER_ID`: ID for the container user (default: 1000)
-- `GROUP_ID`: ID for the container group (default: 1000)
-- `BUILD_ID`: Identifier for the build (default: latest)
+### Build Arguments
+- `USER_ID`: Container user ID (default: 1000)
+- `GROUP_ID`: Container group ID (default: 1000)  
+- `BUILD_ID`: Build identifier for versioning (default: latest)
+
+### Build Optimization
+- **Layer Caching**: Efficient Docker layer caching strategy
+- **Minimal Base**: Python slim image for reduced size
+- **Multi-stage**: Separate build and runtime environments
+- **Dependency Order**: Dependencies installed before code copy for better caching
 
 ## Advanced Usage
 
+### Profile-based Services
+
+Start additional services using profiles:
+
+```bash
+# Start with health monitoring
+./scripts/run.sh --monitoring
+# or
+docker-compose --profile monitoring up -d
+
+# Start with log aggregation  
+./scripts/run.sh --logging
+# or
+docker-compose --profile logging up -d
+
+# Start all services
+docker-compose --profile monitoring --profile logging up -d
+```
+
 ### Custom User/Group IDs
 
-To run the container with the same user ID as the host system:
+Match container user with host user for proper file permissions:
 
 ```bash
 USER_ID=$(id -u) GROUP_ID=$(id -g) ./scripts/run.sh
 ```
 
-### Forcing a Rebuild
+### Development Mode
 
-To rebuild the image without using cache:
+For development with hot reloading:
+
+```bash
+# Mount source code as volume for development
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+### Forcing Rebuilds
+
+Force complete image rebuild without cache:
 
 ```bash
 ./scripts/run.sh --force-rebuild
+# or
+docker-compose build --no-cache
 ```
 
-### Manual Health Check
+### Health Check Monitoring
 
-To check the container's health status:
+Monitor container health status:
 
 ```bash
+# Check health status
 docker inspect --format='{{.State.Health.Status}}' quit-smoking-bot
+
+# View health check logs
+docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{"\n"}}{{end}}' quit-smoking-bot
+
+# Follow health status changes
+watch -n 5 'docker inspect --format="{{.State.Health.Status}}" quit-smoking-bot'
 ```
 
-### Viewing Health Check Logs
+### Log Management
+
+Advanced log management options:
 
 ```bash
-docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' quit-smoking-bot
+# View logs with timestamps
+docker-compose logs -f -t bot
+
+# View logs from specific time
+docker-compose logs --since 2h bot
+
+# Export logs for analysis
+docker-compose logs --no-color bot > bot-logs.txt
+
+# Real-time log analysis
+docker-compose logs -f bot | grep ERROR
 ```
 
-### Running Tests
+## Testing
 
-To run the test suite within the Docker environment:
+The project includes comprehensive testing capabilities:
 
-```bash
-docker-compose run --rm test
-```
-
-Alternatively, you can use the provided helper script:
+### Test Execution
 
 ```bash
+# Run all tests using helper script
 ./scripts/test.sh
+
+# Run tests directly with Docker Compose
+docker-compose --profile test run --rm test
+
+# Run specific test categories
+docker-compose --profile test run --rm test python -m pytest tests/unit/
+docker-compose --profile test run --rm test python -m pytest tests/integration/
 ```
 
-*Note:* The test configuration is defined in `tests/pytest.ini`.
+### Test Configuration
+
+The test service configuration:
+- **Isolated Environment**: Separate container for testing
+- **Shared Data**: Read-only access to data for integration tests
+- **Profile-based**: Only runs when explicitly requested
+- **Cleanup**: Automatic cleanup after test completion
 
 ## Troubleshooting
 
-### Container Fails to Start
+### Container Startup Issues
 
-1. Check logs for errors:
+1. **Check container logs**:
    ```bash
-   docker logs quit-smoking-bot
+   docker-compose logs bot
    ```
 
-2. Verify environment variables are properly set in `.env` file
+2. **Verify environment configuration**:
+   ```bash
+   docker-compose config
+   ```
 
-3. Check for port conflicts if you've modified the configuration to expose ports
+3. **Check resource availability**:
+   ```bash
+   docker system info
+   docker system df
+   ```
 
 ### Health Check Failures
 
-1. Check health status:
+1. **Monitor health status**:
    ```bash
-   docker inspect --format='{{.State.Health.Status}}' quit-smoking-bot
+   ./scripts/check-service.sh
    ```
 
-2. View health check logs:
+2. **View detailed health logs**:
    ```bash
-   docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' quit-smoking-bot
+   docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{"\n"}}{{end}}' quit-smoking-bot
    ```
 
-3. Examine container logs:
+3. **Check health files inside container**:
    ```bash
-   docker logs quit-smoking-bot
-   ```
-
-4. Check the health status file inside the container:
-   ```bash
+   docker exec quit-smoking-bot ls -la /app/health/
    docker exec quit-smoking-bot cat /app/health/status.log
+   ```
+
+### Network Issues
+
+1. **Verify network configuration**:
+   ```bash
+   docker network ls
+   docker network inspect quit-smoking-bot-network
+   ```
+
+2. **Test container connectivity**:
+   ```bash
+   docker exec quit-smoking-bot ping -c 3 api.telegram.org
    ```
 
 ### Resource Constraints
 
-If the container is being terminated due to resource limits:
+1. **Monitor resource usage**:
+   ```bash
+   docker stats quit-smoking-bot
+   ```
 
-1. Increase memory limits in `docker-compose.yml`
-2. Ensure the host has sufficient resources available
-3. Check if other containers or processes are consuming resources
+2. **Adjust resource limits**:
+   Edit `docker-compose.yml` and increase memory/CPU limits
+
+3. **Clean up unused resources**:
+   ```bash
+   docker system prune -f
+   docker volume prune -f
+   ```
 
 ## Security Considerations
 
-The Docker implementation includes several security features:
+The Docker implementation prioritizes security:
 
-1. **Non-root User**: Container runs as a non-privileged user
-2. **Minimal Base Image**: Uses slim image to reduce attack surface
-3. **No Exposed Ports**: No unnecessary network exposure
-4. **Minimal Dependencies**: Only essential packages are installed
-5. **Volume Permissions**: Proper file permissions for mounted volumes
+### Container Security
+- **Non-root Execution**: All processes run as non-privileged user
+- **Minimal Base Image**: Reduced attack surface with slim image
+- **No Privileged Access**: Container runs without elevated privileges
+- **Resource Limits**: Prevents resource-based attacks
+
+### Network Security
+- **No Exposed Ports**: No unnecessary network exposure
+- **Isolated Network**: Dedicated network for service communication
+- **Outbound Only**: Only outbound connections to Telegram API
+- **No Host Network**: Network isolation from host system
+
+### Data Security
+- **Volume Permissions**: Proper file permissions on mounted volumes
+- **User Matching**: Container user matches host user for file access
+- **Read-only Mounts**: Test service has read-only access to data
+- **Log Rotation**: Prevents log files from consuming excessive disk space
+
+### Operational Security
+- **Health Monitoring**: Automatic detection of compromised containers
+- **Automatic Restart**: Quick recovery from security incidents
+- **Immutable Infrastructure**: Containers are replaced, not patched
+- **Environment Isolation**: Complete isolation from host system
+
+## Performance Optimization
+
+### Image Optimization
+- **Multi-stage Build**: Minimizes final image size
+- **Layer Caching**: Optimizes build times
+- **Dependency Order**: Efficient Docker layer utilization
+- **Minimal Dependencies**: Only essential packages included
+
+### Runtime Optimization
+- **Resource Limits**: Prevents resource contention
+- **Health Checks**: Early detection of performance issues
+- **Log Rotation**: Prevents disk space exhaustion
+- **Process Management**: Efficient process lifecycle management
+
+### Monitoring and Metrics
+- **Health Status**: Real-time health monitoring
+- **Resource Usage**: CPU and memory tracking
+- **Log Analysis**: Performance metrics from logs
+- **Container Stats**: Docker native monitoring
 
 ## Summary
 
-The Docker configuration for the Quit Smoking Bot provides a robust, secure, and maintainable environment for running the application. The configuration focuses on:
+The Docker configuration for the Quit Smoking Bot represents a modern, cloud-native approach to application deployment:
 
-- **Security**: Running as non-root with minimal permissions
-- **Reliability**: Health checks and automatic recovery
-- **Maintainability**: Clear structure and separation of concerns
-- **Performance**: Resource limits and optimized image
-- **Flexibility**: Environment variable configuration
+### Key Benefits
+- **✅ Simplicity**: No complex service managers or system dependencies
+- **✅ Portability**: Runs identically on any Docker-capable system  
+- **✅ Reliability**: Automatic restart and comprehensive health monitoring
+- **✅ Security**: Process isolation and non-root execution
+- **✅ Scalability**: Easy to extend with additional services
+- **✅ Maintainability**: Clear separation of concerns and standardized operations
 
-By leveraging Docker, the bot can be consistently deployed across different environments while maintaining predictable behavior and performance.
+### Architecture Advantages
+- **Pure Container Deployment**: No systemd, supervisor, or host dependencies
+- **Profile-based Services**: Optional services activated on demand
+- **Resource Management**: Container-level CPU and memory controls
+- **Health Monitoring**: Multi-layer health checking and automatic recovery
+- **Data Persistence**: Reliable data storage with Docker volumes
+- **Network Isolation**: Secure inter-service communication
+
+This Docker-first approach ensures the bot can be consistently deployed across development, testing, and production environments while maintaining high reliability and security standards.
 
 ## Local Development Environment
 

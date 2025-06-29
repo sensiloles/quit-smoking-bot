@@ -1,63 +1,198 @@
 #!/bin/bash
-# install-service.sh - Install and configure bot as a systemd service
+# install-service.sh - Install and configure bot as a Docker Compose service
 #
-# This script installs the Telegram bot as a systemd service,
-# handling the building of Docker containers and service configuration.
+# This script installs the Telegram bot as a Docker Compose service.
+# The bot will automatically restart on failures and system reboots (if Docker starts automatically).
+
+set -e
 
 # Source bootstrap (loads all modules)
-source "$(dirname "${BASH_SOURCE[0]}")/bootstrap.sh"
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+source "${SCRIPT_DIR}/bootstrap.sh"
 
+# Configuration
+SYSTEM_NAME="${SYSTEM_NAME:-quit-smoking-bot}"
+SYSTEM_DISPLAY_NAME="${SYSTEM_DISPLAY_NAME:-Quit Smoking Bot}"
+
+# Display header
+print_header "Installing $SYSTEM_DISPLAY_NAME with Docker Compose"
+
+echo ""
+echo "Install and configure the Telegram bot as a Docker Compose service."
+echo "The bot will be managed by Docker Compose with automatic restart on failures."
+echo ""
 
 show_help() {
     echo "Usage: $0 [options]"
     echo ""
-    echo "Install and configure the Telegram bot as a systemd service."
-    echo "This script requires root privileges (sudo)."
+    echo "Install and configure the Telegram bot as a Docker Compose service."
     echo ""
     echo "Options:"
     echo "  --token TOKEN       Specify the Telegram bot token (will be saved to .env file)"
     echo "  --force-rebuild     Force rebuild of Docker container without using cache"
-    echo "  --cleanup           Perform additional cleanup if installation fails"
-    echo "  --tests             Run tests after building and before installing the service. If tests fail, installation stops."
+    echo "  --tests             Run tests after building and before installing the service"
+    echo "  --monitoring        Enable health monitoring service"
+    echo "  --logging           Enable log aggregation service"
     echo "  --help              Show this help message"
     echo ""
     echo "Examples:"
-    echo "  sudo $0 --token 123456789:ABCDEF... # Install with specific token"
-    echo "  sudo $0 --force-rebuild             # Force rebuild container"
-    echo "  sudo $0 --tests                     # Build, run tests, then install"
-    echo "  sudo $0                             # Install using token from .env file"
+    echo "  $0 --token 123456789:ABCDEF... # Install with specific token"
+    echo "  $0 --monitoring                # Install with health monitoring"
+    echo "  $0 --tests                     # Build, run tests, then install"
 }
 
-# Create systemd service file
-create_systemd_service() {
-    if [[ "$(uname)" != "Linux" ]]; then
-        debug_print "Non-Linux system, skipping systemd service creation"
-        print_warning "Systemd service creation is skipped on non-Linux systems."
+# Function to install Docker and Docker Compose
+install_docker() {
+    debug_print "Checking if Docker is installed"
+    
+    if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
+        print_message "✅ Docker and Docker Compose are already installed" "$GREEN"
         return 0
     fi
-    debug_print "Creating systemd service file for ${SYSTEM_NAME}"
-    print_message "Creating systemd service file..." "$YELLOW"
+    
+    print_message "📦 Installing Docker and Docker Compose..." "$YELLOW"
+    
+    # Install Docker based on OS
+    if command -v apt-get &> /dev/null; then
+        # Ubuntu/Debian
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+        
+        # Add Docker's official GPG key
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        
+        # Add Docker repository
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        
+        # Install Docker
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        
+        # Install Docker Compose (standalone)
+        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        
+    elif command -v yum &> /dev/null; then
+        # CentOS/RHEL
+        sudo yum install -y yum-utils
+        sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        
+        # Install Docker Compose (standalone)
+        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        
+    else
+        print_error "Unsupported OS. Please install Docker and Docker Compose manually."
+        return 1
+    fi
+    
+    # Add current user to docker group
+    sudo usermod -aG docker $USER
+    
+    # Start and enable Docker service for automatic startup
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    
+    print_message "✅ Docker and Docker Compose installed successfully" "$GREEN"
+    print_message "✅ Docker service enabled for automatic startup on boot" "$GREEN"
+    print_message "ℹ️  You may need to log out and log back in for group changes to take effect" "$YELLOW"
+}
 
-    cat > /etc/systemd/system/${SYSTEM_NAME}.service << EOF
-[Unit]
-Description=${SYSTEM_DISPLAY_NAME} Bot Service
-After=docker.service
-Requires=docker.service
+# Function to setup logging
+setup_logging() {
+    print_message "📁 Setting up logging..." "$BLUE"
+    
+    # Create logs directory
+    mkdir -p "$PROJECT_ROOT/logs"
+    mkdir -p "$PROJECT_ROOT/data"
+    
+    # Ensure proper permissions
+    chmod 755 "$PROJECT_ROOT/logs"
+    chmod 755 "$PROJECT_ROOT/data"
+    
+    print_message "✅ Logging and data directories created" "$GREEN"
+}
 
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=$(pwd)
-ExecStart=/bin/bash -c 'docker-compose up -d bot'
-ExecStop=/bin/bash -c 'docker-compose down'
-TimeoutStartSec=0
+# Function to build and start services
+build_and_start_services() {
+    print_message "🔨 Building and starting services..." "$BLUE"
+    
+    cd "$PROJECT_ROOT"
+    
+    # Build arguments
+    local build_args=""
+    if [ "$FORCE_REBUILD" = true ]; then
+        build_args="--no-cache"
+    fi
+    
+    # Build services
+    if ! docker-compose build $build_args; then
+        print_error "Failed to build services"
+        return 1
+    fi
+    
+    # Determine which profiles to start
+    local compose_profiles=""
+    if [ "$ENABLE_MONITORING" = true ]; then
+        compose_profiles="monitoring"
+    fi
+    
+    if [ "$ENABLE_LOGGING" = true ]; then
+        compose_profiles="${compose_profiles:+$compose_profiles,}logging"
+    fi
+    
+    # Start services
+    local compose_cmd="docker-compose"
+    if [ -n "$compose_profiles" ]; then
+        # Convert comma-separated profiles to multiple --profile flags
+        local profile_flags=""
+        IFS=',' read -ra PROFILES <<< "$compose_profiles"
+        for profile in "${PROFILES[@]}"; do
+            profile_flags="$profile_flags --profile $profile"
+        done
+        compose_cmd="docker-compose $profile_flags"
+    fi
+    
+    if ! eval "$compose_cmd up -d"; then
+        print_error "Failed to start services"
+        return 1
+    fi
+    
+    print_message "✅ Services built and started successfully" "$GREEN"
+}
 
-[Install]
-WantedBy=multi-user.target
-EOF
+# Function to show service status
+show_service_status() {
+    print_message "📊 Service status:" "$BLUE"
+    docker-compose ps
+    
+    print_message ""
+    print_message "📋 Management commands:" "$BLUE"
+    print_message "  Start:    docker-compose up -d" "$BLUE"
+    print_message "  Stop:     docker-compose down" "$BLUE"
+    print_message "  Restart:  docker-compose restart" "$BLUE"
+    print_message "  Status:   docker-compose ps" "$BLUE"
+    print_message "  Logs:     docker-compose logs -f bot" "$BLUE"
+    print_message "  Update:   docker-compose pull && docker-compose up -d" "$BLUE"
+    
+    print_message ""
+    print_message "📋 Alternative script commands:" "$BLUE"
+    print_message "  Start:    ./scripts/run.sh" "$BLUE"
+    print_message "  Stop:     ./scripts/stop.sh" "$BLUE"
+    print_message "  Update:   ./scripts/run.sh --force-rebuild" "$BLUE"
+}
 
-    debug_print "Service file created successfully"
-    print_message "Service file created at /etc/systemd/system/${SYSTEM_NAME}.service" "$GREEN"
+# Function to cleanup existing installation
+cleanup_existing_service() {
+    print_section "Checking for Existing Installation"
+    
+    # Stop any running containers
+    if docker-compose ps bot 2>/dev/null | grep -q "Up"; then
+        print_message "Stopping existing bot service..." "$YELLOW"
+        docker-compose down || true
+    fi
 }
 
 # Wait for bot to become operational
@@ -65,272 +200,148 @@ wait_for_bot_startup() {
     debug_print "Starting wait_for_bot_startup function"
     print_message "Waiting for bot to become operational..." "$YELLOW"
 
-    # We'll give the bot up to 30 seconds to start
     local max_attempts=30
     local attempt=1
-    local container_id=""
-    debug_print "Will attempt up to $max_attempts times to verify bot startup"
-
-    # First wait for the container to start
-    debug_print "Starting container startup verification loop"
-    while [ $attempt -le 10 ]; do
-        debug_print "Container startup attempt $attempt/10"
-        print_message "Waiting for container to start (attempt $attempt/10)..." "$YELLOW"
-        container_id=$(docker-compose ps -q bot)
-
-        if [ -n "$container_id" ]; then
-            debug_print "Container found with ID: $container_id"
-            print_message "Container started with ID: $container_id" "$GREEN"
-            break
+    
+    while [ $attempt -le $max_attempts ]; do
+        debug_print "Bot startup check attempt $attempt/$max_attempts"
+        
+        # Check if container is running
+        if docker-compose ps bot | grep -q "Up"; then
+            print_message "✅ Bot container is running!" "$GREEN"
+            
+            # Check if bot is healthy
+            if docker-compose ps bot | grep -q "healthy"; then
+                print_message "✅ Bot is healthy and operational!" "$GREEN"
+                return 0
+            fi
+            
+            # If not healthy yet, continue waiting
+            print_message "Bot is starting up... (attempt $attempt/$max_attempts)" "$YELLOW"
+        else
+            print_message "Bot container is not running yet... (attempt $attempt/$max_attempts)" "$YELLOW"
         fi
-
+        
         sleep 2
         ((attempt++))
     done
-
-    if [ -z "$container_id" ]; then
-        debug_print "Container failed to start after 10 attempts"
-        print_error "Container failed to start after 10 attempts"
-        print_message "Checking Docker logs:" "$YELLOW"
-        docker-compose logs bot
-        cleanup_docker bot "$CLEANUP"
-        if [[ "$(uname)" == "Linux" ]]; then
-             systemctl stop ${SYSTEM_NAME}.service
-        fi
-        exit 1
-    fi
-
-    # Check health status
-    debug_print "Starting health status check"
-    check_bot_health "$container_id"
-
-    # Check operational status
-    debug_print "Starting operational status check"
-    check_bot_operational "$container_id"
-    debug_print "wait_for_bot_startup completed"
-}
-
-# Check bot health status
-check_bot_health() {
-    local container_id="$1"
-    debug_print "Starting check_bot_health for container: $container_id"
-    print_message "\nStarting bot health check..." "$YELLOW"
-    local max_health_attempts=30
-    local health_attempt=1
-    debug_print "Will attempt up to $max_health_attempts health checks"
-
-    while [ $health_attempt -le $max_health_attempts ]; do
-        debug_print "Health check attempt $health_attempt/$max_health_attempts"
-        print_message "Checking bot health (attempt $health_attempt/$max_health_attempts)..." "$YELLOW"
-
-        # Get container health status
-        local health_status=$(docker inspect --format '{{.State.Health.Status}}' "$container_id" 2>/dev/null)
-        debug_print "Container health status: $health_status"
-
-        if [ "$health_status" = "healthy" ]; then
-            debug_print "Health check passed successfully"
-            print_message "Bot health check passed!" "$GREEN"
-            return 0
-        fi
-
-        sleep 5
-        ((health_attempt++))
-    done
-
-    debug_print "Health check did not pass within timeout, but continuing"
-    print_warning "Bot health check did not pass within timeout, but service might still be operational"
-    return 0
-}
-
-# Check if bot is operational
-check_bot_operational() {
-    local container_id="$1"
-    debug_print "Starting check_bot_operational for container: $container_id"
-    print_message "\nChecking if bot is operational..." "$YELLOW"
-    local max_op_attempts=5
-    local op_attempt=1
-    debug_print "Will attempt up to $max_op_attempts operational checks"
-
-    while [ $op_attempt -le $max_op_attempts ]; do
-        debug_print "Operational check attempt $op_attempt/$max_op_attempts"
-        print_message "Operational check (attempt $op_attempt/$max_op_attempts)..." "$YELLOW"
-
-        # Check if Python process is running
-        debug_print "Checking if Python bot process is running in container"
-        if docker exec "$container_id" pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
-            debug_print "Bot process found running in container"
-            print_message "Bot process is running inside container" "$GREEN"
-
-            # Check logs for operational indicators
-            debug_print "Checking logs for operational indicators"
-            logs=$(docker logs "$container_id" --tail 50 2>&1)
-            if echo "$logs" | grep -q "Application started"; then
-                debug_print "Found 'Application started' in logs - bot is operational"
-                print_message "Bot is fully operational!" "$GREEN"
-
-                # Check for conflict errors
-                debug_print "Checking for conflict errors in logs"
-                if echo "$logs" | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
-                    debug_print "Found conflict errors in logs"
-                    print_warning "Warning: Detected conflict with another bot instance using the same token"
-                    print_message "You may need to stop the other bot instance for this one to function properly." "$YELLOW"
-                fi
-
-                return 0
-            else
-                debug_print "Application started message not found in logs yet"
-            fi
-        else
-            debug_print "Bot process not found running in container"
-        fi
-
-        sleep 2
-        ((op_attempt++))
-    done
-
-    debug_print "Could not confirm bot is fully operational, but service is installed"
+    
     print_warning "Could not confirm bot is fully operational yet, but service is installed"
-    print_message "Check status later with: systemctl status ${SYSTEM_NAME}.service" "$YELLOW"
+    print_message "Check status with: docker-compose ps" "$YELLOW"
     return 0
 }
 
-# Main service installation function
-install_service() {
-    debug_print "Starting install_service function"
-    print_section "Checking Prerequisites"
-
-    # Parse command line arguments using common function
-    debug_print "Parsing command line arguments"
-    parse_args "$@"
-
-    # If token was passed via --token parameter, save it to .env and export it
-    if [ -n "$TOKEN" ]; then
-        debug_print "Token provided via --token parameter, updating .env"
-        update_env_token "$TOKEN"
-        export BOT_TOKEN="$TOKEN"
-        debug_print "Token updated and exported"
-    fi
-
+# Main installation process
+main() {
+    debug_print "Starting Docker Compose service installation"
+    
+    # Parse arguments
+    local TOKEN=""
+    local FORCE_REBUILD=false
+    local RUN_TESTS=false
+    local ENABLE_MONITORING=false
+    local ENABLE_LOGGING=false
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --token)
+                TOKEN="$2"
+                shift 2
+                ;;
+            --force-rebuild)
+                FORCE_REBUILD=true
+                shift
+                ;;
+            --tests)
+                RUN_TESTS=true
+                shift
+                ;;
+            --monitoring)
+                ENABLE_MONITORING=true
+                shift
+                ;;
+            --logging)
+                ENABLE_LOGGING=true
+                shift
+                ;;
+            --help)
+                show_help
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+    
     # Check prerequisites
-    debug_print "Checking prerequisites"
-    check_prerequisites || exit 1
-    check_system_display_name
-    debug_print "Prerequisites check passed"
-
-    # Check if running as root
-    debug_print "Checking if running as root"
-    check_root
-    debug_print "Root check completed"
-
-    # Check if OS is Linux before proceeding with service-specific steps
-    if [[ "$(uname)" != "Linux" ]]; then
-        debug_print "Non-Linux system detected, skipping systemd service setup"
-        print_warning "Systemd service installation is only supported on Linux."
-        print_message "Building image and running tests (if requested), but skipping service setup." "$YELLOW"
-        # Set a flag or modify logic if needed based on this warning
+    check_prerequisites
+    
+    # Save token if provided
+    if [[ -n "$TOKEN" ]]; then
+        print_message "💾 Saving bot token to .env file..." "$BLUE"
+        update_env_token "$TOKEN"
+        print_message "✅ Token saved" "$GREEN"
     fi
-
-    print_section "Checking for Conflicts"
-    debug_print "Starting conflicts check section"
-
-    # Check for local container and conflicts with remote bots
-    # For service we use a longer wait time (10 seconds)
-    debug_print "Checking bot conflicts with extended wait time"
-    check_bot_conflicts "$BOT_TOKEN" 1 5
-    conflict_status=$?
-    debug_print "Conflicts check completed with status: $conflict_status"
-
-    if [ $conflict_status -eq 1 ]; then
-        # Exit if there's a conflict with a remote bot
-        debug_print "Remote conflict detected, exiting installation"
-        exit 1
-    fi
-
-    print_section "Cleaning Existing Instances"
-
-    # Check for existing containers
-    if docker ps -a | grep -q ${SYSTEM_NAME}; then
-        print_message "Found existing Docker container for ${SYSTEM_NAME}. Stopping and removing..." "$YELLOW"
-        docker stop ${SYSTEM_NAME} 2>/dev/null || true
-        docker rm ${SYSTEM_NAME} 2>/dev/null || true
-    fi
-
-    # Check for existing service
-    if [[ "$(uname)" == "Linux" ]]; then
-        if systemctl list-units --full --all | grep -q "${SYSTEM_NAME}.service"; then
-            print_message "Found existing systemd service for ${SYSTEM_NAME}. Stopping and disabling..." "$YELLOW"
-            systemctl stop ${SYSTEM_NAME}.service 2>/dev/null || true
-            systemctl disable ${SYSTEM_NAME}.service 2>/dev/null || true
+    
+    # Cleanup existing installation
+    cleanup_existing_service
+    
+    # Install Docker and Docker Compose
+    print_section "Installing Docker"
+    install_docker
+    
+    # Setup environment
+    print_section "Setting up Environment"
+    setup_logging
+    
+    # Run tests if requested
+    if [[ "$RUN_TESTS" = true ]]; then
+        print_section "Running Tests"
+        print_message "Running tests..." "$BLUE"
+        
+        if ! docker-compose --profile test run --rm test; then
+            print_error "Tests failed. Installation aborted."
+            return 1
         fi
+        
+        print_message "✅ Tests passed successfully" "$GREEN"
     fi
-
-    # Setup data directories with proper permissions
-    setup_data_directories
-
-    print_section "Building Bot Image"
-
-    # Build the bot image
-    if [ "$FORCE_REBUILD" == "1" ]; then
-        print_message "Forcing a clean rebuild of all images..." "$YELLOW"
-
-        # Remove existing images
-        print_message "Removing existing images..." "$YELLOW"
-        docker rmi ${SYSTEM_NAME} ${SYSTEM_NAME}-test >/dev/null 2>&1 || true
-        # Also remove all build cache
-        docker builder prune -f >/dev/null 2>&1 || true
-
-        if ! execute_docker_compose "build" "bot" "--no-cache"; then
-            print_error "Failed to build bot image"
-            exit 1
-        fi
-    else
-        if ! execute_docker_compose "build" "bot"; then
-            print_error "Failed to build bot image"
-            exit 1
-        fi
-    fi
-
-    # Run tests if requested before installing the service
-    if [ "$RUN_TESTS" -eq 1 ]; then
-        if ! run_tests_in_docker; then
-            print_error "Tests failed. Service installation aborted."
-            # Optional: Clean up build artifacts if tests fail?
-            # cleanup_docker bot $CLEANUP
-            exit 1
-        fi
-        print_message "Tests passed. Proceeding with service installation." "$GREEN"
-    fi
-
-    print_section "Creating Systemd Service"
-
-    # Install service
-    if [[ "$(uname)" == "Linux" ]]; then
-        create_systemd_service
-    else
-        print_warning "Skipping systemd service creation on non-Linux OS."
-    fi
-
-    # Reload systemd and enable service
-    if [[ "$(uname)" == "Linux" ]]; then
-        print_message "Reloading systemd and enabling service..." "$YELLOW"
-        systemctl daemon-reload
-        systemctl enable ${SYSTEM_NAME}.service
-    fi
-
-    print_message "Starting service..." "$YELLOW"
-    # Start using docker-compose directly, as systemd won't manage it on non-Linux
-    # We already built the image, now just bring it up.
-    if ! execute_docker_compose "up" "bot" "-d"; then
-        print_error "Failed to start bot container using docker-compose."
-        exit 1
-    fi
-
-    print_section "Waiting for Bot to Start"
-
-    # Wait for bot to become operational
+    
+    # Build and start services
+    print_section "Building and Starting Services"
+    build_and_start_services
+    
+    # Wait for startup
     wait_for_bot_startup
+    
+    # Show status
+    print_section "Service Information"
+    show_service_status
+    
+    print_success "✅ $SYSTEM_DISPLAY_NAME installed and started with Docker Compose!"
+    print_message ""
+    print_message "The bot is now running as a Docker Compose service with automatic restart." "$GREEN"
+    print_message "Docker service is enabled - the bot will start automatically on system boot." "$GREEN"
+    
+    if [[ "$ENABLE_MONITORING" = true ]]; then
+        print_message "✅ Health monitoring service is enabled." "$GREEN"
+    fi
+    
+    if [[ "$ENABLE_LOGGING" = true ]]; then
+        print_message "✅ Log aggregation service is enabled." "$GREEN"
+    fi
+    
+    print_message ""
+    print_message "🔄 Automatic Features:" "$BLUE"
+    print_message "  • Bot will restart automatically if it crashes" "$BLUE"
+    print_message "  • Bot will start automatically when Docker starts" "$BLUE"
+    print_message "  • Docker starts automatically on system boot" "$BLUE"
+    
+    debug_print "Docker Compose service installation completed successfully"
 }
 
-# Main execution
-install_service "$@"
-exit $?
+# Run main function
+main "$@"

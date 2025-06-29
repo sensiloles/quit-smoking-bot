@@ -38,6 +38,18 @@ print_section() {
     echo -e "\n${BLUE}=== $1 ===${NC}"
 }
 
+# Print a main header (like section but more prominent)
+print_header() {
+    echo -e "\n${GREEN}==============================================${NC}"
+    echo -e "${GREEN}$1${NC}"
+    echo -e "${GREEN}==============================================${NC}\n"
+}
+
+# Print a success message
+print_success() {
+    print_message "$1" "$GREEN"
+}
+
 # Add a function for debug output
 debug_print() {
     if [ "${DEBUG:-0}" = "1" ]; then
