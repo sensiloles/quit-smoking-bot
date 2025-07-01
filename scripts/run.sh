@@ -24,7 +24,6 @@ show_help() {
     echo "  --token TOKEN       Specify the Telegram bot token (will be saved to .env file)"
     echo "  --monitoring        Enable health monitoring service"
     echo "  --logging           Enable log aggregation service"
-    echo "  --tests             Run tests after building and before starting the bot"
     echo "  --force-rebuild     Force rebuild of Docker container without using cache"
     echo "  --dry-run           Show what would be done without executing"
     echo "  --status            Show current service status and exit"
@@ -37,7 +36,7 @@ show_help() {
     echo "  $0 --status                          # Show current status"
     echo "  $0 --install --monitoring --token xyz # Full installation with monitoring"
     echo "  $0 --dry-run --install               # Preview installation steps"
-    echo "  $0 --tests --force-rebuild           # Rebuild and test before starting"
+    echo "  $0 --force-rebuild                   # Rebuild before starting"
 }
 
 # Install Docker and Docker Compose if needed
@@ -125,10 +124,7 @@ build_and_start_services() {
     # Build containers
     execute_or_simulate "Build Docker containers" "docker-compose build $build_args"
     
-    # Run tests if requested
-    if [[ "$RUN_TESTS" == "1" ]]; then
-        execute_or_simulate "Run tests" 'docker-compose --profile test run --rm test'
-    fi
+
     
     # Determine compose profiles
     local compose_profiles=""
@@ -217,75 +213,29 @@ show_final_status() {
 main() {
     debug_print "Starting universal run script with arguments: $@"
     
-    # Initialize default variables
-    local INSTALL_MODE=0
-    local TOKEN=""
-    local ENABLE_MONITORING=0
-    local ENABLE_LOGGING=0
-    local RUN_TESTS=0
-    local FORCE_REBUILD=0
-    local DRY_RUN=0
-    local SHOW_STATUS=0
-    local QUIET=0
-    local VERBOSE=0
+    # Initialize default values for all variables
+    DRY_RUN=${DRY_RUN:-0}
+    VERBOSE=${VERBOSE:-0}
+    DEBUG=${DEBUG:-0}
     
-    # Parse command line arguments
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --install)
-                INSTALL_MODE=1
-                shift
-                ;;
-            --token)
-                TOKEN="$2"
-                shift 2
-                ;;
-            --monitoring)
-                ENABLE_MONITORING=1
-                shift
-                ;;
-            --logging)
-                ENABLE_LOGGING=1
-                shift
-                ;;
-            --tests)
-                RUN_TESTS=1
-                shift
-                ;;
-            --force-rebuild)
-                FORCE_REBUILD=1
-                shift
-                ;;
-            --dry-run)
-                DRY_RUN=1
-                shift
-                ;;
-            --status)
-                SHOW_STATUS=1
-                shift
-                ;;
-            --quiet)
-                QUIET=1
-                shift
-                ;;
-            --verbose)
-                VERBOSE=1
-                shift
-                ;;
-            --help)
-                show_help
-                exit 0
-                ;;
-            *)
-                print_error "Unknown option: $1"
-                show_help
-                exit 1
-                ;;
-        esac
-    done
+    # Export them for use in modules
+    export DRY_RUN VERBOSE DEBUG
     
-    # Export variables for use in functions
-    export INSTALL_MODE TOKEN ENABLE_MONITORING ENABLE_LOGGING RUN_TESTS FORCE_REBUILD DRY_RUN QUIET VERBOSE
+    # Load .env file if it exists
+    if [[ -f "$PROJECT_ROOT/.env" ]]; then
+        set -a
+        source "$PROJECT_ROOT/.env"
+        set +a
+    fi
+    
+    # Initialize BOT_TOKEN if not set
+    BOT_TOKEN="${BOT_TOKEN:-}"
+    
+    # Parse command line arguments using the args module
+    parse_args "$@"
+    
+    # Set local variables from exported module variables
+    local SHOW_STATUS=${STATUS_ONLY:-0}
     
     # Initialize action logging
     init_action_log

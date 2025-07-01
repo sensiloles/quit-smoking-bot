@@ -24,6 +24,10 @@ RUN if ! getent group ${GROUP_ID} > /dev/null 2>&1; then \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     apt-utils \
+    curl \
+    && curl -fsSL https://get.docker.com -o get-docker.sh \
+    && sh get-docker.sh \
+    && rm get-docker.sh \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -65,4 +69,4 @@ ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
 # Add healthcheck - using dedicated script for better diagnostics
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD /app/scripts/healthcheck.sh
+    CMD /app/scripts/health.sh --mode docker

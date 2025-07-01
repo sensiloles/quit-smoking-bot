@@ -13,6 +13,22 @@ SYSTEM_DISPLAY_NAME ?= "Quit Smoking Bot"
 USER_ID ?= $(shell id -u)
 GROUP_ID ?= $(shell id -g)
 
+# Script execution settings
+SCRIPT_DIR := ./scripts
+SCRIPT_FLAGS ?= 
+DEBUG ?= 0
+VERBOSE ?= 0
+DRY_RUN ?= 0
+
+# Export variables for scripts
+export SYSTEM_NAME
+export SYSTEM_DISPLAY_NAME
+export USER_ID
+export GROUP_ID
+export DEBUG
+export VERBOSE
+export DRY_RUN
+
 # Colors for output
 RED := \033[0;31m
 GREEN := \033[0;32m
@@ -23,12 +39,12 @@ NC := \033[0m # No Color
 # Docker Compose command with profiles
 COMPOSE := docker-compose
 COMPOSE_PROFILES := $(COMPOSE)
-COMPOSE_TEST := $(COMPOSE) --profile test
+
 COMPOSE_MONITOR := $(COMPOSE) --profile monitoring
 COMPOSE_LOGGING := $(COMPOSE) --profile logging
-COMPOSE_ALL := $(COMPOSE) --profile monitoring --profile logging --profile test
+COMPOSE_ALL := $(COMPOSE) --profile monitoring --profile logging
 
-.PHONY: help setup permissions bootstrap install start stop restart status logs test clean prune build rebuild dev monitor ps exec shell health check
+.PHONY: help setup permissions bootstrap install start stop restart status logs clean prune build rebuild dev monitor monitor-compose ps exec shell health health-status health-monitor diagnostics check
 
 # Default target
 .DEFAULT_GOAL := help
@@ -60,10 +76,7 @@ help: ## Show this help message
 	@echo "  $(GREEN)check$(NC)           Comprehensive service diagnostics"
 	@echo "  $(GREEN)shell$(NC)           Open shell in bot container"
 	@echo ""
-	@echo "$(BLUE)🧪 Testing & Development:$(NC)"
-	@echo "  $(GREEN)test$(NC)            Run tests"
-	@echo "  $(GREEN)test-unit$(NC)       Run unit tests only"
-	@echo "  $(GREEN)test-integration$(NC) Run integration tests only"
+	@echo "$(BLUE)🛠️  Development:$(NC)"
 	@echo "  $(GREEN)dev$(NC)             Start development environment with monitoring"
 	@echo "  $(GREEN)monitor$(NC)         Start with health monitoring"
 	@echo ""
@@ -73,39 +86,43 @@ help: ## Show this help message
 	@echo "  $(GREEN)uninstall$(NC)       Complete uninstallation (keeps data)"
 	@echo ""
 	@echo "$(BLUE)🔧 Advanced:$(NC)"
-	@echo "  $(GREEN)backup$(NC)          Backup bot data"
-	@echo "  $(GREEN)restore$(NC)         Restore bot data (usage: make restore BACKUP=filename)"
-	@echo "  $(GREEN)update$(NC)          Update and restart bot"
 	@echo "  $(GREEN)env-check$(NC)       Check environment configuration"
 	@echo "  $(GREEN)docker-check$(NC)    Check Docker installation"
 	@echo "  $(GREEN)config$(NC)          Show Docker Compose configuration"
 	@echo ""
+	@echo "$(BLUE)🔧 Script Compatibility:$(NC)"
+	@echo "  $(GREEN)script-setup$(NC)    Run bootstrap.sh directly"
+	@echo "  $(GREEN)script-run$(NC)      Run run.sh directly with options"
+	@echo "  $(GREEN)script-stop$(NC)     Run stop.sh directly"
+	@echo "  $(GREEN)script-check$(NC)    Run check-service.sh directly"
+	@echo ""
+	@echo "$(BLUE)🛠️  Script Options:$(NC)"
+	@echo "  DEBUG=1              Enable debug output"
+	@echo "  VERBOSE=1            Enable verbose output"
+	@echo "  DRY_RUN=1            Show what would be done without executing"
+	@echo ""
 	@echo "$(BLUE)Examples:$(NC)"
 	@echo "  make setup                    # Initial project setup"
-	@echo "  make install                  # Full installation with Docker"
-	@echo "  make start                    # Start the bot"
-	@echo "  make test                     # Run tests"
-	@echo "  make logs                     # View logs"
-	@echo "  make stop                     # Stop the bot"
+	@echo "  make install DEBUG=1         # Full installation with debug output"
+	@echo "  make start VERBOSE=1         # Start with verbose output"
+	@echo "  make script-run ARGS='--install --monitoring' # Use run.sh directly"
+
+	@echo "  make logs                    # View logs"
+	@echo "  make stop                    # Stop the bot"
 
 # ==============================================================================
 # SETUP AND INITIALIZATION
 # ==============================================================================
 
-setup: permissions env-template ## Initial project setup (recommended after clone)
-	@echo "$(GREEN)🎉 Project setup completed!$(NC)"
-	@echo "$(BLUE)📋 Next steps:$(NC)"
-	@echo "  1. Update .env file with your bot token"
-	@echo "  2. Run: make start"
+setup: script-setup ## Initial project setup (recommended after clone)
+
+script-setup: ## Run bootstrap.sh directly
+	@echo "$(BLUE)🎯 Running bootstrap script directly...$(NC)"
+	@$(SCRIPT_DIR)/bootstrap.sh
 
 permissions: ## Setup secure file permissions
 	@echo "$(BLUE)🔐 Setting up secure permissions...$(NC)"
-	@mkdir -p data logs
-	@chmod 755 data logs
-	@if [ -f "data/bot_users.json" ]; then chmod 644 data/*.json; fi
-	@if [ -f "logs/bot.log" ]; then chmod 644 logs/*.log; fi
-	@find scripts -name "*.sh" -type f -exec chmod 755 {} \; 2>/dev/null || true
-	@echo "$(GREEN)✅ Permissions set: directories (755), files (644), scripts (755)$(NC)"
+	@$(SCRIPT_DIR)/setup-permissions.sh
 
 bootstrap: setup ## Full project bootstrap (alias for setup)
 
@@ -137,26 +154,50 @@ env-template: ## Create .env template file
 
 install: setup build ## Full installation with Docker setup
 	@echo "$(BLUE)🔧 Installing bot with Docker setup...$(NC)"
-	@./scripts/run.sh --install
+	@$(SCRIPT_DIR)/run.sh --install $(SCRIPT_FLAGS)
+
+script-run: ## Run run.sh directly with options (usage: make script-run ARGS="--install --monitoring")
+	@echo "$(BLUE)🎯 Running run script directly...$(NC)"
+	@$(SCRIPT_DIR)/run.sh $(ARGS) $(SCRIPT_FLAGS)
 
 start: permissions ## Start the bot services
 	@echo "$(BLUE)🚀 Starting bot services...$(NC)"
-	@$(COMPOSE) up -d
-	@$(MAKE) status
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would start services with: $(COMPOSE) up -d$(NC)"; \
+	else \
+		$(COMPOSE) up -d; \
+		$(MAKE) status; \
+	fi
 
 stop: ## Stop the bot services
 	@echo "$(BLUE)🛑 Stopping bot services...$(NC)"
-	@$(COMPOSE) down --remove-orphans
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would stop services with: $(COMPOSE) down --remove-orphans$(NC)"; \
+	else \
+		$(COMPOSE) down --remove-orphans; \
+	fi
+
+script-stop: ## Run stop.sh directly
+	@echo "$(BLUE)🎯 Running stop script directly...$(NC)"
+	@$(SCRIPT_DIR)/stop.sh $(SCRIPT_FLAGS)
 
 restart: stop start ## Restart the bot services
 
 build: ## Build Docker containers
 	@echo "$(BLUE)🔨 Building Docker containers...$(NC)"
-	@$(COMPOSE) build
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would build containers with: $(COMPOSE) build$(NC)"; \
+	else \
+		$(COMPOSE) build; \
+	fi
 
 rebuild: ## Force rebuild Docker containers (no cache)
 	@echo "$(BLUE)🔨 Force rebuilding Docker containers...$(NC)"
-	@$(COMPOSE) build --no-cache
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would rebuild containers with: $(COMPOSE) build --no-cache$(NC)"; \
+	else \
+		$(COMPOSE) build --no-cache; \
+	fi
 
 # ==============================================================================
 # MONITORING AND DEBUGGING
@@ -164,52 +205,91 @@ rebuild: ## Force rebuild Docker containers (no cache)
 
 status: ## Show service status
 	@echo "$(BLUE)📊 Service Status:$(NC)"
-	@$(COMPOSE) ps
-	@echo ""
-	@if [ -n "$$(docker ps -q --filter name=$(SYSTEM_NAME))" ]; then \
-		echo "$(GREEN)✅ Bot is running$(NC)"; \
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would check service status with: $(COMPOSE) ps$(NC)"; \
+		echo "$(YELLOW)[DRY-RUN] Would check if container is running$(NC)"; \
 	else \
-		echo "$(RED)❌ Bot is not running$(NC)"; \
+		$(COMPOSE) ps; \
+		echo ""; \
+		if [ -n "$$(docker ps -q --filter name=$(SYSTEM_NAME) 2>/dev/null)" ]; then \
+			echo "$(GREEN)✅ Bot is running$(NC)"; \
+		else \
+			echo "$(RED)❌ Bot is not running$(NC)"; \
+		fi \
 	fi
 
 ps: status ## Alias for status
 
 logs: ## View bot logs (follow)
-	@$(COMPOSE) logs -f bot
-
-logs-all: ## View all service logs
-	@$(COMPOSE_ALL) logs -f
-
-health: ## Check bot health status
-	@echo "$(BLUE)🏥 Health Check:$(NC)"
-	@if [ -n "$$(docker ps -q --filter name=$(SYSTEM_NAME))" ]; then \
-		docker inspect --format='{{.State.Health.Status}}' $(SYSTEM_NAME) 2>/dev/null || echo "No health check configured"; \
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would view bot logs with: $(COMPOSE) logs -f bot$(NC)"; \
 	else \
-		echo "$(RED)❌ Container not running$(NC)"; \
+		$(COMPOSE) logs -f bot; \
 	fi
 
-check: ## Comprehensive service diagnostics
-	@./scripts/check-service.sh
+logs-all: ## View all service logs
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would view all service logs with: $(COMPOSE_ALL) logs -f$(NC)"; \
+	else \
+		$(COMPOSE_ALL) logs -f; \
+	fi
+
+health: ## Quick health check (Docker mode)
+	@echo "$(BLUE)🔍 Running health check...$(NC)"
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode docker$(NC)"; \
+	else \
+		$(SCRIPT_DIR)/health.sh --mode docker; \
+	fi
+
+health-status: ## Current health status snapshot
+	@echo "$(BLUE)📊 Health status snapshot...$(NC)"
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode status$(NC)"; \
+	else \
+		$(SCRIPT_DIR)/health.sh --mode status; \
+	fi
+
+health-monitor: ## Single monitoring check
+	@echo "$(BLUE)🔍 Running monitoring check...$(NC)"
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode monitor$(NC)"; \
+	else \
+		$(SCRIPT_DIR)/health.sh --mode monitor; \
+	fi
+
+diagnostics: ## Comprehensive system diagnostics
+	@echo "$(BLUE)🔬 Running comprehensive diagnostics...$(NC)"
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode diagnostics$(NC)"; \
+	else \
+		$(SCRIPT_DIR)/health.sh --mode diagnostics; \
+	fi
+
+check: ## Comprehensive service diagnostics (legacy)
+	@$(SCRIPT_DIR)/check-service.sh $(SCRIPT_FLAGS)
+
+script-check: ## Run check-service.sh directly
+	@echo "$(BLUE)🎯 Running check script directly...$(NC)"
+	@$(SCRIPT_DIR)/check-service.sh $(SCRIPT_FLAGS)
 
 exec: ## Execute command in bot container (usage: make exec CMD="command")
-	@$(COMPOSE) exec bot $(CMD)
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would execute: $(COMPOSE) exec bot $(CMD)$(NC)"; \
+	else \
+		$(COMPOSE) exec bot $(CMD); \
+	fi
 
 shell: ## Open shell in bot container
-	@$(COMPOSE) exec bot sh
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would open shell with: $(COMPOSE) exec bot sh$(NC)"; \
+	else \
+		$(COMPOSE) exec bot sh; \
+	fi
 
 # ==============================================================================
-# TESTING AND DEVELOPMENT
+# DEVELOPMENT
 # ==============================================================================
-
-test: ## Run tests
-	@echo "$(BLUE)🧪 Running tests...$(NC)"
-	@$(COMPOSE_TEST) run --rm test
-
-test-unit: ## Run unit tests only
-	@$(COMPOSE_TEST) run --rm test pytest tests/unit/ -v
-
-test-integration: ## Run integration tests only
-	@$(COMPOSE_TEST) run --rm test pytest tests/integration/ -v
 
 dev: ## Start development environment with monitoring
 	@echo "$(BLUE)🛠️  Starting development environment...$(NC)"
@@ -217,8 +297,16 @@ dev: ## Start development environment with monitoring
 	@echo "$(GREEN)✅ Development environment started with monitoring$(NC)"
 	@$(MAKE) logs
 
-monitor: ## Start with health monitoring
-	@echo "$(BLUE)📊 Starting with health monitoring...$(NC)"
+monitor: ## Start continuous health monitoring
+	@echo "$(BLUE)🔄 Starting continuous health monitoring...$(NC)"
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode monitor --continuous$(NC)"; \
+	else \
+		$(SCRIPT_DIR)/health.sh --mode monitor --continuous; \
+	fi
+
+monitor-compose: ## Start with Docker Compose health monitoring service
+	@echo "$(BLUE)📊 Starting Docker Compose health monitoring...$(NC)"
 	@$(COMPOSE_MONITOR) up -d
 
 # ==============================================================================
@@ -234,39 +322,12 @@ prune: clean ## Deep cleanup (containers, images, volumes)
 	@echo "$(BLUE)🧹 Deep cleanup...$(NC)"
 	@docker image prune -f
 	@docker volume prune -f
-	@echo "$(YELLOW)⚠️  Data directory preserved$(NC)"
+
 
 uninstall: ## Complete uninstallation (keeps data)
 	@echo "$(BLUE)🗑️  Uninstalling bot...$(NC)"
-	@./scripts/stop.sh --uninstall
-	@echo "$(GREEN)✅ Bot uninstalled (data preserved)$(NC)"
-
-# ==============================================================================
-# ADVANCED OPERATIONS
-# ==============================================================================
-
-backup: ## Backup bot data
-	@echo "$(BLUE)💾 Creating backup...$(NC)"
-	@mkdir -p backups
-	@tar -czf backups/bot-data-$(shell date +%Y%m%d_%H%M%S).tar.gz data/
-	@echo "$(GREEN)✅ Backup created in backups/$(NC)"
-
-restore: ## Restore bot data (usage: make restore BACKUP=filename)
-	@if [ -z "$(BACKUP)" ]; then \
-		echo "$(RED)❌ Please specify backup file: make restore BACKUP=filename$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(BLUE)📥 Restoring from $(BACKUP)...$(NC)"
-	@tar -xzf $(BACKUP)
-	@$(MAKE) permissions
-	@echo "$(GREEN)✅ Data restored$(NC)"
-
-update: ## Update and restart bot
-	@echo "$(BLUE)🔄 Updating bot...$(NC)"
-	@git pull
-	@$(MAKE) rebuild
-	@$(MAKE) start
-	@echo "$(GREEN)✅ Bot updated and restarted$(NC)"
+	@$(SCRIPT_DIR)/stop.sh --uninstall $(SCRIPT_FLAGS)
+	@echo "$(GREEN)✅ Bot uninstalled$(NC)"
 
 # ==============================================================================
 # UTILITY TARGETS

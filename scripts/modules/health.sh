@@ -198,4 +198,306 @@ check_bot_status() {
         print_message "Use './scripts/check-service.sh' for detailed diagnostics." "$YELLOW"
         return 1
     fi
+}
+
+######################
+# Health Check Functions  
+######################
+
+# Configuration - adapt paths based on environment
+if [[ -d "/app" && -w "/app" ]]; then
+    # Inside container
+    readonly HEALTH_DIR="/app/health"
+    readonly LOG_FILE="$HEALTH_DIR/status.log"
+else
+    # Outside container
+    readonly HEALTH_DIR="./logs"
+    readonly LOG_FILE="$HEALTH_DIR/health.log"
+fi
+readonly OPERATIONAL_FILE="$HEALTH_DIR/operational"
+readonly MAX_LOG_SIZE=5000
+
+# Initialize health directory
+init_health_dir() {
+    if [[ ! -d "$HEALTH_DIR" ]]; then
+        mkdir -p "$HEALTH_DIR" 2>/dev/null || {
+            debug_print "Cannot create health directory: $HEALTH_DIR"
+            return 1
+        }
+        chmod 755 "$HEALTH_DIR" 2>/dev/null
+        debug_print "Health directory created: $HEALTH_DIR"
+    fi
+    
+    if [[ ! -w "$HEALTH_DIR" ]]; then
+        chmod 755 "$HEALTH_DIR" 2>/dev/null || {
+            debug_print "Cannot write to health directory: $HEALTH_DIR"
+            return 1
+        }
+        debug_print "Health directory permissions fixed"
+    fi
+}
+
+# Health-specific logging
+health_log() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
+    
+    # Initialize health dir if needed
+    init_health_dir
+    
+    # Log to health log file
+    echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
+    
+    # Also use standard logging if available
+    if type -t debug_print >/dev/null 2>&1; then
+        debug_print "HEALTH: [$level] $message"
+    fi
+    
+    # Console output for health checks
+    echo "[$level] $message"
+    
+    # Truncate log if too big
+    if [[ -f "$LOG_FILE" ]] && [[ $(wc -l < "$LOG_FILE") -gt $MAX_LOG_SIZE ]]; then
+        tail -n $(($MAX_LOG_SIZE / 2)) "$LOG_FILE" > "${LOG_FILE}.tmp"
+        mv "${LOG_FILE}.tmp" "$LOG_FILE"
+        health_log "INFO" "Log file truncated due to size limit"
+    fi
+}
+
+# Check if bot process is running
+check_bot_process() {
+    if pgrep -f "python.*src[/.]bot" > /dev/null 2>&1; then
+        health_log "INFO" "Bot process is running"
+        return 0
+    else
+        health_log "ERROR" "Bot process is not running"
+        return 1
+    fi
+}
+
+# Check operational marker file
+check_operational_marker() {
+    if [[ -f "$OPERATIONAL_FILE" ]]; then
+        local file_age=$(($(date +%s) - $(date -r "$OPERATIONAL_FILE" +%s 2>/dev/null || echo 0)))
+        
+        if [[ $file_age -gt 300 ]]; then # 5 minutes
+            health_log "WARN" "Operational file is stale (${file_age}s old)"
+            
+            # Update if process is running
+            if pgrep -f "python.*src[/.]bot" > /dev/null 2>&1; then
+                touch "$OPERATIONAL_FILE"
+                health_log "INFO" "Updated stale operational file"
+                return 0
+            else
+                return 1
+            fi
+        fi
+        
+        health_log "INFO" "Operational marker is valid (age: ${file_age}s)"
+        return 0
+    else
+        health_log "ERROR" "Operational marker file missing"
+        
+        # Create if process is running
+        if pgrep -f "python.*src[/.]bot" > /dev/null 2>&1; then
+            touch "$OPERATIONAL_FILE"
+            chmod 644 "$OPERATIONAL_FILE"
+            health_log "INFO" "Created missing operational marker"
+            return 0
+        fi
+        
+        return 1
+    fi
+}
+
+# Check for critical errors in logs
+check_logs_for_errors() {
+    if [[ ! -f "/app/logs/bot.log" ]]; then
+        health_log "WARN" "Bot log file not found"
+        return 0
+    fi
+    
+    # Check for critical errors
+    local critical_errors=$(grep -c "ERROR.*bot crashed" /app/logs/bot.log 2>/dev/null || echo 0)
+    if [[ $critical_errors -gt 0 ]]; then
+        health_log "ERROR" "Found $critical_errors critical errors in logs"
+        return 1
+    fi
+    
+    # Check for conflict errors (recent only)
+    local recent_conflicts=$(tail -n 200 /app/logs/bot.log | grep -c "Conflict: terminated by other getUpdates request" 2>/dev/null || echo 0)
+    if [[ $recent_conflicts -gt 3 ]]; then
+        health_log "ERROR" "Found multiple conflict errors: another bot instance detected"
+        echo "Conflict detected - Multiple instances using the same token" > "$HEALTH_DIR/conflict_detected"
+        return 1
+    fi
+    
+    health_log "INFO" "Log analysis passed"
+    return 0
+}
+
+# Check container health status (Docker)
+check_container_health() {
+    local container_name="${1:-${SYSTEM_NAME:-quit-smoking-bot}}"
+    
+    if ! command -v docker >/dev/null 2>&1; then
+        health_log "WARN" "Docker not available for container health check"
+        return 0
+    fi
+    
+    local health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_name" 2>/dev/null || echo "no-container")
+    
+    case "$health_status" in
+        "healthy")
+            health_log "INFO" "Container health: healthy"
+            return 0
+            ;;
+        "unhealthy")
+            health_log "ERROR" "Container health: unhealthy"
+            return 1
+            ;;
+        "starting")
+            health_log "INFO" "Container health: starting"
+            return 0
+            ;;
+        "no-healthcheck")
+            health_log "WARN" "Container has no health check configured"
+            return 0
+            ;;
+        "no-container")
+            health_log "WARN" "Container not found or not accessible"
+            return 0
+            ;;
+        *)
+            health_log "WARN" "Unknown container health status: $health_status"
+            return 0
+            ;;
+    esac
+}
+
+# Check if container is running
+check_container_running() {
+    local container_name="${1:-${SYSTEM_NAME:-quit-smoking-bot}}"
+    
+    if ! command -v docker >/dev/null 2>&1; then
+        health_log "WARN" "Docker not available for container check"
+        return 0
+    fi
+    
+    if docker ps --format "{{.Names}}" | grep -q "^${container_name}$"; then
+        health_log "INFO" "Container is running"
+        return 0
+    else
+        health_log "ERROR" "Container is not running"
+        return 1
+    fi
+}
+
+# Get container resource usage
+get_container_resources() {
+    local container_name="${1:-${SYSTEM_NAME:-quit-smoking-bot}}"
+    
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "Docker not available"
+        return 1
+    fi
+    
+    local stats=$(docker stats "$container_name" --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}" 2>/dev/null || echo "N/A")
+    echo "$stats"
+}
+
+# Comprehensive health check
+comprehensive_health_check() {
+    local failed_checks=0
+    
+    health_log "INFO" "Starting comprehensive health check"
+    
+    # Check bot process
+    if ! check_bot_process; then
+        ((failed_checks++))
+    fi
+    
+    # Check operational marker
+    if ! check_operational_marker; then
+        ((failed_checks++))
+    fi
+    
+    # Check logs for errors
+    if ! check_logs_for_errors; then
+        ((failed_checks++))
+    fi
+    
+    # Check container health if available
+    check_container_health
+    
+    # Report results
+    if [[ $failed_checks -eq 0 ]]; then
+        health_log "INFO" "All health checks passed"
+        return 0
+    else
+        health_log "ERROR" "$failed_checks health checks failed"
+        return 1
+    fi
+}
+
+# Quick health check (for Docker healthcheck)
+quick_health_check() {
+    # Just the essential checks
+    if ! check_bot_process; then
+        return 1
+    fi
+    
+    if ! check_operational_marker; then
+        return 1
+    fi
+    
+    health_log "INFO" "Quick health check passed"
+    return 0
+}
+
+# Monitor health check (for monitoring service)
+monitor_health_check() {
+    local container_name="${1:-${SYSTEM_NAME:-quit-smoking-bot}}"
+    local status_msg=""
+    local status_ok=true
+    
+    # Check container running
+    if check_container_running "$container_name"; then
+        status_msg="Container running"
+        
+        # Check container health
+        if check_container_health "$container_name"; then
+            status_msg="$status_msg, healthy"
+        else
+            status_msg="$status_msg, unhealthy"
+            status_ok=false
+        fi
+        
+        # Check bot process
+        if check_bot_process; then
+            status_msg="$status_msg, bot process active"
+        else
+            status_msg="$status_msg, bot process NOT found"
+            status_ok=false
+        fi
+        
+        # Get resources
+        local resources=$(get_container_resources "$container_name")
+        if [[ "$resources" != "N/A" ]]; then
+            status_msg="$status_msg, resources: $resources"
+        fi
+        
+    else
+        status_msg="Container NOT running"
+        status_ok=false
+    fi
+    
+    if $status_ok; then
+        health_log "INFO" "$status_msg"
+        return 0
+    else
+        health_log "WARN" "$status_msg"
+        return 1
+    fi
 } 

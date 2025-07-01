@@ -25,8 +25,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-.pytest_cache/
-pytest.ini
+
 
 # Docker
 Dockerfile

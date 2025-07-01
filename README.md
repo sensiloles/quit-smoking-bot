@@ -116,8 +116,7 @@ make stop               # Stop the bot
 make restart            # Restart the bot
 make status             # Show service status
 
-# Development & testing
-make test               # Run tests
+# Development
 make dev                # Start development environment
 make logs               # View logs
 make shell              # Open shell in container
@@ -132,7 +131,7 @@ make clean              # Clean up containers
 ```bash
 ./scripts/run.sh        # Start the bot
 ./scripts/stop.sh       # Stop the bot
-./scripts/test.sh       # Run tests
+
 ./scripts/check-service.sh  # Check status
 ```
 
@@ -143,7 +142,7 @@ make clean              # Clean up containers
 - `--install` - Full installation with Docker setup and auto-restart
 - `--token YOUR_BOT_TOKEN` - Specify the Telegram bot token
 - `--force-rebuild` - Forces a complete rebuild of Docker images
-- `--tests` - Runs the test suite after building. If tests fail, the script will stop
+
 - `--monitoring` - Enable health monitoring service
 - `--logging` - Enable log aggregation service
 - `--dry-run` - Show what would be done without executing
@@ -155,7 +154,7 @@ make clean              # Clean up containers
 ### stop.sh options:
 
 - `--uninstall` - Complete uninstallation (removes images and cleans Docker)
-- `--keep-data` - Keep logs when uninstalling (data is always preserved)
+
 - `--all` - Stop all services including monitoring and logging
 - `--dry-run` - Show what would be done without executing
 - `--force` - Skip confirmation prompts
@@ -187,11 +186,7 @@ docker-compose --profile monitoring up -d
 docker-compose --profile logging up -d
 ```
 
-### Testing
-```bash
-# Run tests
-docker-compose --profile test run --rm test
-```
+
 
 ## Architecture and Technology Stack
 
@@ -310,7 +305,7 @@ This will show:
 Enable verbose debug output:
 ```bash
 ./scripts/run.sh --verbose --force-rebuild --token YOUR_TOKEN
-./scripts/run.sh --verbose --install --tests
+./scripts/run.sh --verbose --install
 ```
 
 This will print detailed step-by-step information to help pinpoint issues.
@@ -327,10 +322,8 @@ quit-smoking-bot/
 │   ├── status.py                   # Status information and calculations
 │   ├── users.py                    # User management and storage
 │   ├── utils.py                    # Utility functions and helpers
-│   └── send_results.py             # Test results notification system
-├── tests/                          # Tests directory
-│   ├── integration/                # Integration tests
-│   └── unit/                       # Unit tests
+
+
 ├── scripts/                        # Shell scripts for operations
 │   ├── modules/                    # Common script modules
 │   │   ├── actions.sh             # Action logging and dry-run functionality
@@ -344,14 +337,14 @@ quit-smoking-bot/
 │   │   ├── output.sh              # Output formatting and messaging
 │   │   ├── service.sh             # Service management functions
 │   │   ├── system.sh              # System detection and setup
-│   │   └── testing.sh             # Testing utilities
+
 │   ├── bootstrap.sh               # Script initialization and module loading
 │   ├── check-service.sh           # Service status check and diagnostics
 │   ├── entrypoint.sh              # Container entrypoint script
-│   ├── healthcheck.sh             # Container health check
+
 │   ├── run.sh                     # Universal start/install script
 │   ├── stop.sh                    # Universal stop/uninstall script
-│   └── test.sh                    # Run tests
+
 ├── data/                          # Bot data directory (created on first run)
 ├── logs/                          # Log files directory (created on first run)
 ├── docker-compose.yml             # Docker Compose configuration
@@ -380,18 +373,17 @@ Container management is handled through shell scripts that provide a simple inte
 
 ## Development Setup
 
-For local development and testing:
+For local development:
 
 ### Using Docker (Recommended)
 
-The easiest way to develop and test is using the existing Docker setup:
+The easiest way to develop is using the existing Docker setup:
 
 ```bash
 # Start development environment
 ./scripts/run.sh --token YOUR_DEV_TOKEN
 
-# Run tests
-./scripts/test.sh
+
 
 # Access container for debugging
 docker exec -it quit-smoking-bot sh
@@ -408,31 +400,13 @@ python3 -m pip install -r requirements-dev.txt
 # Install project in editable mode
 pip install -e .
 
-# Run tests
-python -m pytest tests/
+
 ```
 
 This approach is useful for:
 - IDE integration and debugging
 - Faster iteration during development
 - Direct access to Python debugging tools
-
-### Testing Environment
-
-The project includes comprehensive testing:
-
-```bash
-# Run all tests with Docker
-./scripts/test.sh
-
-# Run specific test categories
-docker-compose --profile test run --rm test python -m pytest tests/unit/
-docker-compose --profile test run --rm test python -m pytest tests/integration/
-
-# Run tests natively
-python -m pytest tests/unit/
-python -m pytest tests/integration/ --token YOUR_TOKEN
-```
 
 ## Future Development Plans
 
@@ -442,7 +416,7 @@ There is a planned migration to rewrite operational scripts from Bash to Python.
 
 - **Code Consistency**: Using Python for both application and operational scripts maintains a single language across the codebase
 - **Better Error Handling**: Python's exception handling is more robust than Bash error processing
-- **Improved Testability**: Python scripts are easier to unit test than Bash scripts
+- **Improved Maintainability**: Python scripts are easier to maintain than Bash scripts
 - **Enhanced Maintainability**: Python's cleaner syntax and stronger typing improves long-term code maintenance
 - **Library Reuse**: Ability to reuse application code utilities within operational scripts
 
@@ -487,10 +461,10 @@ Common types include:
 - `style`: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
 - `refactor`: A code change that neither fixes a bug nor adds a feature
 - `perf`: A code change that improves performance
-- `test`: Adding missing tests or correcting existing tests
+
 - `build`: Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
 - `ci`: Changes to our CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, SauceLabs)
-- `chore`: Other changes that don't modify src or test files
+- `chore`: Other changes that don't modify src files
 
 ### Enforcement
 

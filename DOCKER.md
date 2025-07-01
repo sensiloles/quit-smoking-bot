@@ -26,11 +26,8 @@ The project uses a modern multi-container setup defined in `docker-compose.yml`:
    - **Health Checks**: Custom health monitoring every 30 seconds
    - **Resource Limits**: 256MB memory limit with 128MB reservation
    - **Logging**: JSON format with automatic rotation (10MB, 5 files)
-
-2. **Test Service** (`test`): A separate container for running integration tests
    - **Profile-based**: Only runs when explicitly requested
-   - **Isolated Testing**: Separate environment for testing
-   - **Shared Volumes**: Access to data for integration testing
+   
 
 ### Additional Services (Profile-based)
 
@@ -49,7 +46,7 @@ All services share the same base image but have different configurations and ent
 ```
 /app/                    # Application root directory
 ├── src/                 # Source code
-├── tests/               # Test files
+
 ├── scripts/             # Shell scripts
 ├── data/                # Persistent data (volume)
 │   ├── bot_users.json   # User data
@@ -95,7 +92,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Setup application
 WORKDIR /app
 COPY setup.py /app/
-RUN pip install --no-cache-dir -e . requests pytest setuptools
+RUN pip install --no-cache-dir -e . requests setuptools
 
 # Prepare directories with proper permissions
 RUN mkdir -p /app/data /app/logs /app/health \
@@ -117,7 +114,7 @@ VOLUME /app/logs
 # Configure entrypoint and health check
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD /app/scripts/healthcheck.sh
+    CMD /app/scripts/health.sh --mode docker
 ```
 
 ### Key Dockerfile Components
@@ -167,7 +164,7 @@ services:
       - TZ=Asia/Novosibirsk
       - PYTHONUNBUFFERED=1
     healthcheck:
-      test: ["CMD", "/app/scripts/healthcheck.sh"]
+      test: ["CMD", "/app/scripts/health.sh", "--mode", "docker"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -216,28 +213,6 @@ services:
     networks:
       - bot-network
 
-  test:
-    build:
-      context: .
-      args:
-        - USER_ID=${USER_ID:-1000}
-        - GROUP_ID=${GROUP_ID:-1000}
-    image: ${SYSTEM_NAME:-quit-smoking-bot}:test
-    container_name: ${SYSTEM_NAME:-quit-smoking-bot}-test
-    profiles: ["test"]
-    env_file:
-      - .env
-    volumes:
-      - ./data:/app/data:ro
-      - ./logs:/app/logs:rw
-    environment:
-      - TZ=Asia/Novosibirsk
-      - PYTHONUNBUFFERED=1
-    command: python -m tests.integration.test_notifications --token "$BOT_TOKEN"
-    entrypoint: []
-    networks:
-      - bot-network
-
 networks:
   bot-network:
     driver: bridge
@@ -256,7 +231,7 @@ networks:
 8. **Health Check**: Configures native Docker health monitoring with custom scripts
 9. **Logging**: Sets up JSON logging with rotation, compression, and size limits
 10. **Networks**: Creates isolated bridge network for inter-container communication
-11. **Profiles**: Enables selective service execution (monitoring, logging, testing)
+11. **Profiles**: Enables selective service execution (monitoring, logging)
 12. **Dependencies**: Defines service startup order and dependencies
 
 ## Container Lifecycle
@@ -283,7 +258,7 @@ The comprehensive health monitoring consists of:
    - Tracks resource usage
    - Logs health status changes
 
-2. **Docker Health Check** (`healthcheck.sh`): 
+2. **Docker Health Check** (`health.sh`): 
    - Runs every 30 seconds by Docker daemon
    - Performs comprehensive health validation
    - Reports status to Docker for restart decisions
@@ -361,7 +336,7 @@ docker-compose up -d --scale bot=2
 1. **Simplicity**: No complex service manager configuration
 2. **Portability**: Works identically on any Docker-capable system
 3. **Isolation**: Complete process and filesystem isolation
-4. **Consistency**: Same behavior in development, testing, and production
+4. **Consistency**: Same behavior in development and production
 5. **Updates**: Easy to update by rebuilding containers
 6. **Rollback**: Simple rollback by switching image tags
 
@@ -527,31 +502,7 @@ docker-compose logs --no-color bot > bot-logs.txt
 docker-compose logs -f bot | grep ERROR
 ```
 
-## Testing
 
-The project includes comprehensive testing capabilities:
-
-### Test Execution
-
-```bash
-# Run all tests using helper script
-./scripts/test.sh
-
-# Run tests directly with Docker Compose
-docker-compose --profile test run --rm test
-
-# Run specific test categories
-docker-compose --profile test run --rm test python -m pytest tests/unit/
-docker-compose --profile test run --rm test python -m pytest tests/integration/
-```
-
-### Test Configuration
-
-The test service configuration:
-- **Isolated Environment**: Separate container for testing
-- **Shared Data**: Read-only access to data for integration tests
-- **Profile-based**: Only runs when explicitly requested
-- **Cleanup**: Automatic cleanup after test completion
 
 ## Troubleshooting
 
@@ -599,7 +550,7 @@ The test service configuration:
    docker network inspect quit-smoking-bot-network
    ```
 
-2. **Test container connectivity**:
+2. **Bot container connectivity**:
    ```bash
    docker exec quit-smoking-bot ping -c 3 api.telegram.org
    ```
@@ -639,7 +590,7 @@ The Docker implementation prioritizes security:
 ### Data Security
 - **Volume Permissions**: Proper file permissions on mounted volumes
 - **User Matching**: Container user matches host user for file access
-- **Read-only Mounts**: Test service has read-only access to data
+
 - **Log Rotation**: Prevents log files from consuming excessive disk space
 
 ### Operational Security
@@ -688,7 +639,7 @@ The Docker configuration for the Quit Smoking Bot represents a modern, cloud-nat
 - **Data Persistence**: Reliable data storage with Docker volumes
 - **Network Isolation**: Secure inter-service communication
 
-This Docker-first approach ensures the bot can be consistently deployed across development, testing, and production environments while maintaining high reliability and security standards.
+This Docker-first approach ensures the bot can be consistently deployed across development and production environments while maintaining high reliability and security standards.
 
 ## Local Development Environment
 

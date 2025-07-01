@@ -102,34 +102,6 @@ setup_data_directory() {
     ls -la "$DATA_DIR/" | sed 's/^/    /'
 }
 
-# Run integration tests only if explicitly enabled
-run_integration_tests() {
-    if [ "${RUN_INTEGRATION_TESTS:-0}" = "1" ] && [ -n "$BOT_TOKEN" ]; then
-        log_message "INFO" "Running integration tests (enabled via RUN_INTEGRATION_TESTS=1)"
-
-        # Run tests with timeout to prevent infinite hang
-        cd /app && timeout 60 python -m tests.integration.test_notifications --token "$BOT_TOKEN" > /app/test_results.txt 2>&1
-        local test_status=$?
-
-        # Check if tests were successful
-        if [ $test_status -eq 0 ]; then
-            log_message "INFO" "Integration tests completed successfully"
-
-            # Send test results to admins
-            if [ -f "/app/test_results.txt" ]; then
-                log_message "INFO" "Sending test results to admins"
-                cd /app && python -m src.send_results --token "$BOT_TOKEN" || \
-                    log_message "WARN" "Failed to send test results to admins"
-            fi
-        elif [ $test_status -eq 124 ]; then
-            log_message "WARN" "Integration tests timed out after 60 seconds"
-        else
-            log_message "WARN" "Integration tests failed with status $test_status"
-        fi
-    else
-        log_message "INFO" "Skipping integration tests (set RUN_INTEGRATION_TESTS=1 to enable)"
-    fi
-}
 
 # Start the health monitoring daemon in the background
 start_health_monitor() {
@@ -199,13 +171,6 @@ terminate_existing_processes() {
 
 # Main execution flow
 main() {
-    # Check if this is a testing container FIRST, before any initialization
-    if [ "${TESTING:-false}" = "true" ]; then
-        log_message "INFO" "Testing mode detected, running tests instead of bot"
-        cd /app
-        exec "$@"  # Execute the command passed to the container
-    fi
-
     log_message "INFO" "Starting bot container initialization"
 
     # Create logs directory if it doesn't exist
@@ -225,7 +190,7 @@ main() {
     setup_health_system
     setup_data_directory
     rotate_logs
-    run_integration_tests
+
     start_health_monitor
 
     # Start the bot (this will exec, replacing the current process)

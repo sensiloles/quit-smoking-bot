@@ -14,6 +14,25 @@ readonly NC='\033[0m'
 
 # Project root directory
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PROJECT_ROOT
+
+# Load all modules (order matters - output.sh first for color constants)
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+MODULES_DIR="${SCRIPT_DIR}/modules"
+
+if [[ -d "$MODULES_DIR" ]]; then
+    # Load output.sh first for color constants
+    if [[ -f "$MODULES_DIR/output.sh" ]]; then
+        source "$MODULES_DIR/output.sh"
+    fi
+    
+    # Load other modules
+    for module in "$MODULES_DIR"/*.sh; do
+        if [[ -f "$module" && "$module" != "$MODULES_DIR/output.sh" ]]; then
+            source "$module"
+        fi
+    done
+fi
 
 print_message() {
     local message="$1"

@@ -283,91 +283,38 @@ check_resources() {
     fi
 }
 
-# Function to check bot health
+# Function to check bot health (using unified health module)
 check_bot_health_status() {
     print_section "Bot Health"
-
+    
+    # Use the unified health diagnostics
+    ./scripts/health.sh --mode diagnostics
+    
+    # Add additional container-specific diagnostics
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
     if [ -n "$container_id" ]; then
-        # Get container health status
-        local health_status=$(docker inspect --format '{{.State.Health.Status}}' $container_id 2>/dev/null)
-
-        if [ -z "$health_status" ] || [ "$health_status" = "<no value>" ]; then
-            print_message "Container has no health check defined" "$YELLOW"
+        print_message "\nContainer Details:" "$BLUE"
+        local container_start_time=$(docker inspect --format='{{.State.StartedAt}}' $container_id)
+        local container_status=$(docker inspect --format='{{.State.Status}}' $container_id)
+        local restart_count=$(docker inspect --format='{{.RestartCount}}' $container_id)
+        
+        print_message "Container status: $container_status" "$YELLOW"
+        print_message "Container started: $container_start_time" "$YELLOW"
+        print_message "Restart count: $restart_count" "$YELLOW"
+        
+        # Check for operational indicators in logs
+        print_message "\nBot operational indicators:" "$BLUE"
+        if docker logs $container_id --tail 50 2>&1 | grep -q "Application started"; then
+            print_message "✅ Bot reports 'Application started'" "$GREEN"
         else
-            if [ "$health_status" = "healthy" ]; then
-                print_message "✅ Container health status: $health_status" "$GREEN"
-            else
-                print_message "❌ Container health status: $health_status" "$RED"
-            fi
-
-            # Show last health check
-            print_message "\nLast health check output:" "$BLUE"
-            local health_output=$(docker inspect --format='{{if .State.Health.Log}}{{range .State.Health.Log}}{{.Output}}{{end}}{{else}}No health check logs available{{end}}' $container_id 2>/dev/null | tail -1)
-            if [ -n "$health_output" ]; then
-                echo "$health_output"
-            else
-                echo "No health check output available"
-            fi
+            print_message "❌ No 'Application started' message found in recent logs" "$YELLOW"
         fi
 
-        # Check if the bot process is running
-        if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
-            print_message "\n✅ Bot process is running inside container" "$GREEN"
-
-            # Get container details
-            local container_start_time=$(docker inspect --format='{{.State.StartedAt}}' $container_id)
-            local container_status=$(docker inspect --format='{{.State.Status}}' $container_id)
-            local restart_count=$(docker inspect --format='{{.RestartCount}}' $container_id)
-            
-            print_message "Container status: $container_status" "$YELLOW"
-            print_message "Container started: $container_start_time" "$YELLOW"
-            print_message "Restart count: $restart_count" "$YELLOW"
-
-            # Check the health file
-            if docker exec $container_id test -f /app/health/operational 2>/dev/null; then
-                print_message "\n✅ Health file exists (/app/health/operational)" "$GREEN"
-                local file_time=$(docker exec $container_id stat -c %y /app/health/operational 2>/dev/null)
-                if [ -n "$file_time" ]; then
-                    print_message "Health file last updated: $file_time" "$YELLOW"
-                fi
-            else
-                print_message "\n❌ Health file does not exist (/app/health/operational)" "$RED"
-            fi
-
-            # Check for operational indicators in logs
-            print_message "\nBot operational status:" "$BLUE"
-            if docker logs $container_id --tail 50 2>&1 | grep -q "Application started"; then
-                print_message "✅ Bot reports 'Application started'" "$GREEN"
-            else
-                print_message "❌ No 'Application started' message found in recent logs" "$YELLOW"
-            fi
-
-            if docker logs $container_id --tail 50 2>&1 | grep -q "\"HTTP/1.1 200 OK\""; then
-                print_message "✅ Bot making successful API calls" "$GREEN"
-            else
-                print_message "❌ No successful API calls detected in recent logs" "$YELLOW"
-            fi
-
-            # Check for errors
-            local recent_errors=$(docker logs $container_id --tail 50 2>&1 | grep -i "error\|exception\|failed" | wc -l)
-            if [ "$recent_errors" -gt 0 ]; then
-                print_message "⚠️  Found $recent_errors error/exception messages in recent logs" "$YELLOW"
-            else
-                print_message "✅ No errors found in recent logs" "$GREEN"
-            fi
-
-            # Check for conflicts (multiple bot instances)
-            if docker logs $container_id --tail 50 2>&1 | grep -q "telegram.error.Conflict\|error_code\":409\|terminated by other getUpdates"; then
-                print_error "\n⚠️  WARNING: Conflict detected! Another bot instance may be running with the same token."
-                print_message "This prevents your bot from functioning correctly." "$RED"
-            fi
-
+        if docker logs $container_id --tail 50 2>&1 | grep -q "\"HTTP/1.1 200 OK\""; then
+            print_message "✅ Bot making successful API calls" "$GREEN"
         else
-            print_error "\n❌ Bot process is NOT running inside container"
+            print_message "❌ No successful API calls detected in recent logs" "$YELLOW"
         fi
-    else
-        print_message "❌ No running container found" "$RED"
     fi
 }
 

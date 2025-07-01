@@ -21,7 +21,7 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  --uninstall         Complete uninstallation (removes images and cleans Docker)"
-    echo "  --keep-data         Keep logs when uninstalling (data is always preserved)"
+
     echo "  --all               Stop all services including monitoring and logging"
     echo "  --dry-run           Show what would be done without executing"
     echo "  --force             Skip confirmation prompts"
@@ -32,8 +32,7 @@ show_help() {
     echo "Examples:"
     echo "  $0                          # Simple stop"
     echo "  $0 --all                    # Stop all services"
-    echo "  $0 --uninstall              # Complete uninstall with confirmation"
-    echo "  $0 --uninstall --keep-data  # Uninstall but keep user data"
+    echo "  $0 --uninstall              # Complete uninstall"
     echo "  $0 --dry-run --uninstall    # Preview uninstall actions"
     echo "  $0 --force                  # Stop without confirmation prompts"
 }
@@ -46,7 +45,7 @@ stop_services() {
     local stop_args="down --remove-orphans"
     
     if [[ "$stop_all" == "1" ]]; then
-        compose_cmd="docker-compose --profile monitoring --profile logging --profile test"
+        compose_cmd="docker-compose --profile monitoring --profile logging"
     fi
     
     execute_or_simulate "Stop Docker Compose services" "$compose_cmd $stop_args"
@@ -68,21 +67,6 @@ remove_images() {
     '
 }
 
-# Cleanup data directories
-cleanup_data() {
-    local keep_data="$1"
-    
-    if [[ "$keep_data" == "1" ]]; then
-        print_message "ℹ️  Keeping data directory and logs (--keep-data specified)" "$BLUE"
-        return 0
-    fi
-    
-    # Never remove data directory - it contains the database (users, admins, quotes)
-    print_message "📁 Preserving data directory (contains user database)" "$BLUE"
-    
-    # Only remove logs directory during uninstall
-    execute_or_simulate "Remove logs directory" 'rm -rf "$PROJECT_ROOT/logs"'
-}
 
 # Cleanup Docker resources
 cleanup_docker_resources() {
@@ -150,7 +134,6 @@ confirm_action() {
 # Show final status
 show_final_status() {
     local uninstall_mode="$1"
-    local keep_data="$2"
     
     if is_dry_run; then
         return 0
@@ -172,13 +155,6 @@ show_final_status() {
         print_message "\n🗑️  Uninstall Summary:" "$GREEN"
         print_message "  ✓ Docker Compose services removed" "$GREEN"
         print_message "  ✓ Docker images removed" "$GREEN"
-        
-        if [[ "$keep_data" == "1" ]]; then
-            print_message "  📁 Data and logs preserved" "$BLUE"
-        else
-            print_message "  📁 Data preserved, logs removed" "$BLUE"
-        fi
-        
         print_message "  ✓ Docker resources cleaned up" "$GREEN"
         print_message ""
         print_message "ℹ️  Note: Project source code remains in $PROJECT_ROOT" "$BLUE"
@@ -197,7 +173,6 @@ main() {
     
     # Initialize default variables
     local UNINSTALL_MODE=0
-    local KEEP_DATA=0
     local STOP_ALL=0
     local DRY_RUN=0
     local FORCE=0
@@ -209,10 +184,6 @@ main() {
         case $1 in
             --uninstall)
                 UNINSTALL_MODE=1
-                shift
-                ;;
-            --keep-data)
-                KEEP_DATA=1
                 shift
                 ;;
             --all)
@@ -248,7 +219,7 @@ main() {
     done
     
     # Export variables for use in functions
-    export UNINSTALL_MODE KEEP_DATA STOP_ALL DRY_RUN FORCE QUIET VERBOSE
+    export UNINSTALL_MODE STOP_ALL DRY_RUN FORCE QUIET VERBOSE
     
     # Initialize action logging
     init_action_log
@@ -276,11 +247,7 @@ main() {
     
     # Confirm dangerous operations
     if [[ "$UNINSTALL_MODE" == "1" ]]; then
-        local dangerous=0
-        if [[ "$KEEP_DATA" != "1" ]]; then
-            dangerous=1
-        fi
-        confirm_action "completely uninstall" "$FORCE" "$dangerous"
+        confirm_action "completely uninstall" "$FORCE" "0"
     fi
     
     # Stop services
@@ -299,13 +266,10 @@ main() {
         log_action "Stop completion" "SUCCESS" "Bot stopped successfully"
     fi
     
-    # Cleanup data if in uninstall mode
-    if [[ "$UNINSTALL_MODE" == "1" ]]; then
-        cleanup_data "$KEEP_DATA"
-    fi
+
     
     # Show final status
-    show_final_status "$UNINSTALL_MODE" "$KEEP_DATA"
+    show_final_status "$UNINSTALL_MODE"
     
     # Show completion message
     if [[ "$UNINSTALL_MODE" == "1" ]]; then

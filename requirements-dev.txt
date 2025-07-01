@@ -1,9 +1,5 @@
 # Development specific dependencies
 setuptools>=65.5.0
-pytest
-pytest-cov
-pytest-asyncio
-requests # Used in some tests
 
 # For commit message linting
 pre-commit # For pre-commit hooks

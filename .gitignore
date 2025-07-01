@@ -35,8 +35,6 @@ ENV/
 .env
 data/
 logs/
-test_results.txt
-test_log.txt
 
 # macOS system files
 .DS_Store

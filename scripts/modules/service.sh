@@ -29,7 +29,7 @@ build_and_start_service() {
     if [ "$FORCE_REBUILD" == "1" ]; then
         debug_print "Force rebuild requested, removing existing images"
         print_message "Force rebuild requested. Removing existing images..." "$YELLOW"
-        docker rmi ${SYSTEM_NAME} ${SYSTEM_NAME}-test >/dev/null 2>&1 || true
+        docker rmi ${SYSTEM_NAME} >/dev/null 2>&1 || true
         # Also remove all build cache
         docker builder prune -f >/dev/null 2>&1 || true
         debug_print "Images and build cache removed"

@@ -116,10 +116,7 @@ show_dry_run_plan() {
             print_message "🔍 This would:" "$BLUE"
             print_message "  1. Stop any existing containers" "$BLUE"
             print_message "  2. Build containers (if needed)" "$BLUE"
-            if [[ "${RUN_TESTS:-0}" == "1" ]]; then
-                print_message "  3. Run tests before starting" "$BLUE"
-            fi
-            print_message "  4. Start bot service" "$BLUE"
+            print_message "  3. Start bot service" "$BLUE"
             ;;
         "stop")
             print_message "🔍 This would:" "$BLUE"
@@ -133,9 +130,7 @@ show_dry_run_plan() {
             print_message "🔍 This would:" "$BLUE"
             print_message "  1. Stop all running containers" "$BLUE"
             print_message "  2. Remove containers and images" "$BLUE"
-            if [[ "${KEEP_DATA:-0}" != "1" ]]; then
-                                 print_message "  3. 📁 Preserve data directory, delete logs" "$BLUE"
-            fi
+            print_message "  3. Clean up Docker resources" "$BLUE"
             print_message "  4. Remove Docker networks and volumes" "$BLUE"
             print_message "  5. Disable auto-restart configuration" "$BLUE"
             ;;

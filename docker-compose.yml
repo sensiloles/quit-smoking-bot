@@ -43,7 +43,7 @@ services:
         labels: "service=quit-smoking-bot"
     
     healthcheck:
-      test: ["CMD", "/app/scripts/healthcheck.sh"]
+      test: ["CMD", "/app/scripts/health.sh", "--mode", "docker"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -76,11 +76,14 @@ services:
       - TZ=Asia/Novosibirsk
       - PYTHONUNBUFFERED=1
       - MONITORING_MODE=true
+      - SYSTEM_NAME=${SYSTEM_NAME:-quit-smoking-bot}
     
     volumes:
       - ./logs:/app/logs:rw
       - ./data:/app/data:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     
+    entrypoint: ["/bin/bash"]
     command: ["/app/scripts/health-monitor.sh"]
     
     logging:
@@ -92,34 +95,10 @@ services:
     
     networks:
       - bot-network
+    
+    user: root
 
-  test:
-    build:
-      context: .
-      args:
-        - USER_ID=${USER_ID:-1000}
-        - GROUP_ID=${GROUP_ID:-1000}
-    image: ${SYSTEM_NAME:-quit-smoking-bot}-test:latest
-    container_name: ${SYSTEM_NAME:-quit-smoking-bot}-test
-    profiles: ["test"]
-    
-    env_file:
-      - .env
-    environment:
-      - TZ=Asia/Novosibirsk
-      - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/app/src
-      - TESTING=true
-    
-    volumes:
-      - ./data:/app/data:ro
-      - ./logs:/app/logs:rw
-      - ./tests:/app/tests:ro
-    
-    command: ["pytest", "tests", "-v", "--tb=short"]
-    
-    networks:
-      - bot-network
+
 
   log-aggregator:
     image: alpine:latest
