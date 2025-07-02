@@ -288,7 +288,7 @@ check_bot_health_status() {
     print_section "Bot Health"
     
     # Use the unified health diagnostics
-    ./scripts/health.sh --mode diagnostics
+    ./scripts/health-monitor.sh --mode diagnostics
     
     # Add additional container-specific diagnostics
     local container_id=$(docker ps -q --filter "name=$SYSTEM_NAME")
@@ -341,7 +341,7 @@ report_overall_status() {
         container_running=true
         print_message "✅ Docker container: Running" "$GREEN"
 
-        if docker exec $container_id pgrep -f "python.*src[/.]bot" >/dev/null 2>&1; then
+        if docker exec $container_id pgrep -f "python.*src.*bot" >/dev/null 2>&1; then
             bot_running=true
             print_message "✅ Bot process: Running" "$GREEN"
         else

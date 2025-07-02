@@ -207,8 +207,8 @@ check_bot_status() {
 # Configuration - adapt paths based on environment
 if [[ -d "/app" && -w "/app" ]]; then
     # Inside container
-    readonly HEALTH_DIR="/app/health"
-    readonly LOG_FILE="$HEALTH_DIR/status.log"
+    readonly HEALTH_DIR="/app/logs"
+    readonly LOG_FILE="$HEALTH_DIR/health.log"
 else
     # Outside container
     readonly HEALTH_DIR="./logs"
@@ -267,7 +267,7 @@ health_log() {
 
 # Check if bot process is running
 check_bot_process() {
-    if pgrep -f "python.*src[/.]bot" > /dev/null 2>&1; then
+    if pgrep -f "python.*src.*bot" > /dev/null 2>&1; then
         health_log "INFO" "Bot process is running"
         return 0
     else
@@ -285,7 +285,7 @@ check_operational_marker() {
             health_log "WARN" "Operational file is stale (${file_age}s old)"
             
             # Update if process is running
-            if pgrep -f "python.*src[/.]bot" > /dev/null 2>&1; then
+            if pgrep -f "python.*src.*bot" > /dev/null 2>&1; then
                 touch "$OPERATIONAL_FILE"
                 health_log "INFO" "Updated stale operational file"
                 return 0
@@ -300,7 +300,7 @@ check_operational_marker() {
         health_log "ERROR" "Operational marker file missing"
         
         # Create if process is running
-        if pgrep -f "python.*src[/.]bot" > /dev/null 2>&1; then
+        if pgrep -f "python.*src.*bot" > /dev/null 2>&1; then
             touch "$OPERATIONAL_FILE"
             chmod 644 "$OPERATIONAL_FILE"
             health_log "INFO" "Created missing operational marker"
@@ -329,7 +329,6 @@ check_logs_for_errors() {
     local recent_conflicts=$(tail -n 200 /app/logs/bot.log | grep -c "Conflict: terminated by other getUpdates request" 2>/dev/null || echo 0)
     if [[ $recent_conflicts -gt 3 ]]; then
         health_log "ERROR" "Found multiple conflict errors: another bot instance detected"
-        echo "Conflict detected - Multiple instances using the same token" > "$HEALTH_DIR/conflict_detected"
         return 1
     fi
     

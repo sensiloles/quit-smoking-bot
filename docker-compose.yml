@@ -30,9 +30,7 @@ services:
       - .env
     environment:
       - TZ=Asia/Novosibirsk
-      - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app/src
-      - IN_CONTAINER=true
     
     logging:
       driver: "json-file"
@@ -43,7 +41,7 @@ services:
         labels: "service=quit-smoking-bot"
     
     healthcheck:
-      test: ["CMD", "/app/scripts/health.sh", "--mode", "docker"]
+      test: ["CMD", "/app/scripts/health-monitor.sh", "--mode", "docker"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -63,7 +61,10 @@ services:
       - /tmp:noexec,nosuid,size=100m
 
   health-monitor:
-    image: ${SYSTEM_NAME:-quit-smoking-bot}:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.monitor
+    image: ${SYSTEM_NAME:-quit-smoking-bot}-monitor:latest
     container_name: ${SYSTEM_NAME:-quit-smoking-bot}-health-monitor
     restart: unless-stopped
     profiles: ["monitoring"]
@@ -74,17 +75,24 @@ services:
     
     environment:
       - TZ=Asia/Novosibirsk
-      - PYTHONUNBUFFERED=1
-      - MONITORING_MODE=true
       - SYSTEM_NAME=${SYSTEM_NAME:-quit-smoking-bot}
     
     volumes:
-      - ./logs:/app/logs:rw
-      - ./data:/app/data:ro
+      - ./logs:/logs:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
     
-    entrypoint: ["/bin/bash"]
-    command: ["/app/scripts/health-monitor.sh"]
+    command: >
+      sh -c "
+        while true; do
+          echo \"\$(date): Checking bot health...\" >> /logs/health-monitor.log
+          if docker ps --filter name=\${SYSTEM_NAME} --filter status=running -q | grep -q .; then
+            echo \"\$(date): Bot container is running\" >> /logs/health-monitor.log
+          else
+            echo \"\$(date): WARNING - Bot container not running!\" >> /logs/health-monitor.log
+          fi
+          sleep 60
+        done
+      "
     
     logging:
       driver: "json-file"
@@ -95,10 +103,6 @@ services:
     
     networks:
       - bot-network
-    
-    user: root
-
-
 
   log-aggregator:
     image: alpine:latest

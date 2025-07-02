@@ -1,8 +1,5 @@
 #!/bin/bash
 # bootstrap.sh - Initial project setup for quit-smoking-bot
-#
-# This script performs the initial setup after cloning the repository.
-# It can be run manually or automatically via git hooks.
 
 set -euo pipefail
 
@@ -16,7 +13,7 @@ readonly NC='\033[0m'
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PROJECT_ROOT
 
-# Load all modules (order matters - output.sh first for color constants)
+# Load all modules
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 MODULES_DIR="${SCRIPT_DIR}/modules"
 

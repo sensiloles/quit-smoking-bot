@@ -9,7 +9,6 @@ set -e
 # Configuration
 readonly DATA_DIR="/app/data"
 readonly LOGS_DIR="/app/logs"
-readonly HEALTH_DIR="/app/health"
 readonly DEFAULT_JSON_FILES=("bot_admins.json" "bot_users.json" "quotes.json")
 
 # Log message to console with timestamp
@@ -27,19 +26,10 @@ log_message() {
 # Initialize the health monitoring system
 setup_health_system() {
     log_message "INFO" "Initializing health monitoring system"
-
-    # Create health directory if it doesn't exist
-    mkdir -p "$HEALTH_DIR"
-    chmod 755 "$HEALTH_DIR"
-
-    # Remove any existing operational file to start fresh
-    rm -f "$HEALTH_DIR/operational"
-    touch "$HEALTH_DIR/starting"
-
-    # Initialize status log
-    echo "$(date): Health check directory initialized" > "$HEALTH_DIR/status.log"
-    echo "$(date): Bot is starting up" >> "$HEALTH_DIR/status.log"
-
+    
+    # Create simple health status in logs
+    echo "$(date): Bot is starting up" >> "$LOGS_DIR/health.log"
+    
     log_message "INFO" "Health monitoring system initialized"
 }
 
@@ -111,23 +101,18 @@ start_health_monitor() {
         # Wait for the bot to start up before first check
         sleep 10
 
-        # Check every 20 seconds if the bot is operational
+        # Check every 30 seconds if the bot is operational
         while true; do
-            echo "$(date): Running health check monitoring cycle" >> "$HEALTH_DIR/status.log"
+            echo "$(date): Running health check monitoring cycle" >> "$LOGS_DIR/health.log"
 
             # Check if the bot process is running
-            if pgrep -f "python.*src[/.]bot" > /dev/null; then
-                # Mark as operational if running
-                touch "$HEALTH_DIR/operational"
-                chmod 644 "$HEALTH_DIR/operational"
-                echo "$(date): Bot process is running, health marker updated" >> "$HEALTH_DIR/status.log"
+            if pgrep -f "python.*src.*bot" > /dev/null; then
+                echo "$(date): Bot process is running" >> "$LOGS_DIR/health.log"
             else
-                # Remove operational marker if not running
-                rm -f "$HEALTH_DIR/operational"
-                echo "$(date): WARNING - Bot process not found, removed health marker" >> "$HEALTH_DIR/status.log"
+                echo "$(date): WARNING - Bot process not found" >> "$LOGS_DIR/health.log"
             fi
 
-            sleep 20
+            sleep 30
         done
     ) &
 
@@ -151,17 +136,17 @@ start_bot() {
 
 # Check for and terminate existing bot processes
 terminate_existing_processes() {
-    if pgrep -f "python.*src/bot" > /dev/null; then
+    if pgrep -f "python.*src.*bot" > /dev/null; then
         log_message "WARN" "Detected existing bot process, terminating it"
-        pkill -f "python.*src/bot"
+        pkill -f "python.*src.*bot"
 
         # Wait for process to terminate
         sleep 2
 
         # Check if it's still running
-        if pgrep -f "python.*src/bot" > /dev/null; then
+        if pgrep -f "python.*src.*bot" > /dev/null; then
             log_message "WARN" "Process did not terminate gracefully, sending SIGKILL"
-            pkill -9 -f "python.*src/bot"
+            pkill -9 -f "python.*src.*bot"
             sleep 1
         fi
 

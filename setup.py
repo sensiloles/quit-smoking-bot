@@ -1,7 +1,6 @@
 from setuptools import setup
 import os
 
-# Простое получение имени из окружения
 system_name = os.environ.get("SYSTEM_NAME", "quit-smoking-bot")
 
 setup(

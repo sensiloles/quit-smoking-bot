@@ -1,0 +1,14 @@
+FROM alpine:latest
+
+# Install docker-cli once during build instead of every startup
+RUN apk add --no-cache docker-cli
+
+# Set timezone
+ENV TZ=Asia/Novosibirsk
+
+# Create logs directory
+RUN mkdir -p /logs
+
+WORKDIR /
+
+CMD ["sh"] 

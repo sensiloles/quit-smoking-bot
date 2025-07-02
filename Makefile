@@ -61,7 +61,7 @@ help: ## Show this help message
 	@echo "  $(GREEN)env-template$(NC)    Create .env template file"
 	@echo ""
 	@echo "$(BLUE)🚀 Service Management:$(NC)"
-	@echo "  $(GREEN)start$(NC)           Start the bot services"
+	@echo "  $(GREEN)start$(NC)           Start the bot services with health monitoring"
 	@echo "  $(GREEN)stop$(NC)            Stop the bot services"
 	@echo "  $(GREEN)restart$(NC)         Restart the bot services"
 	@echo "  $(GREEN)build$(NC)           Build Docker containers"
@@ -69,7 +69,6 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(BLUE)📊 Monitoring & Debugging:$(NC)"
 	@echo "  $(GREEN)status$(NC)          Show service status"
-	@echo "  $(GREEN)ps$(NC)              Alias for status"
 	@echo "  $(GREEN)logs$(NC)            View bot logs (follow)"
 	@echo "  $(GREEN)logs-all$(NC)        View all service logs"
 	@echo "  $(GREEN)health$(NC)          Check bot health status"
@@ -77,8 +76,8 @@ help: ## Show this help message
 	@echo "  $(GREEN)shell$(NC)           Open shell in bot container"
 	@echo ""
 	@echo "$(BLUE)🛠️  Development:$(NC)"
-	@echo "  $(GREEN)dev$(NC)             Start development environment with monitoring"
-	@echo "  $(GREEN)monitor$(NC)         Start with health monitoring"
+	@echo "  $(GREEN)dev$(NC)             Start development environment (alias for start)"
+	@echo "  $(GREEN)monitor$(NC)         Start continuous health monitoring"
 	@echo ""
 	@echo "$(BLUE)🧹 Cleanup:$(NC)"
 	@echo "  $(GREEN)clean$(NC)           Stop services and remove containers"
@@ -90,12 +89,6 @@ help: ## Show this help message
 	@echo "  $(GREEN)docker-check$(NC)    Check Docker installation"
 	@echo "  $(GREEN)config$(NC)          Show Docker Compose configuration"
 	@echo ""
-	@echo "$(BLUE)🔧 Script Compatibility:$(NC)"
-	@echo "  $(GREEN)script-setup$(NC)    Run bootstrap.sh directly"
-	@echo "  $(GREEN)script-run$(NC)      Run run.sh directly with options"
-	@echo "  $(GREEN)script-stop$(NC)     Run stop.sh directly"
-	@echo "  $(GREEN)script-check$(NC)    Run check-service.sh directly"
-	@echo ""
 	@echo "$(BLUE)🛠️  Script Options:$(NC)"
 	@echo "  DEBUG=1              Enable debug output"
 	@echo "  VERBOSE=1            Enable verbose output"
@@ -105,8 +98,6 @@ help: ## Show this help message
 	@echo "  make setup                    # Initial project setup"
 	@echo "  make install DEBUG=1         # Full installation with debug output"
 	@echo "  make start VERBOSE=1         # Start with verbose output"
-	@echo "  make script-run ARGS='--install --monitoring' # Use run.sh directly"
-
 	@echo "  make logs                    # View logs"
 	@echo "  make stop                    # Stop the bot"
 
@@ -114,17 +105,15 @@ help: ## Show this help message
 # SETUP AND INITIALIZATION
 # ==============================================================================
 
-setup: script-setup ## Initial project setup (recommended after clone)
-
-script-setup: ## Run bootstrap.sh directly
-	@echo "$(BLUE)🎯 Running bootstrap script directly...$(NC)"
+setup: ## Initial project setup (recommended after clone)
+	@echo "$(BLUE)🎯 Running bootstrap script...$(NC)"
 	@$(SCRIPT_DIR)/bootstrap.sh
 
 permissions: ## Setup secure file permissions
 	@echo "$(BLUE)🔐 Setting up secure permissions...$(NC)"
 	@$(SCRIPT_DIR)/setup-permissions.sh
 
-bootstrap: setup ## Full project bootstrap (alias for setup)
+bootstrap: setup ## Alias for setup
 
 env-template: ## Create .env template file
 	@if [ ! -f .env ]; then \
@@ -156,16 +145,13 @@ install: setup build ## Full installation with Docker setup
 	@echo "$(BLUE)🔧 Installing bot with Docker setup...$(NC)"
 	@$(SCRIPT_DIR)/run.sh --install $(SCRIPT_FLAGS)
 
-script-run: ## Run run.sh directly with options (usage: make script-run ARGS="--install --monitoring")
-	@echo "$(BLUE)🎯 Running run script directly...$(NC)"
-	@$(SCRIPT_DIR)/run.sh $(ARGS) $(SCRIPT_FLAGS)
-
-start: permissions ## Start the bot services
-	@echo "$(BLUE)🚀 Starting bot services...$(NC)"
+start: permissions ## Start the bot services with health monitoring
+	@echo "$(BLUE)🚀 Starting bot services with health monitoring...$(NC)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would start services with: $(COMPOSE) up -d$(NC)"; \
+		echo "$(YELLOW)[DRY-RUN] Would start services with: $(COMPOSE_MONITOR) up -d$(NC)"; \
 	else \
-		$(COMPOSE) up -d; \
+		$(COMPOSE_MONITOR) up -d; \
+		echo "$(GREEN)✅ Bot started with health monitoring$(NC)"; \
 		$(MAKE) status; \
 	fi
 
@@ -176,10 +162,6 @@ stop: ## Stop the bot services
 	else \
 		$(COMPOSE) down --remove-orphans; \
 	fi
-
-script-stop: ## Run stop.sh directly
-	@echo "$(BLUE)🎯 Running stop script directly...$(NC)"
-	@$(SCRIPT_DIR)/stop.sh $(SCRIPT_FLAGS)
 
 restart: stop start ## Restart the bot services
 
@@ -218,8 +200,6 @@ status: ## Show service status
 		fi \
 	fi
 
-ps: status ## Alias for status
-
 logs: ## View bot logs (follow)
 	@if [ "$(DRY_RUN)" = "1" ]; then \
 		echo "$(YELLOW)[DRY-RUN] Would view bot logs with: $(COMPOSE) logs -f bot$(NC)"; \
@@ -237,40 +217,36 @@ logs-all: ## View all service logs
 health: ## Quick health check (Docker mode)
 	@echo "$(BLUE)🔍 Running health check...$(NC)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode docker$(NC)"; \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode docker$(NC)"; \
 	else \
-		$(SCRIPT_DIR)/health.sh --mode docker; \
+		$(SCRIPT_DIR)/health-monitor.sh --mode docker; \
 	fi
 
 health-status: ## Current health status snapshot
 	@echo "$(BLUE)📊 Health status snapshot...$(NC)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode status$(NC)"; \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode status$(NC)"; \
 	else \
-		$(SCRIPT_DIR)/health.sh --mode status; \
+		$(SCRIPT_DIR)/health-monitor.sh --mode status; \
 	fi
 
 health-monitor: ## Single monitoring check
 	@echo "$(BLUE)🔍 Running monitoring check...$(NC)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode monitor$(NC)"; \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode monitor$(NC)"; \
 	else \
-		$(SCRIPT_DIR)/health.sh --mode monitor; \
+		$(SCRIPT_DIR)/health-monitor.sh --mode monitor; \
 	fi
 
 diagnostics: ## Comprehensive system diagnostics
 	@echo "$(BLUE)🔬 Running comprehensive diagnostics...$(NC)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode diagnostics$(NC)"; \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode diagnostics$(NC)"; \
 	else \
-		$(SCRIPT_DIR)/health.sh --mode diagnostics; \
+		$(SCRIPT_DIR)/health-monitor.sh --mode diagnostics; \
 	fi
 
-check: ## Comprehensive service diagnostics (legacy)
-	@$(SCRIPT_DIR)/check-service.sh $(SCRIPT_FLAGS)
-
-script-check: ## Run check-service.sh directly
-	@echo "$(BLUE)🎯 Running check script directly...$(NC)"
+check: ## Comprehensive service diagnostics
 	@$(SCRIPT_DIR)/check-service.sh $(SCRIPT_FLAGS)
 
 exec: ## Execute command in bot container (usage: make exec CMD="command")
@@ -291,18 +267,16 @@ shell: ## Open shell in bot container
 # DEVELOPMENT
 # ==============================================================================
 
-dev: ## Start development environment with monitoring
-	@echo "$(BLUE)🛠️  Starting development environment...$(NC)"
-	@$(COMPOSE_MONITOR) up -d
-	@echo "$(GREEN)✅ Development environment started with monitoring$(NC)"
+dev: start ## Start development environment (alias for start)
+	@echo "$(GREEN)✅ Development environment started$(NC)"
 	@$(MAKE) logs
 
 monitor: ## Start continuous health monitoring
 	@echo "$(BLUE)🔄 Starting continuous health monitoring...$(NC)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health.sh --mode monitor --continuous$(NC)"; \
+		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode monitor --continuous$(NC)"; \
 	else \
-		$(SCRIPT_DIR)/health.sh --mode monitor --continuous; \
+		$(SCRIPT_DIR)/health-monitor.sh --mode monitor --continuous; \
 	fi
 
 monitor-compose: ## Start with Docker Compose health monitoring service
@@ -363,9 +337,4 @@ docker-check: ## Check Docker installation
 	fi
 
 config: ## Show Docker Compose configuration
-	@$(COMPOSE) config
-
-# Quick aliases for common operations
-up: start
-down: stop
-build-force: rebuild 
+	@$(COMPOSE) config 

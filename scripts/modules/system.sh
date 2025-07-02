@@ -1,8 +1,12 @@
 #!/bin/bash
 # system.sh - System service management utilities
 #
-# This module provides functions for managing systemd services,
-# checking root permissions, and system-level operations.
+# This module provides functions for managing systemd services
+# and system-level configuration.
+
+###################
+# System Management
+###################
 
 # Function to check if running as root
 check_root() {
@@ -41,4 +45,6 @@ stop_service() {
     debug_print "Resetting failed services"
     systemctl reset-failed
     debug_print "stop_service function completed"
-} 
+}
+
+ 
