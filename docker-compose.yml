@@ -29,7 +29,7 @@ services:
     env_file:
       - .env
     environment:
-      - TZ=Asia/Novosibirsk
+      - TZ=${TZ:-UTC}
       - PYTHONPATH=/app/src
     
     logging:
@@ -41,7 +41,7 @@ services:
         labels: "service=quit-smoking-bot"
     
     healthcheck:
-      test: ["CMD", "/app/scripts/health-monitor.sh", "--mode", "docker"]
+      test: ["CMD", "sh", "-c", "pgrep -f 'python.*src' > /dev/null"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -60,12 +60,12 @@ services:
     tmpfs:
       - /tmp:noexec,nosuid,size=100m
 
-  health-monitor:
+  monitor:
     build:
       context: .
       dockerfile: Dockerfile.monitor
     image: ${SYSTEM_NAME:-quit-smoking-bot}-monitor:latest
-    container_name: ${SYSTEM_NAME:-quit-smoking-bot}-health-monitor
+    container_name: ${SYSTEM_NAME:-quit-smoking-bot}-monitor
     restart: unless-stopped
     profiles: ["monitoring"]
     
@@ -74,7 +74,7 @@ services:
         condition: service_healthy
     
     environment:
-      - TZ=Asia/Novosibirsk
+      - TZ=${TZ:-UTC}
       - SYSTEM_NAME=${SYSTEM_NAME:-quit-smoking-bot}
     
     volumes:
@@ -84,11 +84,11 @@ services:
     command: >
       sh -c "
         while true; do
-          echo \"\$(date): Checking bot health...\" >> /logs/health-monitor.log
+          echo \"\$(date): Checking bot health...\" >> /logs/monitor.log
           if docker ps --filter name=\${SYSTEM_NAME} --filter status=running -q | grep -q .; then
-            echo \"\$(date): Bot container is running\" >> /logs/health-monitor.log
+            echo \"\$(date): Bot container is running\" >> /logs/monitor.log
           else
-            echo \"\$(date): WARNING - Bot container not running!\" >> /logs/health-monitor.log
+            echo \"\$(date): WARNING - Bot container not running!\" >> /logs/monitor.log
           fi
           sleep 60
         done
@@ -99,7 +99,7 @@ services:
       options:
         max-size: "5m"
         max-file: "3"
-        labels: "service=health-monitor"
+        labels: "service=monitor"
     
     networks:
       - bot-network

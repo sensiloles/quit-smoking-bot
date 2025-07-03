@@ -16,7 +16,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQuer
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import (
-    NOVOSIBIRSK_TZ,
+    BOT_TIMEZONE,
     NOTIFICATION_DAY,
     NOTIFICATION_HOUR,
     NOTIFICATION_MINUTE,
@@ -543,7 +543,7 @@ class QuitSmokingBot:
             )
 
             # Setup scheduler for monthly notifications
-            self.scheduler = AsyncIOScheduler(timezone=NOVOSIBIRSK_TZ)
+            self.scheduler = AsyncIOScheduler(timezone=BOT_TIMEZONE)
 
             # Add monthly notification job
             self.scheduler.add_job(
@@ -611,13 +611,13 @@ class QuitSmokingBot:
             logger.info("NEW BOT SESSION STARTED")
             logger.info("=" * 50)
 
-            logger.info(f"Bot started at {datetime.datetime.now(NOVOSIBIRSK_TZ)}")
+            logger.info(f"Bot started at {datetime.datetime.now(BOT_TIMEZONE)}")
 
             # Calculate and log next notification time
             next_run = self.scheduler.get_jobs()[0].next_run_time
             logger.info(f"Next scheduled notification will be sent at: {next_run}")
             logger.info(
-                f"Scheduled monthly notification for day={NOTIFICATION_DAY}, {NOTIFICATION_HOUR:02d}:{NOTIFICATION_MINUTE:02d} Novosibirsk time"
+                f"Scheduled monthly notification for day={NOTIFICATION_DAY}, {NOTIFICATION_HOUR:02d}:{NOTIFICATION_MINUTE:02d} {BOT_TIMEZONE.zone} time"
             )
 
             # Start the bot with polling

@@ -42,8 +42,8 @@ RUN mkdir -p /app/data /app/logs \
 # Copy application files
 COPY --chown=appuser:appuser . .
 
-# Make scripts executable
-RUN chmod +x /app/scripts/*.sh
+# Make Python scripts executable
+RUN chmod +x /app/scripts/*.py
 
 # Switch to non-root user
 USER appuser
@@ -51,5 +51,5 @@ USER appuser
 # Add PATH for user-installed packages
 ENV PATH="/home/appuser/.local/bin:${PATH}"
 
-# Set entrypoint
-ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+# Set entrypoint to Python version
+ENTRYPOINT ["python", "/app/scripts/entrypoint.py"]

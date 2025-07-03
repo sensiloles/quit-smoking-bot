@@ -1,9 +1,14 @@
 import datetime
 import pytz
 from pathlib import Path
+import os
 
-# Timezone settings
-NOVOSIBIRSK_TZ = pytz.timezone("Asia/Novosibirsk")
+# Timezone settings - configurable via environment variable
+DEFAULT_TIMEZONE = os.getenv("TZ", "UTC")
+TIMEZONE = pytz.timezone(DEFAULT_TIMEZONE)
+
+# Main timezone variable for the bot
+BOT_TIMEZONE = TIMEZONE
 
 # Start date components
 START_YEAR = 2025
@@ -48,7 +53,7 @@ STATUS_MESSAGE = (
     "📊 Your current status:\n\n"
     "🚭 Smoke-free period: {years} years, {months} months, {days} days\n"
     "💰 Current prize fund: {prize_fund} rubles\n"
-    "📅 Next increase: {next_increase_date} at {next_increase_time}\n"
+    "📅 Next increase: {next_increase_date} at {next_increase_time} {timezone}\n"
     "➕ Next increase amount: +{increase_amount} rubles\n\n"
     "💭 {quote}"
 )

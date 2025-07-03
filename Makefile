@@ -44,7 +44,7 @@ COMPOSE_MONITOR := $(COMPOSE) --profile monitoring
 COMPOSE_LOGGING := $(COMPOSE) --profile logging
 COMPOSE_ALL := $(COMPOSE) --profile monitoring --profile logging
 
-.PHONY: help setup permissions bootstrap install start stop restart status logs clean prune build rebuild dev monitor monitor-compose ps exec shell health health-status health-monitor diagnostics check
+.PHONY: help setup install start stop restart status monitor logs logs-all clean prune build rebuild exec shell env-check docker-check config uninstall
 
 # Default target
 .DEFAULT_GOAL := help
@@ -55,10 +55,8 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(BLUE)📦 Setup Commands:$(NC)"
 	@echo "  $(GREEN)setup$(NC)           Initial project setup (recommended after clone)"
-	@echo "  $(GREEN)permissions$(NC)     Setup secure file permissions"
-	@echo "  $(GREEN)bootstrap$(NC)       Full project bootstrap (alias for setup)"
+
 	@echo "  $(GREEN)install$(NC)         Full installation with Docker setup"
-	@echo "  $(GREEN)env-template$(NC)    Create .env template file"
 	@echo ""
 	@echo "$(BLUE)🚀 Service Management:$(NC)"
 	@echo "  $(GREEN)start$(NC)           Start the bot services with health monitoring"
@@ -68,16 +66,11 @@ help: ## Show this help message
 	@echo "  $(GREEN)rebuild$(NC)         Force rebuild Docker containers (no cache)"
 	@echo ""
 	@echo "$(BLUE)📊 Monitoring & Debugging:$(NC)"
-	@echo "  $(GREEN)status$(NC)          Show service status"
+	@echo "  $(GREEN)status$(NC)          Show service status (VERBOSE=1 detailed, DEBUG=1 comprehensive)"
+	@echo "  $(GREEN)monitor$(NC)         Health monitoring (EXTENDED=1 for full monitoring)"
 	@echo "  $(GREEN)logs$(NC)            View bot logs (follow)"
 	@echo "  $(GREEN)logs-all$(NC)        View all service logs"
-	@echo "  $(GREEN)health$(NC)          Check bot health status"
-	@echo "  $(GREEN)check$(NC)           Comprehensive service diagnostics"
 	@echo "  $(GREEN)shell$(NC)           Open shell in bot container"
-	@echo ""
-	@echo "$(BLUE)🛠️  Development:$(NC)"
-	@echo "  $(GREEN)dev$(NC)             Start development environment (alias for start)"
-	@echo "  $(GREEN)monitor$(NC)         Start continuous health monitoring"
 	@echo ""
 	@echo "$(BLUE)🧹 Cleanup:$(NC)"
 	@echo "  $(GREEN)clean$(NC)           Stop services and remove containers"
@@ -98,6 +91,11 @@ help: ## Show this help message
 	@echo "  make setup                    # Initial project setup"
 	@echo "  make install DEBUG=1         # Full installation with debug output"
 	@echo "  make start VERBOSE=1         # Start with verbose output"
+	@echo "  make status                   # Basic service status"
+	@echo "  make status VERBOSE=1        # Detailed status information"
+	@echo "  make status DEBUG=1          # Comprehensive diagnostics"
+	@echo "  make monitor                 # Quick health check"
+	@echo "  make monitor EXTENDED=1      # Extended health monitoring"
 	@echo "  make logs                    # View logs"
 	@echo "  make stop                    # Stop the bot"
 
@@ -106,61 +104,32 @@ help: ## Show this help message
 # ==============================================================================
 
 setup: ## Initial project setup (recommended after clone)
-	@echo "$(BLUE)🎯 Running bootstrap script...$(NC)"
-	@$(SCRIPT_DIR)/bootstrap.sh
+	@echo "$(BLUE)🎯 Running setup script...$(NC)"
+	@python3 $(SCRIPT_DIR)/setup.py
 
-permissions: ## Setup secure file permissions
-	@echo "$(BLUE)🔐 Setting up secure permissions...$(NC)"
-	@$(SCRIPT_DIR)/setup-permissions.sh
-
-bootstrap: setup ## Alias for setup
-
-env-template: ## Create .env template file
-	@if [ ! -f .env ]; then \
-		echo "$(YELLOW)📝 Creating .env template...$(NC)"; \
-		echo '# Telegram Bot Configuration' > .env; \
-		echo 'BOT_TOKEN="your_telegram_bot_token_here"' >> .env; \
-		echo '' >> .env; \
-		echo '# System Configuration' >> .env; \
-		echo 'SYSTEM_NAME="quit-smoking-bot"' >> .env; \
-		echo 'SYSTEM_DISPLAY_NAME="Quit Smoking Bot"' >> .env; \
-		echo '' >> .env; \
-		echo '# Timezone (optional)' >> .env; \
-		echo 'TZ="Asia/Novosibirsk"' >> .env; \
-		echo '' >> .env; \
-		echo '# Notification Settings (optional)' >> .env; \
-		echo 'NOTIFICATION_DAY="23"' >> .env; \
-		echo 'NOTIFICATION_HOUR="21"' >> .env; \
-		echo 'NOTIFICATION_MINUTE="58"' >> .env; \
-		echo "$(GREEN)✅ Created .env template$(NC)"; \
-	else \
-		echo "$(YELLOW)ℹ️  .env file already exists$(NC)"; \
-	fi
+install: ## Full installation with Docker setup
+	@echo "$(BLUE)🔧 Installing bot with Docker setup...$(NC)"
+	@python3 $(SCRIPT_DIR)/setup.py --install $(SCRIPT_FLAGS)
+	@echo "$(GREEN)✅ Bot installed with Docker setup$(NC)"
 
 # ==============================================================================
 # SERVICE MANAGEMENT
 # ==============================================================================
 
-install: setup build ## Full installation with Docker setup
-	@echo "$(BLUE)🔧 Installing bot with Docker setup...$(NC)"
-	@$(SCRIPT_DIR)/run.sh --install $(SCRIPT_FLAGS)
-
-start: permissions ## Start the bot services with health monitoring
+start: ## Start the bot services with health monitoring
 	@echo "$(BLUE)🚀 Starting bot services with health monitoring...$(NC)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would start services with: $(COMPOSE_MONITOR) up -d$(NC)"; \
+		python3 $(SCRIPT_DIR)/start.py --start --enable-monitoring --dry-run $(SCRIPT_FLAGS); \
 	else \
-		$(COMPOSE_MONITOR) up -d; \
-		echo "$(GREEN)✅ Bot started with health monitoring$(NC)"; \
-		$(MAKE) status; \
+		python3 $(SCRIPT_DIR)/start.py --start --enable-monitoring $(SCRIPT_FLAGS); \
 	fi
 
 stop: ## Stop the bot services
 	@echo "$(BLUE)🛑 Stopping bot services...$(NC)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would stop services with: $(COMPOSE) down --remove-orphans$(NC)"; \
+		python3 $(SCRIPT_DIR)/stop.py --all --dry-run --force $(SCRIPT_FLAGS); \
 	else \
-		$(COMPOSE) down --remove-orphans; \
+		python3 $(SCRIPT_DIR)/stop.py --all --force $(SCRIPT_FLAGS); \
 	fi
 
 restart: stop start ## Restart the bot services
@@ -185,18 +154,34 @@ rebuild: ## Force rebuild Docker containers (no cache)
 # MONITORING AND DEBUGGING
 # ==============================================================================
 
-status: ## Show service status
-	@echo "$(BLUE)📊 Service Status:$(NC)"
-	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would check service status with: $(COMPOSE) ps$(NC)"; \
-		echo "$(YELLOW)[DRY-RUN] Would check if container is running$(NC)"; \
-	else \
-		$(COMPOSE) ps; \
-		echo ""; \
-		if [ -n "$$(docker ps -q --filter name=$(SYSTEM_NAME) 2>/dev/null)" ]; then \
-			echo "$(GREEN)✅ Bot is running$(NC)"; \
+status: ## Show service status (VERBOSE=1 for detailed, DEBUG=1 for comprehensive)
+	@if [ "$(DEBUG)" = "1" ]; then \
+		echo "$(BLUE)🔬 Running comprehensive diagnostics...$(NC)"; \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "$(YELLOW)[DRY-RUN] Would run: python3 $(SCRIPT_DIR)/status.py --debug --verbose$(NC)"; \
 		else \
-			echo "$(RED)❌ Bot is not running$(NC)"; \
+			python3 $(SCRIPT_DIR)/status.py --debug --verbose; \
+		fi \
+	elif [ "$(VERBOSE)" = "1" ]; then \
+		echo "$(BLUE)📊 Detailed status check...$(NC)"; \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "$(YELLOW)[DRY-RUN] Would run: python3 $(SCRIPT_DIR)/status.py --verbose$(NC)"; \
+		else \
+			python3 $(SCRIPT_DIR)/status.py --verbose; \
+		fi \
+	else \
+		echo "$(BLUE)📊 Service Status:$(NC)"; \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "$(YELLOW)[DRY-RUN] Would check service status with: $(COMPOSE) ps$(NC)"; \
+			echo "$(YELLOW)[DRY-RUN] Would check if container is running$(NC)"; \
+		else \
+			$(COMPOSE) ps; \
+			echo ""; \
+			if [ -n "$$(docker ps -q --filter name=$(SYSTEM_NAME) 2>/dev/null)" ]; then \
+				echo "$(GREEN)✅ Bot is running$(NC)"; \
+			else \
+				echo "$(RED)❌ Bot is not running$(NC)"; \
+			fi \
 		fi \
 	fi
 
@@ -214,40 +199,22 @@ logs-all: ## View all service logs
 		$(COMPOSE_ALL) logs -f; \
 	fi
 
-health: ## Quick health check (Docker mode)
-	@echo "$(BLUE)🔍 Running health check...$(NC)"
-	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode docker$(NC)"; \
+monitor: ## Health monitoring (EXTENDED=1 for full monitoring)
+	@if [ "$(EXTENDED)" = "1" ]; then \
+		echo "$(BLUE)🔍 Running extended monitoring check...$(NC)"; \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "$(YELLOW)[DRY-RUN] Would run: python3 $(SCRIPT_DIR)/monitor.py --check-interval 10 --max-failures 3$(NC)"; \
+		else \
+			python3 $(SCRIPT_DIR)/monitor.py --check-interval 10 --max-failures 3; \
+		fi \
 	else \
-		$(SCRIPT_DIR)/health-monitor.sh --mode docker; \
+		echo "$(BLUE)🔍 Running quick health check...$(NC)"; \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "$(YELLOW)[DRY-RUN] Would run: python3 $(SCRIPT_DIR)/monitor.py --check-interval 5 --max-failures 1$(NC)"; \
+		else \
+			python3 $(SCRIPT_DIR)/monitor.py --check-interval 5 --max-failures 1; \
+		fi \
 	fi
-
-health-status: ## Current health status snapshot
-	@echo "$(BLUE)📊 Health status snapshot...$(NC)"
-	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode status$(NC)"; \
-	else \
-		$(SCRIPT_DIR)/health-monitor.sh --mode status; \
-	fi
-
-health-monitor: ## Single monitoring check
-	@echo "$(BLUE)🔍 Running monitoring check...$(NC)"
-	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode monitor$(NC)"; \
-	else \
-		$(SCRIPT_DIR)/health-monitor.sh --mode monitor; \
-	fi
-
-diagnostics: ## Comprehensive system diagnostics
-	@echo "$(BLUE)🔬 Running comprehensive diagnostics...$(NC)"
-	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode diagnostics$(NC)"; \
-	else \
-		$(SCRIPT_DIR)/health-monitor.sh --mode diagnostics; \
-	fi
-
-check: ## Comprehensive service diagnostics
-	@$(SCRIPT_DIR)/check-service.sh $(SCRIPT_FLAGS)
 
 exec: ## Execute command in bot container (usage: make exec CMD="command")
 	@if [ "$(DRY_RUN)" = "1" ]; then \
@@ -264,44 +231,34 @@ shell: ## Open shell in bot container
 	fi
 
 # ==============================================================================
-# DEVELOPMENT
-# ==============================================================================
-
-dev: start ## Start development environment (alias for start)
-	@echo "$(GREEN)✅ Development environment started$(NC)"
-	@$(MAKE) logs
-
-monitor: ## Start continuous health monitoring
-	@echo "$(BLUE)🔄 Starting continuous health monitoring...$(NC)"
-	@if [ "$(DRY_RUN)" = "1" ]; then \
-		echo "$(YELLOW)[DRY-RUN] Would run: $(SCRIPT_DIR)/health-monitor.sh --mode monitor --continuous$(NC)"; \
-	else \
-		$(SCRIPT_DIR)/health-monitor.sh --mode monitor --continuous; \
-	fi
-
-monitor-compose: ## Start with Docker Compose health monitoring service
-	@echo "$(BLUE)📊 Starting Docker Compose health monitoring...$(NC)"
-	@$(COMPOSE_MONITOR) up -d
-
-# ==============================================================================
 # CLEANUP
 # ==============================================================================
 
 clean: stop ## Stop services and remove containers
 	@echo "$(BLUE)🧹 Cleaning up containers...$(NC)"
-	@$(COMPOSE_ALL) down --remove-orphans
-	@docker container prune -f
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would prune Docker containers$(NC)"; \
+	else \
+		docker container prune -f; \
+	fi
 
 prune: clean ## Deep cleanup (containers, images, volumes)
 	@echo "$(BLUE)🧹 Deep cleanup...$(NC)"
-	@docker image prune -f
-	@docker volume prune -f
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		echo "$(YELLOW)[DRY-RUN] Would prune Docker images and volumes$(NC)"; \
+	else \
+		docker image prune -f; \
+		docker volume prune -f; \
+	fi
 
 
 uninstall: ## Complete uninstallation (keeps data)
 	@echo "$(BLUE)🗑️  Uninstalling bot...$(NC)"
-	@$(SCRIPT_DIR)/stop.sh --uninstall $(SCRIPT_FLAGS)
-	@echo "$(GREEN)✅ Bot uninstalled$(NC)"
+	@if [ "$(DRY_RUN)" = "1" ]; then \
+		python3 $(SCRIPT_DIR)/stop.py --uninstall --dry-run $(SCRIPT_FLAGS); \
+	else \
+		python3 $(SCRIPT_DIR)/stop.py --uninstall $(SCRIPT_FLAGS); \
+	fi
 
 # ==============================================================================
 # UTILITY TARGETS

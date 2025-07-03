@@ -31,7 +31,7 @@ The project uses a modern multi-container setup defined in `docker-compose.yml`:
 
 ### Additional Services (Profile-based)
 
-3. **Health Monitor Service** (`health-monitor`): Advanced health monitoring
+3. **Monitor Service** (`monitor`): Advanced health monitoring
    - **Profile**: `monitoring`
    - **Purpose**: Extended health metrics and alerting
 
@@ -68,7 +68,7 @@ The `Dockerfile` uses a multi-stage build process to create an optimized image:
 FROM python:3.9-slim as base
 
 # Environment variable configuration
-ENV TZ=Asia/Novosibirsk \
+ENV TZ=${TZ:-UTC} \
     PYTHONUNBUFFERED=1 \
     IN_CONTAINER=true \
     BUILD_ID=latest
@@ -101,7 +101,7 @@ RUN mkdir -p /app/data /app/logs /app/health \
 
 # Copy application code
 COPY --chown=appuser:appuser . .
-RUN chmod +x /app/scripts/*.sh
+RUN chmod +x /app/scripts/*.py
 
 # Switch to non-root user for security
 USER appuser
@@ -161,7 +161,7 @@ services:
       - ./data:/app/data:rw
       - ./logs:/app/logs:rw
     environment:
-      - TZ=Asia/Novosibirsk
+      - TZ=${TZ:-UTC}
       - PYTHONUNBUFFERED=1
     healthcheck:
       test: ["CMD", "/app/scripts/health.sh", "--mode", "docker"]
@@ -179,7 +179,7 @@ services:
       - bot-network
 
   # Extended services available via profiles
-  health-monitor:
+  monitor:
     profiles: ["monitoring"]
     build:
       context: .
@@ -429,12 +429,12 @@ Start additional services using profiles:
 
 ```bash
 # Start with health monitoring
-./scripts/run.sh --monitoring
+python3 scripts/start.py --monitoring
 # or
 docker-compose --profile monitoring up -d
 
 # Start with log aggregation  
-./scripts/run.sh --logging
+python3 scripts/start.py --logging
 # or
 docker-compose --profile logging up -d
 
@@ -447,7 +447,7 @@ docker-compose --profile monitoring --profile logging up -d
 Match container user with host user for proper file permissions:
 
 ```bash
-USER_ID=$(id -u) GROUP_ID=$(id -g) ./scripts/run.sh
+USER_ID=$(id -u) GROUP_ID=$(id -g) python3 scripts/start.py
 ```
 
 ### Development Mode
@@ -464,7 +464,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 Force complete image rebuild without cache:
 
 ```bash
-./scripts/run.sh --force-rebuild
+python3 scripts/start.py --force-rebuild
 # or
 docker-compose build --no-cache
 ```
@@ -528,7 +528,7 @@ docker-compose logs -f bot | grep ERROR
 
 1. **Monitor health status**:
    ```bash
-   ./scripts/check-service.sh
+   python scripts/status.py
    ```
 
 2. **View detailed health logs**:

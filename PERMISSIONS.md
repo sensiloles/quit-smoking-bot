@@ -85,7 +85,7 @@ Legacy Scripts (for compatibility):
 The permission system is integrated into:
 - **Git hooks**: `.git/hooks/post-checkout` calls `make setup`
 - **Makefile**: Primary interface for all operations
-- **Build scripts**: `scripts/run.sh` calls permission setup
+- **Build scripts**: `scripts/start.py` calls permission setup
 - **Docker builds**: Dockerfile sets container permissions
 
 ## Troubleshooting

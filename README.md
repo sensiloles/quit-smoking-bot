@@ -54,7 +54,7 @@ make install    # Full installation with Docker setup
 
 Install Docker and start the bot service:
 ```bash
-./scripts/run.sh --install
+python3 scripts/start.py --install
 ```
 
 This will:
@@ -65,13 +65,13 @@ This will:
 Manage the service:
 ```bash
 # Start the bot
-./scripts/run.sh
+python3 scripts/start.py
 
 # Stop the bot
 ./scripts/stop.sh
 
 # Check status and diagnostics
-./scripts/check-service.sh
+python scripts/status.py
 
 # View logs
 docker-compose logs -f bot
@@ -80,7 +80,7 @@ docker-compose logs -f bot
 docker-compose restart bot
 
 # Update and restart
-./scripts/run.sh --force-rebuild
+python3 scripts/start.py --force-rebuild
 ```
 
 Uninstall the service:
@@ -95,12 +95,24 @@ Uninstall the service:
 | `BOT_TOKEN` | Yes | - | Your Telegram bot token from BotFather |
 | `SYSTEM_NAME` | Yes | quit-smoking-bot | Name for Docker containers |
 | `SYSTEM_DISPLAY_NAME` | Yes | Quit Smoking Bot | Display name for the service and logs |
-| `TZ` | No | Asia/Novosibirsk | Timezone for scheduled notifications |
+| `TZ` | No | UTC | Timezone for scheduled notifications (e.g. "UTC", "Europe/London", "America/New_York") |
 | `NOTIFICATION_DAY` | No | 23 | Day of month for notifications |
 | `NOTIFICATION_HOUR` | No | 21 | Hour for notifications (24-hour format) |
 | `NOTIFICATION_MINUTE` | No | 58 | Minute for notifications |
 
 **Note:** All string values should be enclosed in double quotes in the `.env` file.
+
+## Timezone Configuration for International Use
+
+For projects deployed internationally, consider these timezone settings:
+
+- **UTC (Recommended)**: Use `TZ="UTC"` for universal deployment. All scheduled events will use UTC time.
+- **Local Timezone**: Set to your local timezone (e.g., `TZ="Europe/London"`, `TZ="America/New_York"`)
+- **Multiple Deployments**: Deploy separate instances for different regions with their respective timezones
+
+**Important**: When changing timezone on an existing deployment, scheduled notifications will adjust to the new timezone immediately.
+
+For detailed timezone configuration examples and deployment strategies, see [TIMEZONE_EXAMPLES.md](TIMEZONE_EXAMPLES.md).
 
 ## Common Commands
 
@@ -116,10 +128,13 @@ make stop               # Stop the bot
 make restart            # Restart the bot
 make status             # Show service status
 
-# Development
-make dev                # Start development environment
+# Debugging
 make logs               # View logs
 make shell              # Open shell in container
+
+# Timezone Management
+python3 scripts/check-timezone.py  # Check current timezone config
+python3 scripts/check-timezone.py --recommendations  # Show deployment strategies
 
 # Maintenance
 make update             # Update and restart
@@ -129,15 +144,15 @@ make clean              # Clean up containers
 
 **Legacy script commands (still supported):**
 ```bash
-./scripts/run.sh        # Start the bot
+python3 scripts/start.py # Start the bot
 ./scripts/stop.sh       # Stop the bot
 
-./scripts/check-service.sh  # Check status
+python scripts/status.py  # Check status
 ```
 
 ## Command-Line Options
 
-### run.sh options:
+### start.py options:
 
 - `--install` - Full installation with Docker setup and auto-restart
 - `--token YOUR_BOT_TOKEN` - Specify the Telegram bot token
@@ -171,7 +186,7 @@ The bot supports additional services through Docker Compose profiles:
 ### Health Monitoring
 ```bash
 # Start with health monitoring
-./scripts/run.sh --monitoring
+python3 scripts/start.py --monitoring
 
 # Or directly with docker-compose
 docker-compose --profile monitoring up -d
@@ -180,7 +195,7 @@ docker-compose --profile monitoring up -d
 ### Log Aggregation
 ```bash
 # Start with log aggregation
-./scripts/run.sh --logging
+python3 scripts/start.py --logging
 
 # Or directly with docker-compose
 docker-compose --profile logging up -d
@@ -226,7 +241,7 @@ The management scripts include advanced features for better operational experien
 Preview what actions will be performed without executing them:
 ```bash
 # Preview installation
-./scripts/run.sh --dry-run --install --monitoring
+python3 scripts/start.py --dry-run --install --monitoring
 
 # Preview uninstallation
 ./scripts/stop.sh --dry-run --uninstall
@@ -253,7 +268,7 @@ Dangerous operations require explicit confirmation:
 ### Comprehensive Status Reporting
 Get detailed system information:
 ```bash
-./scripts/run.sh --status
+python3 scripts/start.py --status
 # Shows: containers, images, data directories, recent actions, installation status
 ```
 
@@ -263,14 +278,14 @@ Get detailed system information:
 
 1. Check comprehensive service status:
 ```bash
-./scripts/check-service.sh
+python scripts/status.py
 ```
 
 2. Stop all running instances:
 ```bash
 ./scripts/stop.sh --all
 # Wait a moment, then restart
-./scripts/run.sh
+python3 scripts/start.py
 ```
 
 3. If conflict persists, create a new bot token with BotFather.
@@ -279,7 +294,7 @@ Get detailed system information:
 
 Force a complete rebuild:
 ```bash
-./scripts/run.sh --force-rebuild
+python3 scripts/start.py --force-rebuild
 ```
 
 Clean up Docker resources:
@@ -292,7 +307,7 @@ docker system prune -f
 
 Get comprehensive diagnostics:
 ```bash
-./scripts/check-service.sh
+python scripts/status.py
 ```
 
 This will show:
@@ -304,8 +319,8 @@ This will show:
 
 Enable verbose debug output:
 ```bash
-./scripts/run.sh --verbose --force-rebuild --token YOUR_TOKEN
-./scripts/run.sh --verbose --install
+python3 scripts/start.py --verbose --force-rebuild --token YOUR_TOKEN
+python3 scripts/start.py --verbose --install
 ```
 
 This will print detailed step-by-step information to help pinpoint issues.
@@ -339,10 +354,10 @@ quit-smoking-bot/
 │   │   ├── system.sh              # System detection and setup
 
 │   ├── bootstrap.sh               # Script initialization and module loading
-│   ├── check-service.sh           # Service status check and diagnostics
+│   ├── status.py                  # Service status check and diagnostics
 │   ├── entrypoint.sh              # Container entrypoint script
 
-│   ├── run.sh                     # Universal start/install script
+│   ├── start.py                   # Universal start/install script
 │   ├── stop.sh                    # Universal stop/uninstall script
 
 ├── data/                          # Bot data directory (created on first run)
@@ -381,7 +396,7 @@ The easiest way to develop is using the existing Docker setup:
 
 ```bash
 # Start development environment
-./scripts/run.sh --token YOUR_DEV_TOKEN
+python3 scripts/start.py --token YOUR_DEV_TOKEN
 
 
 
