@@ -1,22 +1,19 @@
-# Use Python 3.9 slim image
-FROM python:3.9-slim as base
+# Universal Telegram Bot Framework Docker Image
+FROM python:3.9-slim
 
-# Set essential environment variables
+# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    IN_CONTAINER=true \
-    BUILD_ID=latest
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Create non-root user with the same UID as the host user
+# Create non-root user for security
 ARG USER_ID=1000
 ARG GROUP_ID=1000
-RUN if ! getent group ${GROUP_ID} > /dev/null 2>&1; then \
-        groupadd -g ${GROUP_ID} appuser; \
-    else \
-        groupadd appuser; \
-    fi && \
-    useradd -m -u ${USER_ID} -g appuser appuser
+RUN groupadd -g ${GROUP_ID} botuser || true && \
+    useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash botuser
 
-# Install system packages as root
+# Install system dependencies  
 RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && apt-get clean \
@@ -25,31 +22,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt ./
-# Install dependencies from requirements file
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy and install Python dependencies
+COPY pyproject.toml ./
+RUN pip install -e .
 
-# Copy setup.py and install the current package in editable mode
-COPY setup.py /app/
-RUN pip install --no-cache-dir -e .
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/data /app/logs && \
+    chown -R ${USER_ID}:${GROUP_ID} /app
 
-# Create necessary directories
-RUN mkdir -p /app/data /app/logs \
-    && chown -R appuser:appuser /app \
-    && chmod 755 /app /app/data /app/logs
-
-# Copy application files
-COPY --chown=appuser:appuser . .
-
-# Make Python scripts executable
-RUN chmod +x /app/scripts/*.py
+# Copy application code
+COPY --chown=botuser:botuser . .
 
 # Switch to non-root user
-USER appuser
+USER botuser
 
-# Add PATH for user-installed packages
-ENV PATH="/home/appuser/.local/bin:${PATH}"
+# Health check will use process monitoring
 
-# Set entrypoint to Python version
-ENTRYPOINT ["python", "/app/scripts/entrypoint.py"]
+# Simple entrypoint - just run the bot
+CMD ["python", "-m", "src.bot"]

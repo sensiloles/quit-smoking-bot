@@ -1,7 +1,94 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telegram-bot-framework"
+version = "1.0.0"
+description = "Universal Telegram bot framework with Docker support"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    {name = "Telegram Bot Framework", email = "admin@example.com"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Communications :: Chat",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "python-telegram-bot[job-queue]>=20.0,<21.0",
+    "pytz>=2023.3",
+    "APScheduler>=3.10.0,<4.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/telegram-bot-framework"
+Repository = "https://github.com/your-org/telegram-bot-framework"
+Documentation = "https://github.com/your-org/telegram-bot-framework#readme"
+"Issue Tracker" = "https://github.com/your-org/telegram-bot-framework/issues"
+
+[project.scripts]
+telegram-bot = "src.bot:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "telegram_bot_framework*"]
+exclude = ["tests*", "scripts*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | venv
+  | build
+  | dist
+  | data
+  | logs
+)/
+'''
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+exclude = [
+    "venv/",
+    "build/",
+    "dist/"
+]
+
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.1.0" # Dummy version for commitizen config
+version = "1.0.0"
 tag_format = "$version"
 version_files = [
-    "src/config.py:__version__" # Example, adjust if you track version elsewhere
+    "pyproject.toml:version"
 ]

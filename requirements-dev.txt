@@ -1,3 +1,18 @@
+# Development Dependencies for Telegram Bot Framework
+# 
+# Install with: pip install -e .[dev]
+# Or for compatibility: pip install -r requirements-dev.txt
+
+# Main package in editable mode
+-e .
+
+# Development tools
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
 # Development specific dependencies
 setuptools>=65.5.0
 
