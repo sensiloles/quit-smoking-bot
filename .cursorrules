@@ -27,12 +27,21 @@ When user requests to make a commit, execute these steps in strict order:
 
 3. **Check pre-commit**: Study `.pre-commit-config.yaml` file to understand requirements
 
-4. **Add Files**: Add all changes
+4. **Validate Documentation**: BEFORE committing, validate and update all documentation
+   ```bash
+   find . -name "*.md" -not -path "./venv/*" -not -path "./.git/*"
+   ```
+   - Check that documentation matches code changes
+   - Update examples, API references, setup instructions
+   - Verify all links work and code examples are executable
+   - Update dependency versions and file paths if changed
+
+5. **Add Files**: Add all changes
    ```bash
    git add .
    ```
 
-5. **Create Commit**: Make commit following Conventional Commits standard
+6. **Create Commit**: Make commit following Conventional Commits standard
 
 ### Conventional Commits Format:
 ```
@@ -79,8 +88,8 @@ Project uses:
 
 ## 📚 Documentation Validation and Updates
 
-### Mandatory Check After Changes:
-After ANY code changes **ALWAYS** validate and update documentation:
+### Mandatory Check Before Commit:
+Before creating ANY commit **ALWAYS** validate and update documentation:
 
 1. **Scan .md Files**: Find and analyze all documentation files
    ```bash
@@ -115,8 +124,10 @@ After ANY code changes **ALWAYS** validate and update documentation:
 
 ### Important:
 - **DON'T SKIP** this step even for "minor" changes
+- **MUST BE DONE BEFORE COMMIT** - not after changes
 - Documentation should be understandable to new developers
 - Use concrete examples, not abstract descriptions
 - Always verify instructions work "out of the box"
+- Include documentation updates in the same commit as code changes
 
 Always follow these rules when working with code. Priority: readability, security, performance.
