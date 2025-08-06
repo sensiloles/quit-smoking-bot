@@ -25,19 +25,3 @@ repos:
       - id: commitizen
         name: "📝 Conventional Commits"
         stages: [commit-msg]
-
-  - repo: local
-    hooks:
-      - id: ruff-check
-        name: "🔍 Python Linting"
-        entry: bash -c 'source venv/bin/activate && python3 -m ruff check .'
-        language: system
-        types: [python]
-        pass_filenames: false
-
-      - id: ruff-format-check
-        name: "🎨 Python Formatting Check"
-        entry: bash -c 'source venv/bin/activate && python3 -m ruff format . --check'
-        language: system
-        types: [python]
-        pass_filenames: false

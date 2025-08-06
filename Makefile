@@ -150,6 +150,6 @@ python-setup: ## Setup Python virtual environment only
 	@echo "$(BLUE)🐍 Setting up Python environment...$(NC)"
 	@rm -rf venv
 	@python3 -m venv venv
-	@source venv/bin/activate && pip install -e .
+	@source venv/bin/activate && pip install -e '.[dev]'
 	@echo "$(GREEN)✅ Python environment ready!$(NC)"
 	@echo "$(YELLOW)💡 Reload VS Code window to pick up changes$(NC)"

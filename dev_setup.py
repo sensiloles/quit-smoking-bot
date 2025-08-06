@@ -42,9 +42,10 @@ def setup_virtual_environment():
     if not run_command("python3 -m venv venv", "Creating virtual environment"):
         return False
 
-    # Install dependencies
+    # Install dependencies including dev tools
     if not run_command(
-        "source venv/bin/activate && pip install -e .", "Installing dependencies"
+        "source venv/bin/activate && pip install -e '.[dev]'",
+        "Installing dev dependencies",
     ):
         return False
 
