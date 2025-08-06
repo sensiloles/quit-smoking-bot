@@ -13,11 +13,13 @@ A specialized Telegram bot to track your smoke-free journey with a progressive p
 
 ### 🛡️ Production-Grade Infrastructure  
 - 🐳 **Docker-Ready**: Advanced production containerization with entrypoint
+- ⚡ **Optimized Caching**: Docker layer caching for faster rebuilds
 - 🔧 **Unified Management**: Single-command interface via `manager.py`
 - 📊 **Health Monitoring**: Real-time health checks and continuous monitoring
 - 🔄 **Log Management**: Automatic log rotation and archiving
-- ⚡ **Auto-Recovery**: Process management and graceful restarts
+- 🔄 **Auto-Recovery**: Process management and graceful restarts
 - 🛠️ **Environment Setup**: Automated initialization and permission management
+- 📦 **Modern Packaging**: pyproject.toml-based dependency management
 
 ## 🚀 Quick Start
 
@@ -186,7 +188,7 @@ quit-smoking-bot/
 │   ├── docker-compose.dev.yml # Development environment  
 │   ├── docker-compose.prod.yml # Production environment
 │   ├── entrypoint.py      # 🚀 Production initialization script
-│   └── README.md          # Docker documentation
+│   └── README.md          # Docker documentation → [see details](docker/README.md)
 ├── scripts/               # Advanced management system
 │   ├── modules/           # Modular management components
 │   │   ├── actions.py     # Core bot operations
@@ -203,8 +205,7 @@ quit-smoking-bot/
 ├── manager.py             # 🎯 Primary management interface
 ├── main.py               # Bot entry point
 ├── Makefile              # Convenient command shortcuts
-├── pyproject.toml        # Python project configuration
-├── requirements.txt      # Dependencies
+├── pyproject.toml        # Python project configuration and dependencies
 └── README.md            # This file
 ```
 
@@ -212,15 +213,17 @@ quit-smoking-bot/
 
 ### Local Development (without Docker)
 ```bash
-# Install dependencies
+# Install dependencies from pyproject.toml
 pip install -e .
 
 # Run locally with modern interface
 python3 manager.py setup --token "YOUR_TOKEN"
 make dev
 # or
-python3 main.py
+python3 main.py --token "YOUR_TOKEN"
 ```
+
+**Note**: Local development automatically uses the project directory for logs and data, while Docker uses `/app/` paths.
 
 ### Docker Development
 ```bash
@@ -239,9 +242,13 @@ docker exec quit-smoking-bot cat /app/logs/health.log
 # Shell into container
 docker exec -it quit-smoking-bot bash
 
-# Restart with rebuild after changes
+# Restart with rebuild after changes (optimized for caching)
 python3 manager.py restart --rebuild
 ```
+
+**Docker Optimization**: The Docker setup is optimized for layer caching. When code hasn't changed, existing images are reused automatically, making rebuilds much faster.
+
+📖 **For detailed Docker configuration and advanced usage**, see [docker/README.md](docker/README.md)
 
 ### Adding Motivational Quotes
 Create or edit `data/quotes.json`:
@@ -273,6 +280,8 @@ python3 manager.py start --monitoring
 git pull
 python3 manager.py restart --rebuild
 ```
+
+**Efficient Updates**: Thanks to Docker layer caching, updates that don't change dependencies will reuse existing layers, making deployments much faster.
 
 ### Production Monitoring
 ```bash
@@ -336,6 +345,12 @@ TZ="Europe/Moscow"  # or your preferred timezone
 - Docker and Docker Compose
 - Telegram bot token from [@BotFather](https://t.me/BotFather)
 
+### Dependencies Management
+This project uses modern Python packaging with `pyproject.toml`:
+- **Main dependencies**: Defined in `pyproject.toml`
+- **Development tools**: Available via `pip install -e .[dev]`
+- **No requirements.txt files**: All managed through pyproject.toml
+
 ## 🔍 Troubleshooting
 
 ### Bot won't start
@@ -365,6 +380,8 @@ python3 manager.py start --rebuild
 make clean-deep
 make start
 ```
+
+**Performance Tip**: If builds seem slow, the Docker layer cache might be corrupted. Use `docker system prune -f` to clear unused images and restart fresh.
 
 ### Development issues
 ```bash

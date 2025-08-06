@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Copy and install Python dependencies
+# Copy and install Python dependencies first (for better caching)
 COPY ../pyproject.toml ./
 RUN pip install -e .
 
@@ -30,8 +30,11 @@ RUN pip install -e .
 RUN mkdir -p /app/data /app/logs && \
     chown -R ${USER_ID}:${GROUP_ID} /app
 
-# Copy application code
-COPY --chown=botuser:botuser ../ .
+# Copy only necessary application files (not logs, data, cache)
+COPY --chown=botuser:botuser ../src ./src
+COPY --chown=botuser:botuser ../main.py ./
+COPY --chown=botuser:botuser ../docker ./docker
+COPY --chown=botuser:botuser ../scripts ./scripts
 
 # Switch to non-root user
 USER botuser

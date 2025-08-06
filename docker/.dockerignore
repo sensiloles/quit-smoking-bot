@@ -56,7 +56,28 @@ logs/
 data/
 *.log
 
+# Environment files
+.env
+.env.local
+.env.example
+
+# Cache and temporary files
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Development files
+Makefile
+manager.py
+
 # Documentation
 docs/
 *.md
+README*
 LICENSE
+
+# Archive files
+*.tar.gz
+*.zip

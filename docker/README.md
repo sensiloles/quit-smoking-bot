@@ -59,7 +59,7 @@ This Docker setup is designed to be universal for any Telegram bot. To adapt for
 
 1. **Environment Variables**: Set in `.env` file
 2. **Bot Source**: Place bot code in `src/` directory  
-3. **Dependencies**: Update `requirements.txt`
+3. **Dependencies**: Update `pyproject.toml`
 4. **Configuration**: Modify `docker-compose.yml` as needed
 
 ## 📊 Features
@@ -77,9 +77,7 @@ This Docker setup is designed to be universal for any Telegram bot. To adapt for
 For detailed information about the production entrypoint script (`entrypoint.py`) and its comprehensive initialization features, see:
 - [**ENTRYPOINT.md**](./ENTRYPOINT.md) - Production entrypoint features documentation
 
-### Complete Project Documentation
-For complete project documentation, see the main [README.md](../README.md) in the project root.
-
+### Management Commands
 For detailed information about available management commands, run:
 ```bash
 python ../manager.py --help

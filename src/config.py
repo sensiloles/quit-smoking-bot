@@ -58,8 +58,14 @@ STATUS_MESSAGE = (
     "💭 {quote}"
 )
 
-# File paths
-BASE_DIR = Path("/app")  # Use the container's app directory
+# File paths - автоматическое определение окружения
+if Path("/app").exists():
+    # Docker environment
+    BASE_DIR = Path("/app")
+else:
+    # Local development environment
+    BASE_DIR = Path(__file__).parent.parent.absolute()
+
 DATA_DIR = BASE_DIR / "data"
 
 USERS_FILE = DATA_DIR / "bot_users.json"
@@ -69,6 +75,10 @@ QUOTES_FILE = DATA_DIR / "quotes.json"
 # Logging configuration
 LOG_DIR = BASE_DIR / "logs"
 LOG_FILE = LOG_DIR / "bot.log"
+
+# Создаем необходимые директории при импорте модуля
+LOG_DIR.mkdir(exist_ok=True)
+DATA_DIR.mkdir(exist_ok=True)
 
 LOGGING_CONFIG = {
     "version": 1,

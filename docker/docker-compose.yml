@@ -1,5 +1,8 @@
 version: '3.8'
 
+# Project name for Docker Desktop grouping
+name: ${SYSTEM_NAME:-quit-smoking-bot}
+
 services:
   bot:
     build:

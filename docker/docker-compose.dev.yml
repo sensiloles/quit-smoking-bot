@@ -33,8 +33,8 @@ services:
     ports:
       - "8000:8000"  # Optional debug port
     
-    # Override command for development
-    # command: ["python", "docker/entrypoint.py", "--dev"]
+    # Override command for development - skip permission setup
+    command: ["python", "main.py"]
     
     # Development healthcheck (more frequent)
     healthcheck:
