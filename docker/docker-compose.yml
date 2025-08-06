@@ -3,12 +3,13 @@ version: '3.8'
 services:
   bot:
     build:
-      context: .
+      context: ..
+      dockerfile: docker/Dockerfile
       args:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
-    image: ${SYSTEM_NAME:-telegram-bot}:latest
-    container_name: ${SYSTEM_NAME:-telegram-bot}
+    image: ${SYSTEM_NAME:-quit-smoking-bot}:latest
+    container_name: ${SYSTEM_NAME:-quit-smoking-bot}
     restart: unless-stopped
     
     # Resource limits for stability
@@ -23,15 +24,15 @@ services:
     
     # Environment configuration
     env_file:
-      - .env
+      - ../.env
     environment:
       - TZ=${TZ:-UTC}
       - PYTHONPATH=/app
     
     # Data persistence
     volumes:
-      - ./data:/app/data:rw
-      - ./logs:/app/logs:rw
+      - ../data:/app/data:rw
+      - ../logs:/app/logs:rw
     
     # Logging configuration
     logging:
@@ -56,4 +57,4 @@ services:
 networks:
   bot-network:
     driver: bridge
-    name: ${SYSTEM_NAME:-telegram-bot}-network
+    name: ${SYSTEM_NAME:-quit-smoking-bot}-network

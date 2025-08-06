@@ -75,7 +75,7 @@ def action_start(profile: str = "prod", dry_run: bool = False, force_rebuild: bo
         if status["running"]:
             print_warning("Bot is already running!")
             print_message("Container status:", Colors.YELLOW)
-            subprocess.run(["docker-compose", "ps"], capture_output=False)
+            subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "ps"], capture_output=False)
             return True
         
         # Check Docker
@@ -89,7 +89,7 @@ def action_start(profile: str = "prod", dry_run: bool = False, force_rebuild: bo
         # Build containers if needed
         if force_rebuild:
             print_message("Force rebuilding Docker containers...", Colors.YELLOW)
-            build_cmd = ["docker-compose", "build", "--no-cache"]
+            build_cmd = ["docker-compose", "-f", "docker/docker-compose.yml", "build", "--no-cache"]
             if dry_run or is_dry_run():
                 print_message(f"DRY RUN: Would execute: {' '.join(build_cmd)}", Colors.YELLOW)
             else:
@@ -115,9 +115,17 @@ def action_start(profile: str = "prod", dry_run: bool = False, force_rebuild: bo
         
         # Start the service
         print_message("Starting bot container...", Colors.YELLOW)
-        cmd = ["docker-compose"]
-        for profile in compose_profiles:
-            cmd.extend(["--profile", profile])
+        cmd = ["docker-compose", "-f", "docker/docker-compose.yml"]
+        
+        # Add environment-specific overrides
+        if profile == "dev":
+            cmd.extend(["-f", "docker/docker-compose.dev.yml"])
+        else:  # prod
+            cmd.extend(["-f", "docker/docker-compose.prod.yml"])
+        
+        # Add profiles for additional services
+        for profile_name in compose_profiles:
+            cmd.extend(["--profile", profile_name])
         cmd.extend(["up", "-d", "--build"])
         
         result = subprocess.run(cmd, env=env, capture_output=False)
@@ -133,7 +141,7 @@ def action_start(profile: str = "prod", dry_run: bool = False, force_rebuild: bo
             return True
         else:
             print_warning("⚠️  Bot started but may not be fully operational")
-            print_message("Check logs with: docker-compose logs bot", Colors.YELLOW)
+            print_message("Check logs with: docker-compose -f docker/docker-compose.yml logs bot", Colors.YELLOW)
             return False
 
 def action_stop(confirm: bool = False) -> bool:
@@ -156,7 +164,7 @@ def action_stop(confirm: bool = False) -> bool:
         
         print_message("🛑 Stopping bot...", Colors.YELLOW)
         
-        result = subprocess.run(["docker-compose", "down"], capture_output=False)
+        result = subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "down"], capture_output=False)
         if result.returncode != 0:
             raise DockerError("Failed to stop bot container")
         
@@ -198,7 +206,7 @@ def action_status() -> bool:
         
         # Show container info
         print_message("\nContainer status:", Colors.BLUE)
-        subprocess.run(["docker-compose", "ps"], capture_output=False)
+        subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "ps"], capture_output=False)
         
         # Check operational status
         if is_bot_operational():
@@ -208,7 +216,7 @@ def action_status() -> bool:
         
         # Show recent logs
         print_message("\nRecent logs:", Colors.BLUE)
-        subprocess.run(["docker-compose", "logs", "--tail", "10", "bot"], capture_output=False)
+        subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", "10", "bot"], capture_output=False)
         
     else:
         print_message("❌ Bot container is not running", Colors.RED)
@@ -228,7 +236,7 @@ def action_logs(follow: bool = False, lines: int = 50) -> bool:
     
     print_message(f"📋 Bot Logs (last {lines} lines):", Colors.BLUE)
     
-    cmd = ["docker-compose", "logs", "--tail", str(lines)]
+    cmd = ["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", str(lines)]
     if follow:
         cmd.append("-f")
     cmd.append("bot")
@@ -271,7 +279,7 @@ def action_prune(confirm: bool = False) -> bool:
         
         # Stop everything
         print_message("Stopping all services...", Colors.YELLOW)
-        subprocess.run(["docker-compose", "down", "-v", "--remove-orphans"], capture_output=False)
+        subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "down", "-v", "--remove-orphans"], capture_output=False)
         
         # Remove images
         print_message("Removing Docker images...", Colors.YELLOW)

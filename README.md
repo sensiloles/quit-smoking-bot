@@ -4,14 +4,20 @@ A specialized Telegram bot to track your smoke-free journey with a progressive p
 
 ## 🌟 Features
 
+### 🎯 Core Bot Features
 - 📊 **Progress Tracking**: Monitor your smoke-free period (years, months, days)
 - 💰 **Prize Fund System**: Growing monthly reward system (starts at 5,000₽, increases by 5,000₽ monthly)
 - 📅 **Monthly Notifications**: Automated motivational messages every 23rd of the month
 - 💭 **Motivational Quotes**: Random inspirational quotes to keep you motivated
 - 👥 **Admin System**: Multi-admin support for bot management
-- 🐳 **Docker-Ready**: Production containerized deployment
-- 🔧 **Simple Management**: One-command interface via `manager.py`
-- 📊 **Health Monitoring**: Built-in health checks and logging
+
+### 🛡️ Production-Grade Infrastructure  
+- 🐳 **Docker-Ready**: Advanced production containerization with entrypoint
+- 🔧 **Unified Management**: Single-command interface via `manager.py`
+- 📊 **Health Monitoring**: Real-time health checks and continuous monitoring
+- 🔄 **Log Management**: Automatic log rotation and archiving
+- ⚡ **Auto-Recovery**: Process management and graceful restarts
+- 🛠️ **Environment Setup**: Automated initialization and permission management
 
 ## 🚀 Quick Start
 
@@ -20,34 +26,32 @@ A specialized Telegram bot to track your smoke-free journey with a progressive p
 git clone <your-repo-url>
 cd quit-smoking-bot
 
-# Initial setup (creates .env template and directories)
-python3 manager.py setup
+# Complete setup with bot token
+python3 manager.py setup --token "YOUR_BOT_TOKEN_HERE"
 ```
 
-### 2. Configure Your Bot
+### 2. Start the Bot
 ```bash
-# Edit .env file with your bot token
-# Get token from @BotFather on Telegram
-nano .env
-```
-
-Set your configuration in `.env`:
-```env
-BOT_TOKEN="your_bot_token_here"
-SYSTEM_NAME="quit-smoking-bot"
-TZ="UTC"
-```
-
-### 3. Start the Bot
-```bash
-# Start with Docker (recommended)
+# Start the bot (recommended)
 python3 manager.py start
 
-# Or use Makefile
-make start
+# Or start with advanced monitoring
+python3 manager.py start --monitoring
+
+# Or use convenient shortcuts
+make install              # Complete setup and start
 ```
 
-That's it! Your quit smoking bot is now running and ready to help users track their smoke-free journey.
+### 3. Verify Everything Works
+```bash
+# Check bot status
+python3 manager.py status
+
+# View logs
+python3 manager.py logs --follow
+```
+
+That's it! Your quit smoking bot is now running with comprehensive monitoring and ready to help users track their smoke-free journey.
 
 ## 📖 How It Works
 
@@ -96,30 +100,47 @@ The bot sends monthly motivational messages to all users on the 23rd of each mon
 
 ## 🛠️ Management Commands
 
-### Using manager.py (Recommended)
+### Primary Interface (manager.py)
 ```bash
-python3 manager.py setup     # Initial setup
-python3 manager.py start     # Start the bot
-python3 manager.py stop      # Stop the bot
-python3 manager.py restart   # Restart the bot
-python3 manager.py status    # Show status
-python3 manager.py logs      # Show logs
-python3 manager.py logs -f   # Follow logs
-python3 manager.py clean     # Clean up
+# 📦 Setup & Configuration
+python3 manager.py setup                    # Basic setup
+python3 manager.py setup --token TOKEN      # Setup with bot token
+
+# 🚀 Service Management  
+python3 manager.py start                    # Start the bot (production)
+python3 manager.py start --env dev          # Start in development mode
+python3 manager.py start --monitoring       # Start with health monitoring
+python3 manager.py start --rebuild          # Start with container rebuild
+python3 manager.py stop                     # Stop the bot
+python3 manager.py restart                  # Restart the bot
+
+# 📊 Monitoring & Status
+python3 manager.py status                   # Show comprehensive status
+python3 manager.py logs                     # Show recent logs
+python3 manager.py logs --follow            # Follow logs in real-time
+
+# 🧹 Maintenance
+python3 manager.py clean                    # Basic cleanup
+python3 manager.py clean --deep             # Remove all data and images
 ```
 
-### Using Makefile
+### Convenient Shortcuts (Makefile)
 ```bash
-make setup          # Initial setup
-make install        # Setup + start
-make start          # Start the bot  
+# 🎯 Quick Operations
+make install        # Complete setup and start with monitoring
+make start          # Start the bot (production)
+make start-dev      # Start in development mode
 make stop           # Stop the bot
 make restart        # Restart the bot
 make status         # Show status
-make logs           # Show logs
-make logs-follow    # Follow logs
-make clean          # Clean up
-make dev            # Run locally (without Docker)
+make logs-follow    # Follow logs in real-time
+make clean          # Basic cleanup
+make clean-deep     # Deep cleanup
+
+# 🔧 Advanced Operations
+make monitor        # Advanced monitoring and diagnostics
+make health         # Quick health check
+make token          # Set bot token interactively
 ```
 
 ## ⚙️ Configuration
@@ -159,20 +180,32 @@ quit-smoking-bot/
 │   ├── status.py          # Progress tracking and prize calculation
 │   ├── users.py           # User and admin management
 │   └── utils.py           # Utility functions
+├── docker/                # 🐳 Production Docker configuration
+│   ├── Dockerfile         # Container definition
+│   ├── docker-compose.yml # Base orchestration
+│   ├── docker-compose.dev.yml # Development environment  
+│   ├── docker-compose.prod.yml # Production environment
+│   ├── entrypoint.py      # 🚀 Production initialization script
+│   └── README.md          # Docker documentation
+├── scripts/               # Advanced management system
+│   ├── modules/           # Modular management components
+│   │   ├── actions.py     # Core bot operations
+│   │   ├── docker_utils.py # Docker integration
+│   │   ├── health.py      # Health monitoring
+│   │   ├── environment.py # Environment management
+│   │   └── ...           # Other utility modules
+│   └── monitor.py         # Advanced monitoring and diagnostics
 ├── data/                  # Persistent data (auto-created)
 │   ├── bot_users.json     # Registered users
 │   ├── bot_admins.json    # Administrator list
 │   └── quotes.json        # Motivational quotes
 ├── logs/                  # Application logs (auto-created)
-├── scripts/               # Monitoring and utility scripts
-├── manager.py             # Simple management tool
-├── main.py               # Entry point
+├── manager.py             # 🎯 Primary management interface
+├── main.py               # Bot entry point
+├── Makefile              # Convenient command shortcuts
 ├── pyproject.toml        # Python project configuration
 ├── requirements.txt      # Dependencies
-├── docker-compose.yml    # Docker orchestration
-├── Dockerfile           # Container definition
-├── Makefile            # Command shortcuts
-└── README.md          # This file
+└── README.md            # This file
 ```
 
 ## 📚 Development
@@ -182,7 +215,8 @@ quit-smoking-bot/
 # Install dependencies
 pip install -e .
 
-# Run locally
+# Run locally with modern interface
+python3 manager.py setup --token "YOUR_TOKEN"
 make dev
 # or
 python3 main.py
@@ -190,17 +224,23 @@ python3 main.py
 
 ### Docker Development
 ```bash
-# Build and start
-make start
+# Quick start with monitoring
+python3 manager.py start --monitoring
 
-# View logs
-make logs-follow
+# View logs in real-time (includes entrypoint initialization logs)
+python3 manager.py logs --follow
+
+# Check detailed status
+python3 manager.py status --detailed
+
+# View health monitoring logs
+docker exec quit-smoking-bot cat /app/logs/health.log
 
 # Shell into container
 docker exec -it quit-smoking-bot bash
 
-# Restart after changes
-make restart
+# Restart with rebuild after changes
+python3 manager.py restart --rebuild
 ```
 
 ### Adding Motivational Quotes
@@ -221,28 +261,32 @@ Create or edit `data/quotes.json`:
 git clone <your-repo-url>
 cd quit-smoking-bot
 
-# Setup and configure
-python3 manager.py setup
-# Edit .env with your production bot token
-python3 manager.py start
+# Complete setup with production token
+python3 manager.py setup --token "YOUR_PRODUCTION_BOT_TOKEN"
+
+# Start with monitoring and logging
+python3 manager.py start --monitoring
 ```
 
 ### Updates
 ```bash
 git pull
-python3 manager.py restart
+python3 manager.py restart --rebuild
 ```
 
-### Monitoring
+### Production Monitoring
 ```bash
-# Check status
+# Comprehensive status check
 python3 manager.py status
 
-# View logs
-python3 manager.py logs
+# Monitor logs continuously
+python3 manager.py logs --follow
 
-# Follow logs in real-time
-python3 manager.py logs -f
+# Advanced monitoring and diagnostics
+make monitor
+
+# Quick health check
+make health
 ```
 
 ## 👥 Admin Management
@@ -296,33 +340,47 @@ TZ="Europe/Moscow"  # or your preferred timezone
 
 ### Bot won't start
 ```bash
-# Check status and logs
-python3 manager.py status
+# Check detailed status and diagnostics
+python3 manager.py status --detailed
+
+# View logs for errors
 python3 manager.py logs
 
+# Run comprehensive diagnostics
+make monitor
+
 # Common issues:
-# 1. BOT_TOKEN not set in .env
-# 2. Docker not running
-# 3. Invalid start date configuration
+# 1. BOT_TOKEN not set - use: python3 manager.py setup --token "TOKEN"
+# 2. Docker not running - check Docker service
+# 3. Invalid configuration - check .env file
 ```
 
 ### Docker issues
 ```bash
-# Clean up and rebuild
-python3 manager.py clean
-python3 manager.py start
+# Deep cleanup and rebuild
+python3 manager.py clean --deep
+python3 manager.py start --rebuild
+
+# Or use convenient shortcut
+make clean-deep
+make start
 ```
 
 ### Development issues
 ```bash
 # Run locally to debug
 make dev
+
+# Check health and diagnostics
+make health
+make monitor
 ```
 
 ### Notifications not working
 - Check timezone configuration in `.env`
 - Verify notification schedule in `src/config.py`
-- Check logs for scheduler errors: `python3 manager.py logs`
+- Check logs for scheduler errors: `python3 manager.py logs --follow`
+- Run diagnostics: `make monitor`
 
 ## 🤝 Contributing
 

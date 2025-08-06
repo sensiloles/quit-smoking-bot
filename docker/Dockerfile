@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy and install Python dependencies
-COPY pyproject.toml ./
+COPY ../pyproject.toml ./
 RUN pip install -e .
 
 # Create necessary directories with proper permissions
@@ -31,12 +31,12 @@ RUN mkdir -p /app/data /app/logs && \
     chown -R ${USER_ID}:${GROUP_ID} /app
 
 # Copy application code
-COPY --chown=botuser:botuser . .
+COPY --chown=botuser:botuser ../ .
 
 # Switch to non-root user
 USER botuser
 
 # Health check will use process monitoring
 
-# Simple entrypoint - just run the bot
-CMD ["python", "-m", "src.bot"]
+# Production entrypoint with comprehensive initialization
+CMD ["python", "docker/entrypoint.py"]

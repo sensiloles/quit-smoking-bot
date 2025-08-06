@@ -38,11 +38,11 @@ def get_service_status() -> Dict[str, Any]:
     status["containers"] = container_status
     
     # Check docker-compose services
-    result = run_command(["docker-compose", "ps", "--services"])
+    result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "--services"])
     if result.returncode == 0:
         services = [s.strip() for s in result.stdout.split('\n') if s.strip()]
         for service in services:
-            service_result = run_command(["docker-compose", "ps", service])
+            service_result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", service])
             is_running = "Up" in service_result.stdout
             status["services"][service] = {
                 "running": is_running,
@@ -74,7 +74,7 @@ def start_service(service: str = "bot", profile: str = "prod") -> bool:
         print_message(f"🚀 Starting service: {service}", Colors.BLUE)
         
         # Start the service
-        cmd = ["docker-compose", "up", "-d"]
+        cmd = ["docker-compose", "-f", "docker/docker-compose.yml", "up", "-d"]
         if service != "all":
             cmd.append(service)
         
@@ -103,11 +103,11 @@ def stop_service(service: str = "bot", cleanup: bool = False) -> bool:
         print_message(f"🛑 Stopping service: {service}", Colors.BLUE)
         
         if service == "all":
-            cmd = ["docker-compose", "down"]
+            cmd = ["docker-compose", "-f", "docker/docker-compose.yml", "down"]
             if cleanup:
                 cmd.extend(["-v", "--remove-orphans"])
         else:
-            cmd = ["docker-compose", "stop", service]
+            cmd = ["docker-compose", "-f", "docker/docker-compose.yml", "stop", service]
         
         result = subprocess.run(cmd, capture_output=False)
         if result.returncode != 0:
@@ -148,7 +148,7 @@ def wait_for_service_ready(service: str, timeout: int = 60) -> bool:
         
         # For bot service, check health
         if service == "bot":
-            result = run_command(["docker-compose", "ps", "-q", "bot"])
+            result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "-q", "bot"])
             container_id = result.stdout.strip()
             
             if container_id:
@@ -188,7 +188,7 @@ def scale_service(service: str, replicas: int) -> bool:
         
         print_message(f"📊 Scaling {service} to {replicas} replicas...", Colors.BLUE)
         
-        cmd = ["docker-compose", "up", "-d", "--scale", f"{service}={replicas}"]
+        cmd = ["docker-compose", "-f", "docker/docker-compose.yml", "up", "-d", "--scale", f"{service}={replicas}"]
         result = subprocess.run(cmd, capture_output=False)
         
         if result.returncode != 0:
@@ -201,7 +201,7 @@ def get_service_logs(service: str, lines: int = 50, follow: bool = False) -> boo
     """Get logs for a specific service"""
     debug_print(f"Getting logs for service {service}, lines: {lines}, follow: {follow}")
     
-    cmd = ["docker-compose", "logs", "--tail", str(lines)]
+    cmd = ["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", str(lines)]
     if follow:
         cmd.append("-f")
     cmd.append(service)
@@ -218,7 +218,7 @@ def exec_in_service(service: str, command: list, interactive: bool = False) -> b
     debug_print(f"Executing command in {service}: {' '.join(command)}")
     
     # Get container ID
-    result = run_command(["docker-compose", "ps", "-q", service])
+    result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "-q", service])
     container_id = result.stdout.strip()
     
     if not container_id:
@@ -252,7 +252,7 @@ def update_service(service: str = "bot", rebuild: bool = True) -> bool:
         
         if rebuild:
             print_message(f"Rebuilding {service}...", Colors.YELLOW)
-            cmd = ["docker-compose", "build", service]
+            cmd = ["docker-compose", "-f", "docker/docker-compose.yml", "build", service]
             result = subprocess.run(cmd, capture_output=False)
             if result.returncode != 0:
                 raise ServiceError(f"Failed to rebuild {service}")
@@ -298,18 +298,18 @@ def cleanup_service_resources(service: str = "") -> bool:
         
         if service:
             # Remove specific service containers
-            result = run_command(["docker-compose", "rm", "-sf", service])
+            result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "rm", "-sf", service])
             if result.returncode != 0:
                 print_warning(f"Failed to remove {service} containers")
             
             # Remove service images
-            result = run_command(["docker-compose", "images", "-q", service])
+            result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "images", "-q", service])
             if result.stdout.strip():
                 images = result.stdout.strip().split('\n')
                 run_command(["docker", "rmi"] + images)
         else:
             # Clean up all project resources
-            result = run_command(["docker-compose", "down", "-v", "--remove-orphans"])
+            result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "down", "-v", "--remove-orphans"])
             if result.returncode != 0:
                 print_warning("Failed to clean up all resources")
         

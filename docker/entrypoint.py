@@ -18,7 +18,8 @@ from datetime import datetime
 from typing import List
 
 # Add scripts directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+scripts_dir = os.path.join(os.path.dirname(__file__), '..', 'scripts')
+sys.path.insert(0, scripts_dir)
 
 from modules import (
     print_message, print_error, print_success, debug_print, Colors,

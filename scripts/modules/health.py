@@ -19,7 +19,7 @@ def is_bot_healthy() -> bool:
     system_name = get_system_name()
     
     # Get container ID
-    result = run_command(["docker-compose", "ps", "-q", "bot"])
+    result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "-q", "bot"])
     container_id = result.stdout.strip()
     
     debug_print(f"Container ID: {container_id}")
@@ -75,7 +75,7 @@ def is_bot_operational() -> bool:
     debug_print("Starting is_bot_operational check")
     
     # Get container ID
-    result = run_command(["docker-compose", "ps", "-q", "bot"])
+    result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "-q", "bot"])
     container_id = result.stdout.strip()
     
     debug_print(f"Container ID for operational check: {container_id}")
@@ -173,7 +173,7 @@ def comprehensive_health_check() -> bool:
     # Container health check  
     print_message("\n🐳 Container Health Check:", Colors.BLUE)
     try:
-        result = run_command(["docker-compose", "ps", "bot"])
+        result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "bot"])
         if result.returncode == 0 and "Up" in result.stdout:
             print_message("✅ Container is running", Colors.GREEN)
             
@@ -186,7 +186,7 @@ def comprehensive_health_check() -> bool:
                 
             # Check recent logs for errors
             system_name = get_system_name()
-            result = run_command(["docker-compose", "logs", "--tail", "10", "bot"])
+            result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", "10", "bot"])
             
             if any(level in result.stdout for level in ["ERROR", "CRITICAL"]):
                 print_message("⚠️  Recent errors found in logs", Colors.YELLOW)
@@ -241,12 +241,12 @@ def check_bot_status() -> Dict[str, Any]:
     
     # Step 1: Verify container is still running
     print_message("Step 1: Verifying container is running...", Colors.YELLOW)
-    result = run_command(["docker-compose", "ps", "bot"])
+    result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "bot"])
     
     if result.returncode != 0 or "Up" not in result.stdout:
         status["errors"].append("Container is not running")
         print_error("Container is not running!")
-        subprocess.run(["docker-compose", "ps", "bot"], capture_output=False)
+        subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "bot"], capture_output=False)
         return status
     
     print_message("✅ Container is running", Colors.GREEN)
@@ -259,7 +259,7 @@ def check_bot_status() -> Dict[str, Any]:
     
     # Step 3: Show recent logs
     print_message("Step 3: Recent container logs:", Colors.YELLOW)
-    subprocess.run(["docker-compose", "logs", "--tail", "10", "bot"], capture_output=False)
+    subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", "10", "bot"], capture_output=False)
     
     # Step 4: Health check loop
     print_message("Step 4: Health check loop (max 30 attempts)...", Colors.YELLOW)
@@ -269,7 +269,7 @@ def check_bot_status() -> Dict[str, Any]:
         print_message(f"Checking bot health (attempt {attempt}/{max_attempts})...", Colors.YELLOW)
         
         # Check if container is still running
-        result = run_command(["docker-compose", "ps", "bot"])
+        result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "bot"])
         if "Up" not in result.stdout:
             status["errors"].append("Container stopped during health check")
             print_error("Container stopped running during health check!")
@@ -286,7 +286,7 @@ def check_bot_status() -> Dict[str, Any]:
                 print_message("Continuing with operational check...", Colors.YELLOW)
                 # Show recent logs for debugging
                 print_message("Recent logs for debugging:", Colors.YELLOW)
-                subprocess.run(["docker-compose", "logs", "--tail", "15", "bot"], capture_output=False)
+                subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", "15", "bot"], capture_output=False)
             else:
                 print_message("Bot health check not yet passing, waiting...", Colors.YELLOW)
                 time.sleep(5)
@@ -302,9 +302,9 @@ def check_bot_status() -> Dict[str, Any]:
         # Show final status summary
         print_message("\n=== FINAL STATUS SUMMARY ===", Colors.GREEN)
         print_message("Container status:", Colors.GREEN)
-        subprocess.run(["docker-compose", "ps", "bot"], capture_output=False)
+        subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "bot"], capture_output=False)
         print_message("Most recent logs:", Colors.GREEN)
-        subprocess.run(["docker-compose", "logs", "--tail", "5", "bot"], capture_output=False)
+        subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", "5", "bot"], capture_output=False)
         print_message("=== END STATUS SUMMARY ===", Colors.GREEN)
         
     else:
@@ -315,9 +315,9 @@ def check_bot_status() -> Dict[str, Any]:
         # Detailed diagnostic info
         print_message("\n=== DIAGNOSTIC INFORMATION ===", Colors.YELLOW)
         print_message("Container status:", Colors.YELLOW)
-        subprocess.run(["docker-compose", "ps", "bot"], capture_output=False)
+        subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "ps", "bot"], capture_output=False)
         print_message("Extended logs for diagnostics:", Colors.YELLOW)
-        subprocess.run(["docker-compose", "logs", "--tail", "25", "bot"], capture_output=False)
+        subprocess.run(["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", "25", "bot"], capture_output=False)
         print_message("=== END DIAGNOSTICS ===", Colors.YELLOW)
         
         print_message("Use 'python scripts/status.py' for detailed diagnostics.", Colors.YELLOW)

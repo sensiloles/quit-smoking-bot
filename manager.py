@@ -2,239 +2,294 @@
 """
 Telegram Bot Framework Manager
 
-Simple management interface for Docker-based Telegram bots.
-Single tool for all bot management operations.
+Modern management interface for Docker-based Telegram bots.
+Single tool for all bot management operations with rich functionality.
 """
 
 import os
 import sys
 import argparse
-import subprocess
-import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
+
+# Add scripts directory to Python path for importing modules
+sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+
+try:
+    from modules import (
+        action_setup, action_start, action_stop, action_restart,
+        action_status, action_logs, action_cleanup, action_prune,
+        print_message, print_success, print_error, Colors,
+        setup_environment, BotError, DockerError, handle_error
+    )
+except ImportError as e:
+    print(f"❌ Error importing bot modules: {e}")
+    print("🔧 Please ensure scripts/modules are properly installed")
+    sys.exit(1)
 
 
 class BotManager:
-    """Simple bot management class"""
+    """Modern bot management class with rich functionality"""
     
     def __init__(self):
+        """Initialize the bot manager"""
         self.project_root = Path(__file__).parent.absolute()
-        self.env_file = self.project_root / ".env"
-        self.compose_file = self.project_root / "docker-compose.yml"
         os.chdir(self.project_root)
         
-        # Load SYSTEM_NAME from .env file
-        self.system_name = "telegram-bot"  # default
-        if self.env_file.exists():
-            with open(self.env_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('SYSTEM_NAME='):
-                        self.system_name = line.split('=', 1)[1].strip('"\'')
-                        break
+        # Setup environment using modules
+        setup_environment()
+        
+        print_message("🤖 Quit Smoking Bot Manager", Colors.BLUE)
     
-    def _run_command(self, cmd: list, capture_output: bool = False) -> subprocess.CompletedProcess:
-        """Run shell command with proper error handling"""
+    def setup(self, token: Optional[str] = None) -> bool:
+        """Initial project setup with comprehensive configuration"""
         try:
-            result = subprocess.run(cmd, capture_output=capture_output, text=True, check=False)
-            if not capture_output and result.returncode != 0:
-                print(f"❌ Command failed: {' '.join(cmd)}")
-            return result
+            return action_setup(token=token)
+        except (BotError, DockerError) as e:
+            handle_error(e)
+            return False
         except Exception as e:
-            print(f"❌ Error running command: {e}")
-            return subprocess.CompletedProcess(cmd, 1, "", str(e))
-    
-    def _ensure_env_file(self) -> bool:
-        """Create .env file if it doesn't exist"""
-        if not self.env_file.exists():
-            print("📝 Creating .env template...")
-            template = '''# Telegram Bot Configuration
-BOT_TOKEN="your_bot_token_here"
-SYSTEM_NAME="telegram-bot"
-TZ="UTC"
-'''
-            self.env_file.write_text(template)
-            print("✅ Created .env template. Please update BOT_TOKEN!")
-            return False
-        return True
-    
-    def _ensure_directories(self):
-        """Create necessary directories"""
-        for dir_name in ["data", "logs"]:
-            dir_path = self.project_root / dir_name
-            dir_path.mkdir(exist_ok=True)
-            
-            # Create basic data files
-            if dir_name == "data":
-                for file_name in ["bot_users.json", "bot_admins.json"]:
-                    file_path = dir_path / file_name
-                    if not file_path.exists():
-                        file_path.write_text("[]")
-    
-    def setup(self) -> bool:
-        """Initial project setup"""
-        print("🚀 Setting up Telegram Bot Framework...")
-        
-        # Create directories and files
-        self._ensure_directories()
-        
-        # Create .env if needed
-        if not self._ensure_env_file():
-            return False
-        
-        print("✅ Setup completed!")
-        print("\n📋 Next steps:")
-        print("1. Edit .env file and set your BOT_TOKEN")
-        print("2. Run: python manager.py start")
-        return True
-    
-    def start(self) -> bool:
-        """Start the bot"""
-        print("🚀 Starting Telegram bot...")
-        
-        if not self.env_file.exists():
-            print("❌ .env file not found. Run setup first!")
-            return False
-        
-        # Check if Docker is available
-        result = self._run_command(["docker", "--version"], capture_output=True)
-        if result.returncode != 0:
-            print("❌ Docker not found. Please install Docker first.")
-            return False
-        
-        # Start with Docker Compose
-        result = self._run_command(["docker-compose", "up", "-d", "--build"])
-        if result.returncode == 0:
-            print("✅ Bot started successfully!")
-            print("📊 Check status: python manager.py status")
-            print("📝 View logs: python manager.py logs")
-            return True
-        else:
-            print("❌ Failed to start bot")
+            print_error(f"Setup failed: {e}")
             return False
     
-    def stop(self) -> bool:
-        """Stop the bot"""
-        print("🛑 Stopping Telegram bot...")
-        result = self._run_command(["docker-compose", "down"])
-        if result.returncode == 0:
-            print("✅ Bot stopped successfully!")
-            return True
-        else:
-            print("❌ Failed to stop bot")
+    def start(self, force_rebuild: bool = False, enable_monitoring: bool = False, 
+              enable_logging: bool = False, env: str = "prod") -> bool:
+        """Start the bot with advanced options"""
+        try:
+            return action_start(
+                profile=env,
+                force_rebuild=force_rebuild,
+                enable_monitoring=enable_monitoring,
+                enable_logging=enable_logging
+            )
+        except (BotError, DockerError) as e:
+            handle_error(e)
+            return False
+        except Exception as e:
+            print_error(f"Start failed: {e}")
             return False
     
-    def restart(self) -> bool:
-        """Restart the bot"""
-        print("🔄 Restarting Telegram bot...")
-        if self.stop() and self.start():
-            return True
-        return False
+    def stop(self, cleanup: bool = False) -> bool:
+        """Stop the bot with optional cleanup"""
+        try:
+            return action_stop(confirm=True)
+        except (BotError, DockerError) as e:
+            handle_error(e)
+            return False
+        except Exception as e:
+            print_error(f"Stop failed: {e}")
+            return False
     
-    def status(self) -> bool:
-        """Show bot status"""
-        print("📊 Bot Status:")
-        print("=" * 40)
-        
-        # Check Docker Compose services
-        result = self._run_command(["docker-compose", "ps"], capture_output=True)
-        if result.returncode == 0:
-            print(result.stdout)
-        else:
-            print("❌ No services found or Docker Compose not available")
-        
-        # Check container health
-        result = self._run_command(["docker", "ps", "--filter", f"name={self.system_name}"], capture_output=True)
-        if result.returncode == 0 and self.system_name in result.stdout:
-            print("\n✅ Bot container is running")
-        else:
-            print("\n❌ Bot container is not running")
-        
-        return True
+    def restart(self, force_rebuild: bool = False) -> bool:
+        """Restart the bot service"""
+        try:
+            return action_restart(profile="prod")
+        except (BotError, DockerError) as e:
+            handle_error(e)
+            return False
+        except Exception as e:
+            print_error(f"Restart failed: {e}")
+            return False
     
-    def logs(self, follow: bool = False) -> bool:
-        """Show bot logs"""
-        print("📝 Bot Logs:")
-        print("=" * 40)
-        
-        cmd = ["docker-compose", "logs"]
-        if follow:
-            cmd.append("-f")
-        
-        result = self._run_command(cmd)
-        return result.returncode == 0
+    def status(self, detailed: bool = False) -> bool:
+        """Show comprehensive bot status"""
+        try:
+            return action_status()
+        except (BotError, DockerError) as e:
+            handle_error(e)
+            return False
+        except Exception as e:
+            print_error(f"Status check failed: {e}")
+            return False
     
-    def clean(self) -> bool:
+    def logs(self, follow: bool = False, lines: int = 50) -> bool:
+        """Show bot logs with filtering options"""
+        try:
+            return action_logs(follow=follow, lines=lines)
+        except (BotError, DockerError) as e:
+            handle_error(e)
+            return False
+        except Exception as e:
+            print_error(f"Logs failed: {e}")
+            return False
+    
+    def clean(self, deep: bool = False) -> bool:
         """Clean up containers and images"""
-        print("🧹 Cleaning up...")
-        
-        # Stop and remove containers
-        self._run_command(["docker-compose", "down", "--rmi", "local", "--volumes"])
-        
-        # Clean up unused resources
-        self._run_command(["docker", "system", "prune", "-f"])
-        
-        print("✅ Cleanup completed!")
-        return True
+        try:
+            if deep:
+                return action_prune()
+            else:
+                return action_cleanup()
+        except (BotError, DockerError) as e:
+            handle_error(e)
+            return False
+        except Exception as e:
+            print_error(f"Cleanup failed: {e}")
+            return False
 
 
 def main():
-    """Main CLI interface"""
+    """Main CLI interface with enhanced functionality"""
     parser = argparse.ArgumentParser(
-        description="Telegram Bot Framework Manager",
+        description="Quit Smoking Bot Manager - Comprehensive bot management tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  python manager.py setup     # Initial project setup
-  python manager.py start     # Start the bot
-  python manager.py stop      # Stop the bot
-  python manager.py status    # Show status
-  python manager.py logs      # Show logs
-  python manager.py logs -f   # Follow logs
-  python manager.py restart   # Restart the bot
-  python manager.py clean     # Clean up
+🚀 Quick Start Examples:
+  python manager.py setup                    # Initial project setup
+  python manager.py start                    # Start the bot
+  python manager.py start --monitoring       # Start with health monitoring
+  python manager.py stop                     # Stop the bot
+  python manager.py restart --rebuild        # Restart with container rebuild
+  python manager.py status --detailed        # Detailed status with diagnostics
+  python manager.py logs --follow            # Follow logs in real-time
+  python manager.py clean                    # Basic cleanup
+  python manager.py clean --deep             # Deep cleanup (removes everything)
+
+📋 Management Commands:
+  setup      Initial project setup and configuration
+  start      Start the bot service with options
+  stop       Stop the bot service  
+  restart    Restart the bot service
+  status     Show comprehensive status and health
+  logs       Show bot logs with filtering
+  clean      Clean up containers and resources
+
+🔧 Advanced Options:
+  --token TOKEN        Set bot token during setup
+  --rebuild            Force rebuild Docker containers
+  --monitoring         Enable health monitoring services
+  --logging           Enable centralized logging
+  --follow            Follow logs in real-time
+  --detailed          Show detailed status information
+  --deep              Deep cleanup (removes all data)
         """
     )
     
     parser.add_argument(
         'action',
         choices=['setup', 'start', 'stop', 'restart', 'status', 'logs', 'clean'],
-        help='Action to perform'
+        help='Management action to perform'
+    )
+    
+    # Setup options
+    parser.add_argument(
+        '--token',
+        type=str,
+        help='Telegram bot token (for setup action)'
+    )
+    
+    # Start/restart options
+    parser.add_argument(
+        '--rebuild',
+        action='store_true',
+        help='Force rebuild Docker containers (start/restart)'
     )
     
     parser.add_argument(
+        '--monitoring',
+        action='store_true',
+        help='Enable health monitoring services (start)'
+    )
+    
+    parser.add_argument(
+        '--logging',
+        action='store_true',
+        help='Enable centralized logging (start)'
+    )
+    
+    parser.add_argument(
+        '--env',
+        type=str,
+        choices=['dev', 'prod'],
+        default='prod',
+        help='Deployment environment (dev/prod)'
+    )
+    
+    # Status options
+    parser.add_argument(
+        '--detailed',
+        action='store_true',
+        help='Show detailed status information (status)'
+    )
+    
+    # Logs options
+    parser.add_argument(
         '-f', '--follow',
         action='store_true',
-        help='Follow logs (only for logs action)'
+        help='Follow logs in real-time (logs)'
+    )
+    
+    parser.add_argument(
+        '--lines',
+        type=int,
+        default=50,
+        help='Number of log lines to show (default: 50)'
+    )
+    
+    # Clean options
+    parser.add_argument(
+        '--deep',
+        action='store_true',
+        help='Deep cleanup - removes all data and images (clean)'
+    )
+    
+    # Stop options
+    parser.add_argument(
+        '--cleanup',
+        action='store_true',
+        help='Cleanup resources after stopping (stop)'
     )
     
     args = parser.parse_args()
     
-    # Create manager instance
-    manager = BotManager()
-    
-    # Execute action
-    action_map = {
-        'setup': manager.setup,
-        'start': manager.start,
-        'stop': manager.stop,
-        'restart': manager.restart,
-        'status': manager.status,
-        'logs': lambda: manager.logs(args.follow),
-        'clean': manager.clean,
-    }
-    
     try:
-        success = action_map[args.action]()
-        sys.exit(0 if success else 1)
+        # Create manager instance
+        manager = BotManager()
+        
+        # Execute action with appropriate arguments
+        success = False
+        
+        if args.action == 'setup':
+            success = manager.setup(token=args.token)
+            
+        elif args.action == 'start':
+            success = manager.start(
+                force_rebuild=args.rebuild,
+                enable_monitoring=args.monitoring,
+                enable_logging=args.logging,
+                env=args.env
+            )
+            
+        elif args.action == 'stop':
+            success = manager.stop(cleanup=args.cleanup)
+            
+        elif args.action == 'restart':
+            success = manager.restart(force_rebuild=args.rebuild)
+            
+        elif args.action == 'status':
+            success = manager.status()
+            
+        elif args.action == 'logs':
+            success = manager.logs(follow=args.follow, lines=args.lines)
+            
+        elif args.action == 'clean':
+            success = manager.clean(deep=args.deep)
+            
+        # Exit with appropriate code
+        if success:
+            print_success("\n✅ Operation completed successfully!")
+            sys.exit(0)
+        else:
+            print_error("\n❌ Operation failed!")
+            sys.exit(1)
+            
     except KeyboardInterrupt:
-        print("\n🛑 Operation cancelled by user")
-        sys.exit(1)
+        print_message("\n🛑 Operation cancelled by user", Colors.YELLOW)
+        sys.exit(130)
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print_error(f"❌ Unexpected error: {e}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    main() 
+    main()

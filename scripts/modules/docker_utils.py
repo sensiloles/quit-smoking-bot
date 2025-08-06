@@ -225,19 +225,19 @@ def cleanup_docker_resources(service: str = "", cleanup_all: bool = False) -> bo
         # Stop and remove containers
         print_message("Stopping and removing containers...", Colors.YELLOW)
         if service:
-            run_command(["docker-compose", "rm", "-sf", service])
+            run_command(["docker-compose", "-f", "docker/docker-compose.yml", "rm", "-sf", service])
         else:
-            run_command(["docker-compose", "down"])
+            run_command(["docker-compose", "-f", "docker/docker-compose.yml", "down"])
         
         # Remove images
         print_message("Removing Docker images...", Colors.YELLOW)
         if service:
-            result = run_command(["docker-compose", "images", "-q", service])
+            result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "images", "-q", service])
             if result.stdout.strip():
                 images = result.stdout.strip().split('\n')
                 run_command(["docker", "rmi"] + images)
         else:
-            result = run_command(["docker-compose", "images", "-q"])
+            result = run_command(["docker-compose", "-f", "docker/docker-compose.yml", "images", "-q"])
             if result.stdout.strip():
                 images = result.stdout.strip().split('\n')
                 run_command(["docker", "rmi"] + images)
@@ -245,7 +245,7 @@ def cleanup_docker_resources(service: str = "", cleanup_all: bool = False) -> bo
         # Additional cleanup if requested
         if cleanup_all:
             print_message("Cleaning up unused Docker resources...", Colors.YELLOW)
-            run_command(["docker-compose", "down", "-v", "--remove-orphans"])
+            run_command(["docker-compose", "-f", "docker/docker-compose.yml", "down", "-v", "--remove-orphans"])
         
         print_message("Docker cleanup completed.", Colors.GREEN)
         

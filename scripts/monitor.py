@@ -43,7 +43,7 @@ def monitor_health_check() -> bool:
     try:
         # Check container status using docker-compose
         result = subprocess.run(
-            ["docker-compose", "ps", "bot"],
+            ["docker-compose", "-f", "docker/docker-compose.yml", "ps", "bot"],
             capture_output=True,
             text=True,
             cwd="/"
@@ -69,7 +69,7 @@ def monitor_health_check() -> bool:
         # Check recent logs for errors
         try:
             log_result = subprocess.run(
-                ["docker-compose", "logs", "--tail", "10", "bot"],
+                ["docker-compose", "-f", "docker/docker-compose.yml", "logs", "--tail", "10", "bot"],
                 capture_output=True,
                 text=True,
                 cwd="/"
@@ -233,7 +233,7 @@ def run_status_mode():
     print_section("Service Status")
     try:
         result = subprocess.run(
-            ["docker-compose", "ps"],
+            ["docker-compose", "-f", "docker/docker-compose.yml", "ps"],
             capture_output=True,
             text=True,
             cwd="/"
