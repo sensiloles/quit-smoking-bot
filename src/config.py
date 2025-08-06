@@ -63,7 +63,7 @@ if Path("/app").exists():
     # Docker environment
     BASE_DIR = Path("/app")
 else:
-    # Local development environment
+    # Local environment
     BASE_DIR = Path(__file__).parent.parent.absolute()
 
 DATA_DIR = BASE_DIR / "data"

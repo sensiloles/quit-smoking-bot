@@ -109,8 +109,7 @@ python3 manager.py setup                    # Basic setup
 python3 manager.py setup --token TOKEN      # Setup with bot token
 
 # 🚀 Service Management  
-python3 manager.py start                    # Start the bot (production)
-python3 manager.py start --env dev          # Start in development mode
+python3 manager.py start                    # Start the bot
 python3 manager.py start --monitoring       # Start with health monitoring
 python3 manager.py start --rebuild          # Start with container rebuild
 python3 manager.py stop                     # Stop the bot
@@ -128,21 +127,25 @@ python3 manager.py clean --deep             # Remove all data and images
 
 ### Convenient Shortcuts (Makefile)
 ```bash
-# 🎯 Quick Operations
+# 🎯 Setup & Installation
+make setup          # Initial project setup
 make install        # Complete setup and start with monitoring
-make start          # Start the bot (production)
-make start-dev      # Start in development mode
+
+# 🚀 Service Management
+make start          # Start the bot
 make stop           # Stop the bot
 make restart        # Restart the bot
-make status         # Show status
-make logs-follow    # Follow logs in real-time
-make clean          # Basic cleanup
-make clean-deep     # Deep cleanup
 
-# 🔧 Advanced Operations
+# 📊 Monitoring & Logs
+make status         # Show bot status
+make logs           # Show logs
+make logs-follow    # Follow logs in real-time
 make monitor        # Advanced monitoring and diagnostics
-make health         # Quick health check
-make token          # Set bot token interactively
+
+# 🧹 Maintenance
+make clean          # Clean up containers and images
+make clean-deep     # Deep cleanup (removes all data)
+make build          # Build Docker image
 ```
 
 ## ⚙️ Configuration
@@ -184,9 +187,7 @@ quit-smoking-bot/
 │   └── utils.py           # Utility functions
 ├── docker/                # 🐳 Production Docker configuration
 │   ├── Dockerfile         # Container definition
-│   ├── docker-compose.yml # Base orchestration
-│   ├── docker-compose.dev.yml # Development environment  
-│   ├── docker-compose.prod.yml # Production environment
+│   ├── docker-compose.yml # Production-ready orchestration
 │   ├── entrypoint.py      # 🚀 Production initialization script
 │   └── README.md          # Docker documentation → [see details](docker/README.md)
 ├── scripts/               # Advanced management system
@@ -209,23 +210,21 @@ quit-smoking-bot/
 └── README.md            # This file
 ```
 
-## 📚 Development
+## 📚 Local Usage
 
-### Local Development (without Docker)
+### Running Locally (without Docker)
 ```bash
 # Install dependencies from pyproject.toml
 pip install -e .
 
-# Run locally with modern interface
+# Run locally
 python3 manager.py setup --token "YOUR_TOKEN"
-make dev
-# or
-python3 main.py --token "YOUR_TOKEN"
+python3 main.py
 ```
 
-**Note**: Local development automatically uses the project directory for logs and data, while Docker uses `/app/` paths.
+**Note**: Local running uses the project directory for logs and data, while Docker uses `/app/` paths.
 
-### Docker Development
+### Docker Monitoring
 ```bash
 # Quick start with monitoring
 python3 manager.py start --monitoring
@@ -268,8 +267,8 @@ Create or edit `data/quotes.json`:
 git clone <your-repo-url>
 cd quit-smoking-bot
 
-# Complete setup with production token
-python3 manager.py setup --token "YOUR_PRODUCTION_BOT_TOKEN"
+# Complete setup with bot token
+python3 manager.py setup --token "YOUR_BOT_TOKEN"
 
 # Start with monitoring and logging
 python3 manager.py start --monitoring
@@ -294,8 +293,8 @@ python3 manager.py logs --follow
 # Advanced monitoring and diagnostics
 make monitor
 
-# Quick health check
-make health
+# Quick status check  
+make status
 ```
 
 ## 👥 Admin Management
@@ -348,7 +347,7 @@ TZ="Europe/Moscow"  # or your preferred timezone
 ### Dependencies Management
 This project uses modern Python packaging with `pyproject.toml`:
 - **Main dependencies**: Defined in `pyproject.toml`
-- **Development tools**: Available via `pip install -e .[dev]`
+- **Local usage**: Run without Docker using `python3 main.py`
 - **No requirements.txt files**: All managed through pyproject.toml
 
 ## 🔍 Troubleshooting
@@ -383,13 +382,13 @@ make start
 
 **Performance Tip**: If builds seem slow, the Docker layer cache might be corrupted. Use `docker system prune -f` to clear unused images and restart fresh.
 
-### Development issues
+### Local usage issues
 ```bash
 # Run locally to debug
-make dev
+python3 main.py
 
-# Check health and diagnostics
-make health
+# Check status and diagnostics  
+make status
 make monitor
 ```
 
@@ -398,12 +397,13 @@ make monitor
 - Verify notification schedule in `src/config.py`
 - Check logs for scheduler errors: `python3 manager.py logs --follow`
 - Run diagnostics: `make monitor`
+- Quick status check: `make status`
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create your feature branch
-3. Test with `make dev`
+3. Test with `python3 main.py`
 4. Deploy with `make start`
 5. Submit pull request
 

@@ -66,10 +66,10 @@ The entrypoint starts a background daemon that:
 - **Monitoring**: Built-in health tracking without external tools
 - **Maintenance**: Automatic log management prevents disk filling
 
-### **For Bot Development:**
+### **For Bot Creation:**
 - **Clean environment**: Consistent startup every time
 - **Debug friendly**: Clear session logs and health tracking
-- **Development to production**: Same entrypoint for dev and prod
+- **Production-ready**: Optimized entrypoint for production deployment
 
 ### **For Universal Bot Framework:**
 - **Bot-agnostic**: Works with any Telegram bot using this structure

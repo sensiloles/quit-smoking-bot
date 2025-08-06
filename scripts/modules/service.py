@@ -58,9 +58,9 @@ def get_service_status() -> Dict[str, Any]:
     
     return status
 
-def start_service(service: str = "bot", profile: str = "prod") -> bool:
+def start_service(service: str = "bot") -> bool:
     """Start a specific service"""
-    debug_print(f"Starting service: {service} with profile: {profile}")
+    debug_print(f"Starting service: {service}")
     
     with ErrorContext(f"Starting service {service}"):
         if is_dry_run():
@@ -69,7 +69,6 @@ def start_service(service: str = "bot", profile: str = "prod") -> bool:
         
         # Prepare environment
         env = os.environ.copy()
-        env["COMPOSE_PROFILES"] = profile
         
         print_message(f"🚀 Starting service: {service}", Colors.BLUE)
         
@@ -116,7 +115,7 @@ def stop_service(service: str = "bot", cleanup: bool = False) -> bool:
         print_success(f"✅ Service {service} stopped successfully")
         return True
 
-def restart_service(service: str = "bot", profile: str = "prod") -> bool:
+def restart_service(service: str = "bot") -> bool:
     """Restart a specific service"""
     debug_print(f"Restarting service: {service}")
     
@@ -130,7 +129,7 @@ def restart_service(service: str = "bot", profile: str = "prod") -> bool:
     time.sleep(2)
     
     # Start again
-    return start_service(service, profile)
+    return start_service(service)
 
 def wait_for_service_ready(service: str, timeout: int = 60) -> bool:
     """Wait for service to be ready"""

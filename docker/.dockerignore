@@ -68,7 +68,7 @@ data/
 .coverage
 htmlcov/
 
-# Development files
+# Management files
 Makefile
 manager.py
 

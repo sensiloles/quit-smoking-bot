@@ -53,11 +53,10 @@ class BotManager:
             return False
     
     def start(self, force_rebuild: bool = False, enable_monitoring: bool = False, 
-              enable_logging: bool = False, env: str = "prod") -> bool:
+              enable_logging: bool = False) -> bool:
         """Start the bot with advanced options"""
         try:
             return action_start(
-                profile=env,
                 force_rebuild=force_rebuild,
                 enable_monitoring=enable_monitoring,
                 enable_logging=enable_logging
@@ -83,7 +82,7 @@ class BotManager:
     def restart(self, force_rebuild: bool = False) -> bool:
         """Restart the bot service"""
         try:
-            return action_restart(profile="prod")
+            return action_restart()
         except (BotError, DockerError) as e:
             handle_error(e)
             return False
@@ -197,13 +196,7 @@ def main():
         help='Enable centralized logging (start)'
     )
     
-    parser.add_argument(
-        '--env',
-        type=str,
-        choices=['dev', 'prod'],
-        default='prod',
-        help='Deployment environment (dev/prod)'
-    )
+
     
     # Status options
     parser.add_argument(
@@ -256,8 +249,7 @@ def main():
             success = manager.start(
                 force_rebuild=args.rebuild,
                 enable_monitoring=args.monitoring,
-                enable_logging=args.logging,
-                env=args.env
+                enable_logging=args.logging
             )
             
         elif args.action == 'stop':

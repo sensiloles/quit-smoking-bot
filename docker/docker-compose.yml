@@ -13,9 +13,9 @@ services:
         GROUP_ID: ${GROUP_ID:-1000}
     image: ${SYSTEM_NAME:-quit-smoking-bot}:latest
     container_name: ${SYSTEM_NAME:-quit-smoking-bot}
-    restart: unless-stopped
+    restart: always
     
-    # Resource limits for stability
+    # Production resource limits for stability
     deploy:
       resources:
         limits:
@@ -31,18 +31,20 @@ services:
     environment:
       - TZ=${TZ:-UTC}
       - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+      - PRODUCTION=true
     
     # Data persistence
     volumes:
       - ../data:/app/data:rw
       - ../logs:/app/logs:rw
     
-    # Logging configuration
+    # Production logging configuration
     logging:
       driver: "json-file"
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: "5m"
+        max-file: "5"
         compress: "true"
     
     # Health monitoring
@@ -52,6 +54,16 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    
+    # Security and stability
+    security_opt:
+      - no-new-privileges:true
+    
+    # Production labels for monitoring
+    labels:
+      - "com.example.service=quit-smoking-bot"
+      - "com.example.environment=production"
+      - "com.example.monitoring=enabled"
     
     # Network isolation
     networks:

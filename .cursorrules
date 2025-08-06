@@ -1,0 +1,122 @@
+# Cursor Rules for Quit Smoking Telegram Bot
+
+## 🔐 Security and Best Practices
+
+### Environment Variables:
+- Never commit tokens and passwords
+- Use .env files (in .gitignore)
+- Validate tokens at startup
+
+## 🔄 Git and Commit Process
+
+### Commit Creation Procedure:
+When user requests to make a commit, execute these steps in strict order:
+
+1. **Analyze Changes**: Analyze all current git changes
+   ```bash
+   git status
+   git diff --name-only
+   git diff --stat
+   ```
+
+2. **Study History**: Look at last 10 commits to understand style
+   ```bash
+   git log --oneline -10
+   git log --pretty=format:"%h - %s (%an, %ar)" -10
+   ```
+
+3. **Check pre-commit**: Study `.pre-commit-config.yaml` file to understand requirements
+
+4. **Add Files**: Add all changes
+   ```bash
+   git add .
+   ```
+
+5. **Create Commit**: Make commit following Conventional Commits standard
+
+### Conventional Commits Format:
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Commit Types:
+- `feat`: new functionality
+- `fix`: bug fix  
+- `docs`: documentation changes
+- `style`: formatting, no logic changes
+- `refactor`: code refactoring
+- `test`: adding tests
+- `chore`: build, CI/CD, dependencies changes
+- `perf`: performance improvements
+- `ci`: CI/CD changes
+- `build`: build system changes
+
+### Examples of Good Commits:
+```bash
+feat(bot): add progressive prize system for quit smoking tracking
+fix(users): resolve JSON serialization error in user data saving  
+docs(readme): update setup instructions for Docker deployment
+refactor(config): migrate to environment-based configuration
+chore(deps): update python-telegram-bot to version 20.7
+```
+
+### Pre-commit Checks:
+Project uses:
+- **ruff** - Python code linting and formatting
+- **commitizen** - commit message format validation
+- **pre-commit-hooks** - basic checks (trailing whitespace, YAML, large files)
+
+### Important:
+- Always write commits in English
+- Use imperative mood ("add", "fix", not "added", "fixed")
+- First line no more than 50 characters
+- If explanation needed - add body after empty line
+- Follow conventional commits for automatic changelog generation
+
+## 📚 Documentation Validation and Updates
+
+### Mandatory Check After Changes:
+After ANY code changes **ALWAYS** validate and update documentation:
+
+1. **Scan .md Files**: Find and analyze all documentation files
+   ```bash
+   find . -name "*.md" -not -path "./venv/*" -not -path "./.git/*"
+   ```
+
+2. **Check Compliance**: Ensure documentation matches changes:
+   - `README.md` - general description, installation instructions, API
+   - `docker/README.md` - Docker configuration and deployment
+   - `docker/ENTRYPOINT.md` - entrypoint documentation
+   - Any other .md files in project
+
+3. **Update Content**:
+   - Update code examples if APIs or interfaces changed
+   - Add descriptions of new functions or parameters
+   - Fix outdated instructions
+   - Update dependency versions in examples
+   - Check file path correctness
+
+4. **Quality Check**:
+   - Ensure all links work
+   - Check markdown formatting
+   - Ensure code examples are executable
+   - Verify project structure correspondence
+
+### Examples of Changes Requiring Documentation Updates:
+- Bot API changes → update README.md with new commands
+- New environment variables → update setup instructions  
+- Docker changes → update docker/README.md
+- New dependencies → update requirements in documentation
+- File structure changes → update architecture description
+
+### Important:
+- **DON'T SKIP** this step even for "minor" changes
+- Documentation should be understandable to new developers
+- Use concrete examples, not abstract descriptions
+- Always verify instructions work "out of the box"
+
+Always follow these rules when working with code. Priority: readability, security, performance.

@@ -22,7 +22,7 @@ YELLOW := \033[1;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-.PHONY: help setup install start stop restart status logs clean build dev monitor
+.PHONY: help setup install start stop restart status logs clean build monitor
 
 # Default target
 .DEFAULT_GOAL := help
@@ -51,8 +51,6 @@ help: ## Show this help message
 	@echo "  $(GREEN)clean-deep$(NC)      Deep cleanup (removes all data)"
 	@echo "  $(GREEN)build$(NC)           Build Docker image"
 	@echo ""
-	@echo "$(BLUE)🛠️ Development:$(NC)"
-	@echo "  $(GREEN)dev$(NC)             Run bot locally (without Docker)"
 	@echo ""
 	@echo "$(BLUE)💡 Quick Examples:$(NC)"
 	@echo "  make install             # Complete setup and start"
@@ -76,10 +74,6 @@ install: ## Full installation (setup + start with monitoring)
 start: ## Start the bot
 	@echo "$(BLUE)🚀 Starting bot...$(NC)"
 	@$(MANAGER) start
-
-start-dev: ## Start in development mode
-	@echo "$(BLUE)🚀 Starting bot in development mode...$(NC)"
-	@$(MANAGER) start --env dev
 
 start-full: ## Start with monitoring and logging
 	@echo "$(BLUE)🚀 Starting bot with full features...$(NC)"
@@ -127,20 +121,6 @@ build: ## Build Docker image
 	@echo "$(BLUE)🔨 Building Docker image...$(NC)"
 	@docker-compose -f docker/docker-compose.yml build
 
-build-dev: ## Build for development
-	@echo "$(BLUE)🔨 Building development image...$(NC)"
-	@docker-compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml build
-
-# Development
-dev: ## Run bot locally (without Docker)
-	@echo "$(BLUE)🛠️ Running bot locally...$(NC)"
-	@if [ ! -f .env ]; then \
-		echo "$(RED)❌ .env file not found. Run 'make setup' first.$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(YELLOW)💡 Running bot in development mode...$(NC)"
-	@python3 main.py
-
 # Advanced operations
 token: ## Set bot token interactively
 	@echo "$(BLUE)🔑 Setting bot token...$(NC)"
@@ -151,9 +131,5 @@ backup: ## Create backup of bot data
 	@echo "$(BLUE)💾 Creating backup...$(NC)"
 	@python3 -c "from scripts.modules.actions import action_backup; action_backup()"
 
-# Health checks
-health: ## Quick health check
-	@python3 scripts/monitor.py --mode status
-
 diagnose: ## Comprehensive diagnostics
-	@python3 scripts/monitor.py --mode diagnostics
+	@python3 scripts/monitor.py --verbose

@@ -63,12 +63,12 @@ def action_setup(token: Optional[str] = None) -> bool:
         
         return True
 
-def action_start(profile: str = "prod", dry_run: bool = False, force_rebuild: bool = False, enable_monitoring: bool = False, enable_logging: bool = False) -> bool:
+def action_start(dry_run: bool = False, force_rebuild: bool = False, enable_monitoring: bool = False, enable_logging: bool = False) -> bool:
     """Start the bot service"""
-    debug_print(f"Starting bot with profile: {profile}, dry_run: {dry_run}")
+    debug_print(f"Starting bot, dry_run: {dry_run}")
     
     with ErrorContext("Bot start"):
-        print_message(f"🚀 Starting {get_system_name()} (profile: {profile})...", Colors.BLUE)
+        print_message(f"🚀 Starting {get_system_name()}...", Colors.BLUE)
         
         # Check if already running
         status = get_container_status()
@@ -116,12 +116,6 @@ def action_start(profile: str = "prod", dry_run: bool = False, force_rebuild: bo
         # Start the service
         print_message("Starting bot container...", Colors.YELLOW)
         cmd = ["docker-compose", "-f", "docker/docker-compose.yml"]
-        
-        # Add environment-specific overrides
-        if profile == "dev":
-            cmd.extend(["-f", "docker/docker-compose.dev.yml"])
-        else:  # prod
-            cmd.extend(["-f", "docker/docker-compose.prod.yml"])
         
         # Add profiles for additional services
         for profile_name in compose_profiles:
@@ -171,9 +165,9 @@ def action_stop(confirm: bool = False) -> bool:
         print_success("✅ Bot stopped successfully")
         return True
 
-def action_restart(profile: str = "prod") -> bool:
+def action_restart() -> bool:
     """Restart the bot service"""
-    debug_print(f"Restarting bot with profile: {profile}")
+    debug_print("Restarting bot")
     
     print_message("🔄 Restarting bot...", Colors.BLUE)
     
@@ -185,7 +179,7 @@ def action_restart(profile: str = "prod") -> bool:
     time.sleep(2)
     
     # Start again
-    return action_start(profile)
+    return action_start()
 
 def action_status() -> bool:
     """Show bot status"""
@@ -199,7 +193,7 @@ def action_status() -> bool:
     if not status["exists"]:
         print_message("❌ No bot containers found", Colors.RED)
         print_message("Run 'python scripts/start.py start' to start the bot", Colors.YELLOW)
-        return False
+        return True  # Changed: reporting status is always successful
     
     if status["running"]:
         print_message("✅ Bot container is running", Colors.GREEN)
@@ -222,7 +216,7 @@ def action_status() -> bool:
         print_message("❌ Bot container is not running", Colors.RED)
         print_message("Run 'python scripts/start.py start' to start the bot", Colors.YELLOW)
     
-    return status["running"]
+    return True  # Changed: reporting status is always successful
 
 def action_logs(follow: bool = False, lines: int = 50) -> bool:
     """Show bot logs"""

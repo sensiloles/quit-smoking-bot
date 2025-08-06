@@ -8,50 +8,53 @@ This directory contains all Docker-related configurations for the universal Tele
 docker/
 ├── README.md                    # This file
 ├── Dockerfile                   # Production image definition
-├── docker-compose.yml           # Service orchestration
+├── docker-compose.yml           # Service orchestration (production-ready)
 ├── .dockerignore               # Build exclusions
-├── docker-compose.dev.yml      # Development overrides
-├── docker-compose.prod.yml     # Production overrides
 ├── entrypoint.py               # Production entrypoint
 ├── ENTRYPOINT.md               # 📖 Entrypoint features documentation
-├── healthcheck.sh              # Health check script (optional)
-└── init-bot.sh                 # Bot initialization script (optional)
+└── Makefile                    # Docker-specific commands
 ```
 
 ## 🚀 Usage
 
-### Development
-```bash
-# From project root
-docker-compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
-```
-
-### Production  
-```bash
-# From project root
-docker-compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
-```
-
-### Single Environment (Simple)
+### Production Deployment
 ```bash
 # From project root
 docker-compose -f docker/docker-compose.yml up -d
 ```
 
-## 🎛️ Environment-Specific Configurations
+### Using Main Makefile Commands
+```bash
+# Build and start
+make install
 
-### Development Features
-- Volume mounts for live code reloading
-- Debug logging enabled
-- Development tools included
-- Exposed debug ports
+# Start services
+make start
 
-### Production Features
-- Optimized image size
-- Security hardening
-- Health monitoring
-- Log management
-- Resource limits
+# Stop services
+make stop
+```
+
+### Using Docker Makefile Commands
+```bash
+# From docker/ directory
+make docker-build       # Build Docker image
+make docker-up          # Start services
+make docker-down        # Stop services
+make docker-logs        # Show logs
+make docker-status      # Show container status
+make docker-clean       # Clean up containers and images
+```
+
+## 🎛️ Production Features
+
+- **Optimized image size** for efficiency
+- **Security hardening** with non-root user and minimal privileges
+- **Health monitoring** with automatic restarts
+- **Log management** with rotation and compression
+- **Resource limits** for stability
+- **Environment variables** for configuration
+- **Data persistence** with mounted volumes
 
 ## 🔧 Customization
 
@@ -64,12 +67,12 @@ This Docker setup is designed to be universal for any Telegram bot. To adapt for
 
 ## 📊 Features
 
-- **Production-ready entrypoint** with initialization and monitoring
-- **Multi-environment support** (dev/staging/prod)
+- **Production-ready entrypoint** with comprehensive initialization and monitoring
 - **Health monitoring** and automatic restarts
-- **Log management** with rotation
-- **Security best practices** (non-root user, minimal image)
+- **Log management** with rotation and compression
+- **Security best practices** (non-root user, minimal privileges)
 - **Resource optimization** with limits and reservations
+- **Simple deployment** with single compose file
 
 ## 📖 Documentation
 
