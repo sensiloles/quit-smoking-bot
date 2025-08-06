@@ -1,8 +1,8 @@
 import logging
 from typing import List
 
+from src.config import ADMINS_FILE, USERS_FILE
 from src.utils import load_json_file, save_json_file
-from src.config import USERS_FILE, ADMINS_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class UserManager:
         admins = load_json_file(ADMINS_FILE, [])
         if not admins:
             logger.warning(
-                "Admins list is empty, first user to interact will become admin"
+                "Admins list is empty, first user to interact will become admin",
             )
         return admins
 

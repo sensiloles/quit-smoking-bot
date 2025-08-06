@@ -1,9 +1,10 @@
+import datetime
 import json
 import logging
-import datetime
-from typing import Any, Union
 from pathlib import Path
-from .config import MONTHLY_AMOUNT, MAX_PRIZE_FUND, PRIZE_FUND_INCREASE
+from typing import Any, Union
+
+from .config import MAX_PRIZE_FUND, MONTHLY_AMOUNT, PRIZE_FUND_INCREASE
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ def load_json_file(filename: Union[str, Path], default_value: Any = None) -> Any
     filepath = Path(filename)
     if filepath.exists():
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Error loading from {filepath}: {e}")
@@ -38,7 +39,8 @@ def save_json_file(filename: Union[str, Path], data: Any) -> None:
 
 
 def calculate_period(
-    start_date: datetime.datetime, end_date: datetime.datetime
+    start_date: datetime.datetime,
+    end_date: datetime.datetime,
 ) -> tuple[int, int, int]:
     """Calculate years, months and days between two dates."""
     years = end_date.year - start_date.year

@@ -7,11 +7,6 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
-# Default values
-SYSTEM_NAME ?= quit-smoking-bot
-USER_ID ?= $(shell id -u)
-GROUP_ID ?= $(shell id -g)
-
 # Modern Python manager
 MANAGER := python3 manager.py
 
@@ -22,7 +17,7 @@ YELLOW := \033[1;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-.PHONY: help setup install start stop restart status logs clean build monitor
+.PHONY: help setup install start stop restart status logs clean build monitor code-check dev-setup python-setup
 
 # Default target
 .DEFAULT_GOAL := help
@@ -32,7 +27,9 @@ help: ## Show this help message
 	@echo "======================================"
 	@echo ""
 	@echo "$(BLUE)📦 Setup & Installation:$(NC)"
-	@echo "  $(GREEN)setup$(NC)           Initial project setup"
+	@echo "  $(GREEN)dev-setup$(NC)       Complete development setup (Python + Docker)"
+	@echo "  $(GREEN)python-setup$(NC)    Setup Python virtual environment only"
+	@echo "  $(GREEN)setup$(NC)           Initial Docker project setup"
 	@echo "  $(GREEN)install$(NC)         Full installation (setup + start)"
 	@echo ""
 	@echo "$(BLUE)🚀 Service Management:$(NC)"
@@ -50,6 +47,9 @@ help: ## Show this help message
 	@echo "  $(GREEN)clean$(NC)           Clean up containers and images"
 	@echo "  $(GREEN)clean-deep$(NC)      Deep cleanup (removes all data)"
 	@echo "  $(GREEN)build$(NC)           Build Docker image"
+	@echo ""
+	@echo "$(BLUE)🔧 Development:$(NC)"
+	@echo "  $(GREEN)code-check$(NC)      Run pre-commit hooks (formatting, linting)"
 	@echo ""
 	@echo ""
 	@echo "$(BLUE)💡 Quick Examples:$(NC)"
@@ -133,3 +133,23 @@ backup: ## Create backup of bot data
 
 diagnose: ## Comprehensive diagnostics
 	@python3 scripts/monitor.py --verbose
+
+# Code quality through pre-commit
+code-check: ## Run pre-commit hooks (code formatting, linting, etc)
+	@echo "$(BLUE)🔧 Running code quality checks via pre-commit...$(NC)"
+	@source venv/bin/activate && pre-commit run --all-files
+
+# Development setup
+dev-setup: ## Complete development setup (Python + Docker)
+	@echo "$(BLUE)🚀 Complete development setup...$(NC)"
+	@python3 dev_setup.py
+	@echo "$(GREEN)✅ Development environment ready!$(NC)"
+	@echo "$(YELLOW)💡 Next: Reload VS Code window and run 'make install'$(NC)"
+
+python-setup: ## Setup Python virtual environment only
+	@echo "$(BLUE)🐍 Setting up Python environment...$(NC)"
+	@rm -rf venv
+	@python3 -m venv venv
+	@source venv/bin/activate && pip install -e .
+	@echo "$(GREEN)✅ Python environment ready!$(NC)"
+	@echo "$(YELLOW)💡 Reload VS Code window to pick up changes$(NC)"

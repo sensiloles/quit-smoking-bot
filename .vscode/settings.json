@@ -1,0 +1,56 @@
+{
+  // Python interpreter from virtual environment
+  "python.defaultInterpreterPath": "./venv/bin/python3",
+
+  // Format and lint on save
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit",
+    "source.fixAll.ruff": "explicit"
+  },
+
+  // Python-specific formatting
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports.ruff": "explicit",
+      "source.fixAll.ruff": "explicit"
+    }
+  },
+
+  // Ruff configuration
+  "ruff.nativeServer": "on",
+  "ruff.importStrategy": "fromEnvironment",
+  "ruff.path": ["./venv/bin/ruff"],
+
+  // Python language server (will use default - no need to specify if Pylance not installed)
+
+  // Docker file formatting with shell-format
+  "[dockerfile]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.formatOnSave": true
+  },
+
+  // Shell script formatting
+  "[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.formatOnSave": true
+  },
+
+  // Shell-format configuration
+  "shellformat.flag": "-i=2 -ci",
+
+  // File associations
+  "files.associations": {
+    "*.py": "python",
+    ".cursorrules": "plaintext",
+    ".pre-commit-config.yaml": "yaml",
+    "Dockerfile": "dockerfile",
+    "Dockerfile.*": "dockerfile"
+  },
+
+  // Terminal configuration
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true
+}

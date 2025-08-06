@@ -1,9 +1,9 @@
-import random
 import logging
+import random
 from typing import List
 
-from .utils import load_json_file
 from .config import QUOTES_FILE
+from .utils import load_json_file
 
 logger = logging.getLogger(__name__)
 

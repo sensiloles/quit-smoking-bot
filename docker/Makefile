@@ -39,7 +39,7 @@ docker-down: ## Stop services
 docker-logs: ## Show logs
 	@docker-compose -f $(DOCKER_COMPOSE_BASE) logs -f
 
-docker-status: ## Show container status  
+docker-status: ## Show container status
 	@docker-compose -f $(DOCKER_COMPOSE_BASE) ps
 
 docker-clean: ## Clean up containers and images

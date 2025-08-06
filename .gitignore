@@ -27,7 +27,10 @@ ENV/
 
 # IDE
 .idea/
-.vscode/
+# .vscode/ - Allow useful VS Code config for team
+.vscode/tasks.json
+.vscode/c_cpp_properties.json
+.vscode/*.code-workspace
 *.swp
 *.swo
 

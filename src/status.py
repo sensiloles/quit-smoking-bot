@@ -2,15 +2,15 @@ import datetime
 import logging
 
 from .config import (
-    START_DATE,
     BOT_TIMEZONE,
     NOTIFICATION_DAY,
     NOTIFICATION_HOUR,
     NOTIFICATION_MINUTE,
+    START_DATE,
     STATUS_MESSAGE,
 )
-from .utils import calculate_period, calculate_prize_fund
 from .quotes import QuotesManager
+from .utils import calculate_period, calculate_prize_fund
 
 logger = logging.getLogger(__name__)
 
@@ -62,27 +62,26 @@ class StatusManager:
                 second=0,
                 microsecond=0,
             )
+        # If today is after the 23rd, move to next month
+        elif now.month == 12:
+            next_date = now.replace(
+                year=now.year + 1,
+                month=1,
+                day=NOTIFICATION_DAY,
+                hour=NOTIFICATION_HOUR,
+                minute=NOTIFICATION_MINUTE,
+                second=0,
+                microsecond=0,
+            )
         else:
-            # If today is after the 23rd, move to next month
-            if now.month == 12:
-                next_date = now.replace(
-                    year=now.year + 1,
-                    month=1,
-                    day=NOTIFICATION_DAY,
-                    hour=NOTIFICATION_HOUR,
-                    minute=NOTIFICATION_MINUTE,
-                    second=0,
-                    microsecond=0,
-                )
-            else:
-                next_date = now.replace(
-                    month=now.month + 1,
-                    day=NOTIFICATION_DAY,
-                    hour=NOTIFICATION_HOUR,
-                    minute=NOTIFICATION_MINUTE,
-                    second=0,
-                    microsecond=0,
-                )
+            next_date = now.replace(
+                month=now.month + 1,
+                day=NOTIFICATION_DAY,
+                hour=NOTIFICATION_HOUR,
+                minute=NOTIFICATION_MINUTE,
+                second=0,
+                microsecond=0,
+            )
 
         # Calculate days until next update
         days_until_next = (next_date - now).days + (

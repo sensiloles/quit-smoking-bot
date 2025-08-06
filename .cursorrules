@@ -3,9 +3,11 @@
 ## 🔐 Security and Best Practices
 
 ### Environment Variables:
-- Never commit tokens and passwords
-- Use .env files (in .gitignore)
+- **NEVER** commit tokens and passwords to git
+- Use .env files (MUST be in .gitignore)
+- Provide .env.example template without real secrets
 - Validate tokens at startup
+- Always run `git rm --cached .env` if accidentally tracked
 
 ## 🔄 Git and Commit Process
 
@@ -54,7 +56,7 @@ When user requests to make a commit, execute these steps in strict order:
 
 ### Commit Types:
 - `feat`: new functionality
-- `fix`: bug fix  
+- `fix`: bug fix
 - `docs`: documentation changes
 - `style`: formatting, no logic changes
 - `refactor`: code refactoring
@@ -67,7 +69,7 @@ When user requests to make a commit, execute these steps in strict order:
 ### Examples of Good Commits:
 ```bash
 feat(bot): add progressive prize system for quit smoking tracking
-fix(users): resolve JSON serialization error in user data saving  
+fix(users): resolve JSON serialization error in user data saving
 docs(readme): update setup instructions for Docker deployment
 refactor(config): migrate to environment-based configuration
 chore(deps): update python-telegram-bot to version 20.7
@@ -117,7 +119,7 @@ Before creating ANY commit **ALWAYS** validate and update documentation:
 
 ### Examples of Changes Requiring Documentation Updates:
 - Bot API changes → update README.md with new commands
-- New environment variables → update setup instructions  
+- New environment variables → update setup instructions
 - Docker changes → update docker/README.md
 - New dependencies → update requirements in documentation
 - File structure changes → update architecture description
@@ -129,5 +131,37 @@ Before creating ANY commit **ALWAYS** validate and update documentation:
 - Use concrete examples, not abstract descriptions
 - Always verify instructions work "out of the box"
 - Include documentation updates in the same commit as code changes
+
+## 🌐 Code Language Standards
+
+### Comments and Documentation Language:
+- **ALL code comments** must be written in English
+- **ALL docstrings** must be written in English
+- **ALL variable names** should use English words
+- **ALL function/class names** should use English words
+- **Configuration files** (pyproject.toml, etc.) should have English comments
+- **README and documentation** should be in English
+
+### Rationale:
+- English is the international standard for programming
+- Ensures code accessibility for global developers
+- Maintains consistency across the codebase
+- Facilitates code reviews and collaboration
+- Improves IDE support and tooling compatibility
+
+### Examples:
+```python
+# ✅ Good - English comments
+def calculate_prize_fund(days: int) -> float:
+    """Calculate the prize fund based on smoke-free days."""
+    # Apply daily increase to base amount
+    return BASE_AMOUNT + (days * DAILY_INCREASE)
+
+# ❌ Bad - Non-English comments
+def calculate_prize_fund(days: int) -> float:
+    """Вычисляет призовой фонд на основе дней без курения."""
+    # Применяем ежедневное увеличение к базовой сумме
+    return BASE_AMOUNT + (days * DAILY_INCREASE)
+```
 
 Always follow these rules when working with code. Priority: readability, security, performance.

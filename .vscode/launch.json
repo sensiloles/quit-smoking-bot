@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "./venv/bin/python3",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "Python: Bot Main",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "./venv/bin/python3",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "Python: Manager",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manager.py",
+      "console": "integratedTerminal",
+      "args": ["status"],
+      "cwd": "${workspaceFolder}",
+      "python": "./venv/bin/python3",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 import datetime
-import pytz
-from pathlib import Path
 import os
+from pathlib import Path
+
+import pytz
 
 # Timezone settings - configurable via environment variable
 DEFAULT_TIMEZONE = os.getenv("TZ", "UTC")
@@ -21,7 +22,11 @@ NOTIFICATION_MINUTE = 58  # minute
 
 # Start date - January 23, 2025 at 21:58
 START_DATE = datetime.datetime(
-    START_YEAR, START_MONTH, NOTIFICATION_DAY, NOTIFICATION_HOUR, NOTIFICATION_MINUTE
+    START_YEAR,
+    START_MONTH,
+    NOTIFICATION_DAY,
+    NOTIFICATION_HOUR,
+    NOTIFICATION_MINUTE,
 )
 
 # Prize fund settings
@@ -84,7 +89,7 @@ LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "default": {"format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"}
+        "default": {"format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"},
     },
     "handlers": {
         "file": {

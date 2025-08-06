@@ -6,24 +6,26 @@ This script initializes the bot environment, runs startup checks,
 and launches the bot application.
 """
 
-import os
-import sys
-import time
 import json
 import logging
+import os
 import subprocess
-import signal
-from pathlib import Path
+import sys
+import time
 from datetime import datetime
-from typing import List
+from pathlib import Path
 
 # Add scripts directory to Python path
-scripts_dir = os.path.join(os.path.dirname(__file__), '..', 'scripts')
+scripts_dir = os.path.join(os.path.dirname(__file__), "..", "scripts")
 sys.path.insert(0, scripts_dir)
 
 from modules import (
-    print_message, print_error, print_success, debug_print, Colors,
-    setup_permissions, get_system_info, quick_health_check
+    Colors,
+    debug_print,
+    print_error,
+    print_message,
+    quick_health_check,
+    setup_permissions,
 )
 
 # Configuration
@@ -34,10 +36,11 @@ DEFAULT_JSON_FILES = ["bot_admins.json", "bot_users.json", "quotes.json"]
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format='[%(asctime)s] [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    format="[%(asctime)s] [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
 
 def log_message(level: str, message: str):
     """Log message to console with timestamp"""
@@ -53,20 +56,22 @@ def log_message(level: str, message: str):
     else:
         logger.info(f"[{level}] {message}")
         print_message(f"[{level}] {message}", Colors.BLUE)
-    
+
     # Also debug print if DEBUG mode is enabled
     debug_print(f"[entrypoint.py] [{level}] {message}")
+
 
 def setup_health_system():
     """Initialize the health monitoring system"""
     log_message("INFO", "Initializing health monitoring system")
-    
+
     # Create simple health status in logs
     health_log = LOGS_DIR / "health.log"
     with open(health_log, "a") as f:
         f.write(f"{datetime.now()}: Bot is starting up\n")
-    
+
     log_message("INFO", "Health monitoring system initialized")
+
 
 def rotate_logs():
     """Rotate logs to prevent accumulation of old errors"""
@@ -76,7 +81,7 @@ def rotate_logs():
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
     bot_log = LOGS_DIR / "bot.log"
-    
+
     # If log file exists and is not empty, rotate it
     if bot_log.exists() and bot_log.stat().st_size > 0:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -86,26 +91,38 @@ def rotate_logs():
         # Move current log to archive with timestamp
         log_message("INFO", "Rotating existing log file to archive")
         backup_file = backup_dir / f"bot_{timestamp}.log"
-        subprocess.run(["cp", str(bot_log), str(backup_file)])
+        subprocess.run(["cp", str(bot_log), str(backup_file)], check=False)
 
         # Reset current log file (create new empty file)
         with open(bot_log, "w") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [INFO] Log file rotated - new session started\n")
+            f.write(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [INFO] Log file rotated - new session started\n",
+            )
 
         # Clean up old archives (keep last 5)
-        archive_files = sorted(backup_dir.glob("bot_*.log"), key=lambda x: x.stat().st_mtime, reverse=True)
+        archive_files = sorted(
+            backup_dir.glob("bot_*.log"),
+            key=lambda x: x.stat().st_mtime,
+            reverse=True,
+        )
         if len(archive_files) > 5:
-            log_message("INFO", "Cleaning up old log archives, keeping only the 5 most recent")
+            log_message(
+                "INFO",
+                "Cleaning up old log archives, keeping only the 5 most recent",
+            )
             for old_file in archive_files[5:]:
                 old_file.unlink()
     else:
         # Create new log file if it doesn't exist
         with open(bot_log, "w") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [INFO] New log file created - session started\n")
+            f.write(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [INFO] New log file created - session started\n",
+            )
 
     # Ensure proper permissions
     bot_log.chmod(0o644)
     log_message("INFO", "Log rotation completed")
+
 
 def setup_data_directory():
     """Initialize data directory and create default files if missing"""
@@ -137,10 +154,14 @@ def setup_data_directory():
             stat = item.stat()
             permissions = oct(stat.st_mode)[-3:]
             size = stat.st_size
-            mtime = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
-            print_message(f"    {permissions} {size:>8} {mtime} {item.name}", Colors.CYAN)
+            mtime = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+            print_message(
+                f"    {permissions} {size:>8} {mtime} {item.name}",
+                Colors.CYAN,
+            )
     except Exception as e:
         log_message("WARN", f"Could not list directory contents: {e}")
+
 
 def start_health_monitor():
     """Start the health monitoring daemon in the background"""
@@ -152,21 +173,25 @@ def start_health_monitor():
         time.sleep(10)
 
         health_log = LOGS_DIR / "health.log"
-        
+
         # Check every 30 seconds if the bot is operational
         while True:
             try:
                 with open(health_log, "a") as f:
-                    f.write(f"{datetime.now()}: Running health check monitoring cycle\n")
+                    f.write(
+                        f"{datetime.now()}: Running health check monitoring cycle\n",
+                    )
 
                 # Check if the bot process is running using our health check module
                 is_healthy = quick_health_check()
-                
+
                 with open(health_log, "a") as f:
                     if is_healthy:
                         f.write(f"{datetime.now()}: Bot process is healthy\n")
                     else:
-                        f.write(f"{datetime.now()}: WARNING - Bot health check failed\n")
+                        f.write(
+                            f"{datetime.now()}: WARNING - Bot health check failed\n",
+                        )
 
                 time.sleep(30)
             except Exception as e:
@@ -176,22 +201,25 @@ def start_health_monitor():
 
     # Start daemon in background
     import threading
+
     daemon_thread = threading.Thread(target=health_monitor_daemon, daemon=True)
     daemon_thread.start()
-    
+
     log_message("INFO", "Health monitor daemon started")
+
 
 def terminate_existing_processes():
     """Check for and terminate existing bot processes"""
     result = subprocess.run(
         ["pgrep", "-f", "python.*src.*bot"],
+        check=False,
         capture_output=True,
-        text=True
+        text=True,
     )
-    
+
     if result.returncode == 0:
         log_message("WARN", "Detected existing bot process, terminating it")
-        subprocess.run(["pkill", "-f", "python.*src.*bot"])
+        subprocess.run(["pkill", "-f", "python.*src.*bot"], check=False)
 
         # Wait for process to terminate
         time.sleep(2)
@@ -199,16 +227,18 @@ def terminate_existing_processes():
         # Check if it's still running
         result = subprocess.run(
             ["pgrep", "-f", "python.*src.*bot"],
+            check=False,
             capture_output=True,
-            text=True
+            text=True,
         )
-        
+
         if result.returncode == 0:
             log_message("WARN", "Process did not terminate gracefully, sending SIGKILL")
-            subprocess.run(["pkill", "-9", "-f", "python.*src.*bot"])
+            subprocess.run(["pkill", "-9", "-f", "python.*src.*bot"], check=False)
             time.sleep(1)
 
         log_message("INFO", "Existing process terminated")
+
 
 def start_bot():
     """Start the bot application"""
@@ -221,8 +251,12 @@ def start_bot():
         log_message("INFO", "Using BOT_TOKEN from environment variable")
         os.execvp("python", ["python", "-m", "src.bot", "--token", bot_token])
     else:
-        log_message("INFO", "No BOT_TOKEN provided in environment, using config from code")
+        log_message(
+            "INFO",
+            "No BOT_TOKEN provided in environment, using config from code",
+        )
         os.execvp("python", ["python", "-m", "src.bot"])
+
 
 def main():
     """Main execution flow"""
@@ -251,5 +285,6 @@ def main():
     # Start the bot (this will exec, replacing the current process)
     start_bot()
 
+
 if __name__ == "__main__":
-    main() 
+    main()

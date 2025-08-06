@@ -3,75 +3,55 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "telegram-bot-framework"
+name = "quit-smoking-bot"
 version = "1.0.0"
-description = "Universal Telegram bot framework with Docker support"
+description = "Quit Smoking Bot with Docker support"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-    {name = "Telegram Bot Framework", email = "admin@example.com"}
+{name = "Quit Smoking Bot", email = "admin@example.com"}
 ]
 license = {text = "MIT"}
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Topic :: Communications :: Chat",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+"Development Status :: 4 - Beta",
+"Intended Audience :: Developers",
+"Topic :: Communications :: Chat",
+"License :: OSI Approved :: MIT License",
+"Programming Language :: Python :: 3",
+"Programming Language :: Python :: 3.9",
+"Programming Language :: Python :: 3.10",
+"Programming Language :: Python :: 3.11",
 ]
 
 dependencies = [
-    "python-telegram-bot[job-queue]>=20.0,<21.0",
-    "pytz>=2023.3",
-    "APScheduler>=3.10.0,<4.0",
-    "python-dotenv>=1.0.0",
+"python-telegram-bot[job-queue]>=20.0,<21.0",
+"pytz>=2023.3",
+"APScheduler>=3.10.0,<4.0",
+"python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "black>=23.0.0",
-    "flake8>=6.0.0",
-    "mypy>=1.5.0",
-    "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
+"ruff>=0.5.0",
+"mypy>=1.5.0",
+"pytest>=7.4.0",
+"pytest-asyncio>=0.21.0",
+"pre-commit>=3.0.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/telegram-bot-framework"
-Repository = "https://github.com/your-org/telegram-bot-framework"
-Documentation = "https://github.com/your-org/telegram-bot-framework#readme"
-"Issue Tracker" = "https://github.com/your-org/telegram-bot-framework/issues"
+Homepage = "https://github.com/your-org/quit-smoking-bot"
+Repository = "https://github.com/your-org/quit-smoking-bot"
+Documentation = "https://github.com/your-org/quit-smoking-bot#readme"
+"Issue Tracker" = "https://github.com/your-org/quit-smoking-bot/issues"
 
 [project.scripts]
-telegram-bot = "src.bot:main"
+quit-smoking-bot = "src.bot:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*", "telegram_bot_framework*"]
+include = ["src*", "quit_smoking_bot*"]
 exclude = ["tests*", "scripts*"]
-
-[tool.black]
-line-length = 88
-target-version = ['py39']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | venv
-  | build
-  | dist
-  | data
-  | logs
-)/
-'''
 
 [tool.mypy]
 python_version = "3.9"
@@ -80,15 +60,70 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 exclude = [
-    "venv/",
-    "build/",
-    "dist/"
+"venv/",
+"build/",
+"dist/"
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+# Start with basic rules, gradually adding stricter ones
+select = [
+"E",             # pycodestyle errors
+"F",             # pyflakes
+"W",             # pycodestyle warnings
+"I",             # isort (import sorting)
+"UP",            # pyupgrade (syntax modernization)
+"B",             # flake8-bugbear (likely bugs)
+]
+
+# Ignore rules for gradual adoption
+ignore = [
+# Type annotations - will add later
+"ANN",
+# Logging format - too strict for initial setup
+"G004",
+# Exception handling - will fix gradually
+"BLE001", "TRY400", "TRY300", "B904",
+# Unused arguments - many needed for API compatibility
+"ARG002", "ARG001",
+# Unused variables - will fix gradually
+"F841",
+# Magic values - will fix later
+"PLR2004",
+# Path operations - will modernize later
+"PTH123",
+# Datetime timezone - will fix later
+"DTZ001",
+# Complex rules for later adoption
+"RUF005", "RUF001", "SLF001",
+# Formatter conflicts
+"COM812", "ISC001",
+# Import organization - will fix later
+"E402",
+# Modern typing - will fix later
+"UP035", "UP006",
+# Long lines - formatter will handle
+"E501"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["T201"]            # Allow print statements in scripts
+"tests/*" = ["ANN", "PLR2004"]    # Relax type annotations and magic values in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "1.0.0"
 tag_format = "$version"
 version_files = [
-    "pyproject.toml:version"
+"pyproject.toml:version"
 ]

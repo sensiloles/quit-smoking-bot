@@ -1,4 +1,4 @@
-# Universal Telegram Bot Framework Docker Image
+# Quit Smoking Bot Docker Image
 FROM python:3.9-slim
 
 # Set environment variables
@@ -8,12 +8,10 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Create non-root user for security
-ARG USER_ID=1000
-ARG GROUP_ID=1000
-RUN groupadd -g ${GROUP_ID} botuser || true && \
-    useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash botuser
+RUN groupadd -g 1000 botuser || true && \
+    useradd -m -u 1000 -g 1000 -s /bin/bash botuser
 
-# Install system dependencies  
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && apt-get clean \
@@ -28,7 +26,7 @@ RUN pip install -e .
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/data /app/logs && \
-    chown -R ${USER_ID}:${GROUP_ID} /app
+    chown -R botuser:botuser /app
 
 # Copy only necessary application files (not logs, data, cache)
 COPY --chown=botuser:botuser ../src ./src

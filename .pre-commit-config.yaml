@@ -1,22 +1,43 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-added-large-files
--   repo: https://github.com/astral-sh/ruff-pre-commit
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.5.5
     hooks:
-    -   id: ruff
+      - id: ruff
+        name: "🔍 Ruff Linter"
         args: [--fix]
-    -   id: ruff-format
--   repo: https://github.com/commitizen-tools/commitizen
+      - id: ruff-format
+        name: "🎨 Ruff Formatter"
+
+  - repo: https://github.com/commitizen-tools/commitizen
     rev: v3.27.0
     hooks:
       - id: commitizen
+        name: "📝 Conventional Commits"
         stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: "🔍 Python Linting"
+        entry: bash -c 'source venv/bin/activate && python3 -m ruff check .'
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ruff-format-check
+        name: "🎨 Python Formatting Check"
+        entry: bash -c 'source venv/bin/activate && python3 -m ruff format . --check'
+        language: system
+        types: [python]
+        pass_filenames: false

@@ -1,30 +1,28 @@
-version: '3.8'
+version: "3.8"
 
 # Project name for Docker Desktop grouping
-name: ${SYSTEM_NAME:-quit-smoking-bot}
+name: ${SYSTEM_NAME}
 
 services:
   bot:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      args:
-        USER_ID: ${USER_ID:-1000}
-        GROUP_ID: ${GROUP_ID:-1000}
-    image: ${SYSTEM_NAME:-quit-smoking-bot}:latest
-    container_name: ${SYSTEM_NAME:-quit-smoking-bot}
+      # Build args removed - not needed for this project
+    image: ${SYSTEM_NAME}:latest
+    container_name: ${SYSTEM_NAME}
     restart: always
-    
+
     # Production resource limits for stability
     deploy:
       resources:
         limits:
           memory: 256M
-          cpus: '0.5'
+          cpus: "0.5"
         reservations:
           memory: 128M
-          cpus: '0.25'
-    
+          cpus: "0.25"
+
     # Environment configuration
     env_file:
       - ../.env
@@ -33,12 +31,12 @@ services:
       - PYTHONPATH=/app
       - LOG_LEVEL=INFO
       - PRODUCTION=true
-    
+
     # Data persistence
     volumes:
       - ../data:/app/data:rw
       - ../logs:/app/logs:rw
-    
+
     # Production logging configuration
     logging:
       driver: "json-file"
@@ -46,7 +44,7 @@ services:
         max-size: "5m"
         max-file: "5"
         compress: "true"
-    
+
     # Health monitoring
     healthcheck:
       test: ["CMD", "pgrep", "-f", "python.*src.bot"]
@@ -54,17 +52,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    
+
     # Security and stability
     security_opt:
       - no-new-privileges:true
-    
+
     # Production labels for monitoring
     labels:
-      - "com.example.service=quit-smoking-bot"
+      - "com.example.service=${SYSTEM_NAME}"
       - "com.example.environment=production"
       - "com.example.monitoring=enabled"
-    
+
     # Network isolation
     networks:
       - bot-network
@@ -72,4 +70,4 @@ services:
 networks:
   bot-network:
     driver: bridge
-    name: ${SYSTEM_NAME:-quit-smoking-bot}-network
+    name: ${SYSTEM_NAME}-network

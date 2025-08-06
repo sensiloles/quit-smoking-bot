@@ -5,13 +5,15 @@ A specialized Telegram bot to track your smoke-free journey with a progressive p
 ## 🌟 Features
 
 ### 🎯 Core Bot Features
+
 - 📊 **Progress Tracking**: Monitor your smoke-free period (years, months, days)
 - 💰 **Prize Fund System**: Growing monthly reward system (starts at 5,000₽, increases by 5,000₽ monthly)
 - 📅 **Monthly Notifications**: Automated motivational messages every 23rd of the month
 - 💭 **Motivational Quotes**: Random inspirational quotes to keep you motivated
 - 👥 **Admin System**: Multi-admin support for bot management
 
-### 🛡️ Production-Grade Infrastructure  
+### 🛡️ Production-Grade Infrastructure
+
 - 🐳 **Docker-Ready**: Advanced production containerization with entrypoint
 - ⚡ **Optimized Caching**: Docker layer caching for faster rebuilds
 - 🔧 **Unified Management**: Single-command interface via `manager.py`
@@ -24,6 +26,7 @@ A specialized Telegram bot to track your smoke-free journey with a progressive p
 ## 🚀 Quick Start
 
 ### 1. Clone and Setup
+
 ```bash
 git clone <your-repo-url>
 cd quit-smoking-bot
@@ -33,6 +36,7 @@ python3 manager.py setup --token "YOUR_BOT_TOKEN_HERE"
 ```
 
 ### 2. Start the Bot
+
 ```bash
 # Start the bot (recommended)
 python3 manager.py start
@@ -45,6 +49,7 @@ make install              # Complete setup and start
 ```
 
 ### 3. Verify Everything Works
+
 ```bash
 # Check bot status
 python3 manager.py status
@@ -55,9 +60,16 @@ python3 manager.py logs --follow
 
 That's it! Your quit smoking bot is now running with comprehensive monitoring and ready to help users track their smoke-free journey.
 
+## 👨‍💻 Development
+
+For development setup, VS Code configuration, and detailed build instructions, see:
+
+**📚 [Development Guide](DEVELOPMENT.md)** - Complete development environment setup, IDE configuration, and troubleshooting.
+
 ## 📖 How It Works
 
 ### Starting Date Configuration
+
 The bot tracks progress from a predefined start date (January 23, 2025 at 21:58 by default).
 Configure this in `src/config.py`:
 
@@ -70,12 +82,14 @@ NOTIFICATION_MINUTE = 58  # minute
 ```
 
 ### Prize Fund System
+
 - **Initial Amount**: 5,000₽ per month
 - **Monthly Increase**: +5,000₽ each month
 - **Maximum Cap**: 100,000₽
 - **Calculation**: Based on completed months since start date
 
 Example progression:
+
 - Month 1: 5,000₽
 - Month 2: 10,000₽
 - Month 3: 15,000₽
@@ -83,16 +97,19 @@ Example progression:
 - Month 20: 100,000₽ (maximum)
 
 ### Automated Notifications
+
 The bot sends monthly motivational messages to all users on the 23rd of each month at 21:58 (configurable timezone).
 
 ## 🤖 Bot Commands
 
 ### User Commands
+
 - `/start` - Register with the bot and get welcome message
 - `/status` - View current smoke-free progress and prize fund
 - `/my_id` - Get your Telegram user ID
 
 ### Admin Commands
+
 - `/notify_all` - Manually send notifications to all users
 - `/list_users` - View all registered users
 - `/list_admins` - View all administrators
@@ -103,12 +120,13 @@ The bot sends monthly motivational messages to all users on the 23rd of each mon
 ## 🛠️ Management Commands
 
 ### Primary Interface (manager.py)
+
 ```bash
 # 📦 Setup & Configuration
 python3 manager.py setup                    # Basic setup
 python3 manager.py setup --token TOKEN      # Setup with bot token
 
-# 🚀 Service Management  
+# 🚀 Service Management
 python3 manager.py start                    # Start the bot
 python3 manager.py start --monitoring       # Start with health monitoring
 python3 manager.py start --rebuild          # Start with container rebuild
@@ -126,6 +144,7 @@ python3 manager.py clean --deep             # Remove all data and images
 ```
 
 ### Convenient Shortcuts (Makefile)
+
 ```bash
 # 🎯 Setup & Installation
 make setup          # Initial project setup
@@ -151,13 +170,26 @@ make build          # Build Docker image
 ## ⚙️ Configuration
 
 ### Environment Variables (.env)
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `BOT_TOKEN` | ✅ | - | Your Telegram bot token from BotFather |
-| `SYSTEM_NAME` | No | quit-smoking-bot | Container name prefix |
-| `TZ` | No | UTC | Timezone for notifications |
+
+| Variable              | Required | Default | Description                            |
+| --------------------- | -------- | ------- | -------------------------------------- |
+| `BOT_TOKEN`           | ✅       | -       | Your Telegram bot token from BotFather |
+| `SYSTEM_NAME`         | ✅       | -       | System name for containers and logging |
+| `SYSTEM_DISPLAY_NAME` | ✅       | -       | Human-readable name for the bot        |
+
+**Example `.env` file:**
+
+```bash
+# Telegram Bot Configuration
+BOT_TOKEN=your_telegram_bot_token_here
+
+# System Configuration
+SYSTEM_NAME=quit-smoking-bot
+SYSTEM_DISPLAY_NAME=Quit Smoking Bot
+```
 
 ### Bot Configuration (src/config.py)
+
 ```python
 # Start date components
 START_YEAR = 2025
@@ -213,6 +245,7 @@ quit-smoking-bot/
 ## 📚 Local Usage
 
 ### Running Locally (without Docker)
+
 ```bash
 # Install dependencies from pyproject.toml
 pip install -e .
@@ -225,6 +258,7 @@ python3 main.py
 **Note**: Local running uses the project directory for logs and data, while Docker uses `/app/` paths.
 
 ### Docker Monitoring
+
 ```bash
 # Quick start with monitoring
 python3 manager.py start --monitoring
@@ -250,18 +284,21 @@ python3 manager.py restart --rebuild
 📖 **For detailed Docker configuration and advanced usage**, see [docker/README.md](docker/README.md)
 
 ### Adding Motivational Quotes
+
 Create or edit `data/quotes.json`:
+
 ```json
 [
-    "Every day without cigarettes is a victory over yourself.",
-    "Your health is your wealth - you're investing wisely.",
-    "Each smoke-free day adds time to your life."
+  "Every day without cigarettes is a victory over yourself.",
+  "Your health is your wealth - you're investing wisely.",
+  "Each smoke-free day adds time to your life."
 ]
 ```
 
 ## 🚀 Deployment
 
 ### Production Deployment
+
 ```bash
 # On your server
 git clone <your-repo-url>
@@ -275,6 +312,7 @@ python3 manager.py start --monitoring
 ```
 
 ### Updates
+
 ```bash
 git pull
 python3 manager.py restart --rebuild
@@ -283,6 +321,7 @@ python3 manager.py restart --rebuild
 **Efficient Updates**: Thanks to Docker layer caching, updates that don't change dependencies will reuse existing layers, making deployments much faster.
 
 ### Production Monitoring
+
 ```bash
 # Comprehensive status check
 python3 manager.py status
@@ -293,22 +332,25 @@ python3 manager.py logs --follow
 # Advanced monitoring and diagnostics
 make monitor
 
-# Quick status check  
+# Quick status check
 make status
 ```
 
 ## 👥 Admin Management
 
 ### First Admin Setup
+
 The first user to interact with the bot (using `/start`) automatically becomes an administrator.
 
 ### Adding More Admins
+
 1. Users must first register with `/start`
 2. Existing admin uses `/add_admin USER_ID`
 3. New admin receives notification with decline option
 4. Commands are automatically updated in Telegram UI
 
 ### Admin Features
+
 - Send manual notifications to all users
 - View user and admin lists
 - Add/remove administrators
@@ -317,7 +359,9 @@ The first user to interact with the bot (using `/start`) automatically becomes a
 ## 🔧 Customization
 
 ### Changing the Start Date
+
 Edit `src/config.py`:
+
 ```python
 START_YEAR = 2025      # Your quit year
 START_MONTH = 1        # Your quit month
@@ -325,7 +369,9 @@ NOTIFICATION_DAY = 23  # Day of month for notifications
 ```
 
 ### Modifying Prize Fund
+
 Edit `src/config.py`:
+
 ```python
 MONTHLY_AMOUNT = 5000       # Starting amount
 PRIZE_FUND_INCREASE = 5000  # Monthly increase
@@ -333,9 +379,11 @@ MAX_PRIZE_FUND = 100000     # Maximum amount
 ```
 
 ### Timezone Configuration
-Set in `.env` file:
-```env
-TZ="Europe/Moscow"  # or your preferred timezone
+
+Timezone is configured in code (`src/config.py`):
+
+```python
+BOT_TIMEZONE = pytz.timezone("Europe/Moscow")  # Change as needed
 ```
 
 ## 📋 Requirements
@@ -345,7 +393,9 @@ TZ="Europe/Moscow"  # or your preferred timezone
 - Telegram bot token from [@BotFather](https://t.me/BotFather)
 
 ### Dependencies Management
+
 This project uses modern Python packaging with `pyproject.toml`:
+
 - **Main dependencies**: Defined in `pyproject.toml`
 - **Local usage**: Run without Docker using `python3 main.py`
 - **No requirements.txt files**: All managed through pyproject.toml
@@ -353,6 +403,7 @@ This project uses modern Python packaging with `pyproject.toml`:
 ## 🔍 Troubleshooting
 
 ### Bot won't start
+
 ```bash
 # Check detailed status and diagnostics
 python3 manager.py status --detailed
@@ -370,6 +421,7 @@ make monitor
 ```
 
 ### Docker issues
+
 ```bash
 # Deep cleanup and rebuild
 python3 manager.py clean --deep
@@ -383,17 +435,19 @@ make start
 **Performance Tip**: If builds seem slow, the Docker layer cache might be corrupted. Use `docker system prune -f` to clear unused images and restart fresh.
 
 ### Local usage issues
+
 ```bash
 # Run locally to debug
 python3 main.py
 
-# Check status and diagnostics  
+# Check status and diagnostics
 make status
 make monitor
 ```
 
 ### Notifications not working
-- Check timezone configuration in `.env`
+
+- Check timezone configuration in `src/config.py`
 - Verify notification schedule in `src/config.py`
 - Check logs for scheduler errors: `python3 manager.py logs --follow`
 - Run diagnostics: `make monitor`

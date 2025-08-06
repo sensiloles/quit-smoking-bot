@@ -1,6 +1,24 @@
 {
-    "recommendations": [
-        "ms-python.python",
-        "ms-python.vscode-pylance"
-    ]
+  "recommendations": [
+    // Python linting and formatting - replaces black, isort, flake8, and more
+    "charliermarsh.ruff",
+
+    // Core Python language support with debugging and IntelliSense
+    "ms-python.python",
+
+    // Advanced Python language server with type checking and auto-completion
+    "ms-python.vscode-pylance",
+
+    // Enhanced TOML file support for pyproject.toml configuration
+    "tamasfe.even-better-toml",
+
+    // YAML syntax highlighting and validation for Docker Compose files
+    "redhat.vscode-yaml",
+
+    // INI file formatting for configuration files
+    "lkrms.inifmt",
+
+    // Shell script formatting for Dockerfiles and other shell scripts
+    "foxundermoon.shell-format"
+  ]
 }

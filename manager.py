@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Telegram Bot Framework Manager
+Quit Smoking Bot Manager
 
 Modern management interface for Docker-based Telegram bots.
 Single tool for all bot management operations with rich functionality.
 """
 
+import argparse
 import os
 import sys
-import argparse
 from pathlib import Path
 from typing import Optional
 
@@ -16,11 +16,23 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 
 try:
-    from modules import (
-        action_setup, action_start, action_stop, action_restart,
-        action_status, action_logs, action_cleanup, action_prune,
-        print_message, print_success, print_error, Colors,
-        setup_environment, BotError, DockerError, handle_error
+    from scripts.modules import (
+        BotError,
+        Colors,
+        DockerError,
+        action_cleanup,
+        action_logs,
+        action_prune,
+        action_restart,
+        action_setup,
+        action_start,
+        action_status,
+        action_stop,
+        handle_error,
+        print_error,
+        print_message,
+        print_success,
+        setup_environment,
     )
 except ImportError as e:
     print(f"❌ Error importing bot modules: {e}")
@@ -30,17 +42,17 @@ except ImportError as e:
 
 class BotManager:
     """Modern bot management class with rich functionality"""
-    
+
     def __init__(self):
         """Initialize the bot manager"""
         self.project_root = Path(__file__).parent.absolute()
         os.chdir(self.project_root)
-        
+
         # Setup environment using modules
         setup_environment()
-        
+
         print_message("🤖 Quit Smoking Bot Manager", Colors.BLUE)
-    
+
     def setup(self, token: Optional[str] = None) -> bool:
         """Initial project setup with comprehensive configuration"""
         try:
@@ -51,15 +63,19 @@ class BotManager:
         except Exception as e:
             print_error(f"Setup failed: {e}")
             return False
-    
-    def start(self, force_rebuild: bool = False, enable_monitoring: bool = False, 
-              enable_logging: bool = False) -> bool:
+
+    def start(
+        self,
+        force_rebuild: bool = False,
+        enable_monitoring: bool = False,
+        enable_logging: bool = False,
+    ) -> bool:
         """Start the bot with advanced options"""
         try:
             return action_start(
                 force_rebuild=force_rebuild,
                 enable_monitoring=enable_monitoring,
-                enable_logging=enable_logging
+                enable_logging=enable_logging,
             )
         except (BotError, DockerError) as e:
             handle_error(e)
@@ -67,7 +83,7 @@ class BotManager:
         except Exception as e:
             print_error(f"Start failed: {e}")
             return False
-    
+
     def stop(self, cleanup: bool = False) -> bool:
         """Stop the bot with optional cleanup"""
         try:
@@ -78,7 +94,7 @@ class BotManager:
         except Exception as e:
             print_error(f"Stop failed: {e}")
             return False
-    
+
     def restart(self, force_rebuild: bool = False) -> bool:
         """Restart the bot service"""
         try:
@@ -89,7 +105,7 @@ class BotManager:
         except Exception as e:
             print_error(f"Restart failed: {e}")
             return False
-    
+
     def status(self, detailed: bool = False) -> bool:
         """Show comprehensive bot status"""
         try:
@@ -100,7 +116,7 @@ class BotManager:
         except Exception as e:
             print_error(f"Status check failed: {e}")
             return False
-    
+
     def logs(self, follow: bool = False, lines: int = 50) -> bool:
         """Show bot logs with filtering options"""
         try:
@@ -111,14 +127,13 @@ class BotManager:
         except Exception as e:
             print_error(f"Logs failed: {e}")
             return False
-    
+
     def clean(self, deep: bool = False) -> bool:
         """Clean up containers and images"""
         try:
             if deep:
                 return action_prune()
-            else:
-                return action_cleanup()
+            return action_cleanup()
         except (BotError, DockerError) as e:
             handle_error(e)
             return False
@@ -147,7 +162,7 @@ def main():
 📋 Management Commands:
   setup      Initial project setup and configuration
   start      Start the bot service with options
-  stop       Stop the bot service  
+  stop       Stop the bot service
   restart    Restart the bot service
   status     Show comprehensive status and health
   logs       Show bot logs with filtering
@@ -161,112 +176,111 @@ def main():
   --follow            Follow logs in real-time
   --detailed          Show detailed status information
   --deep              Deep cleanup (removes all data)
-        """
+        """,
     )
-    
+
     parser.add_argument(
-        'action',
-        choices=['setup', 'start', 'stop', 'restart', 'status', 'logs', 'clean'],
-        help='Management action to perform'
+        "action",
+        choices=["setup", "start", "stop", "restart", "status", "logs", "clean"],
+        help="Management action to perform",
     )
-    
+
     # Setup options
     parser.add_argument(
-        '--token',
+        "--token",
         type=str,
-        help='Telegram bot token (for setup action)'
+        help="Telegram bot token (for setup action)",
     )
-    
+
     # Start/restart options
     parser.add_argument(
-        '--rebuild',
-        action='store_true',
-        help='Force rebuild Docker containers (start/restart)'
+        "--rebuild",
+        action="store_true",
+        help="Force rebuild Docker containers (start/restart)",
     )
-    
-    parser.add_argument(
-        '--monitoring',
-        action='store_true',
-        help='Enable health monitoring services (start)'
-    )
-    
-    parser.add_argument(
-        '--logging',
-        action='store_true',
-        help='Enable centralized logging (start)'
-    )
-    
 
-    
+    parser.add_argument(
+        "--monitoring",
+        action="store_true",
+        help="Enable health monitoring services (start)",
+    )
+
+    parser.add_argument(
+        "--logging",
+        action="store_true",
+        help="Enable centralized logging (start)",
+    )
+
     # Status options
     parser.add_argument(
-        '--detailed',
-        action='store_true',
-        help='Show detailed status information (status)'
+        "--detailed",
+        action="store_true",
+        help="Show detailed status information (status)",
     )
-    
+
     # Logs options
     parser.add_argument(
-        '-f', '--follow',
-        action='store_true',
-        help='Follow logs in real-time (logs)'
+        "-f",
+        "--follow",
+        action="store_true",
+        help="Follow logs in real-time (logs)",
     )
-    
+
     parser.add_argument(
-        '--lines',
+        "--lines",
         type=int,
         default=50,
-        help='Number of log lines to show (default: 50)'
+        help="Number of log lines to show (default: 50)",
     )
-    
+
     # Clean options
     parser.add_argument(
-        '--deep',
-        action='store_true',
-        help='Deep cleanup - removes all data and images (clean)'
+        "--deep",
+        action="store_true",
+        help="Deep cleanup - removes all data and images (clean)",
     )
-    
+
     # Stop options
     parser.add_argument(
-        '--cleanup',
-        action='store_true',
-        help='Cleanup resources after stopping (stop)'
+        "--cleanup",
+        action="store_true",
+        help="Cleanup resources after stopping (stop)",
     )
-    
+
     args = parser.parse_args()
-    
+
     try:
         # Create manager instance
         manager = BotManager()
-        
+
         # Execute action with appropriate arguments
         success = False
-        
-        if args.action == 'setup':
+
+        if args.action == "setup":
             success = manager.setup(token=args.token)
-            
-        elif args.action == 'start':
+
+        elif args.action == "start":
             success = manager.start(
                 force_rebuild=args.rebuild,
                 enable_monitoring=args.monitoring,
-                enable_logging=args.logging
+                enable_logging=args.logging,
             )
-            
-        elif args.action == 'stop':
+
+        elif args.action == "stop":
             success = manager.stop(cleanup=args.cleanup)
-            
-        elif args.action == 'restart':
+
+        elif args.action == "restart":
             success = manager.restart(force_rebuild=args.rebuild)
-            
-        elif args.action == 'status':
+
+        elif args.action == "status":
             success = manager.status()
-            
-        elif args.action == 'logs':
+
+        elif args.action == "logs":
             success = manager.logs(follow=args.follow, lines=args.lines)
-            
-        elif args.action == 'clean':
+
+        elif args.action == "clean":
             success = manager.clean(deep=args.deep)
-            
+
         # Exit with appropriate code
         if success:
             print_success("\n✅ Operation completed successfully!")
@@ -274,7 +288,7 @@ def main():
         else:
             print_error("\n❌ Operation failed!")
             sys.exit(1)
-            
+
     except KeyboardInterrupt:
         print_message("\n🛑 Operation cancelled by user", Colors.YELLOW)
         sys.exit(130)
