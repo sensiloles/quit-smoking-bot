@@ -47,7 +47,7 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(BLUE)🧹 Maintenance:$(NC)"
 	@echo "  $(GREEN)clean$(NC)           Clean up containers and images"
-	@echo "  $(GREEN)clean-deep$(NC)      Deep cleanup (removes all data)"
+	@echo "  $(GREEN)clean-deep$(NC)      Deep cleanup (removes containers, images, logs)"
 	@echo "  $(GREEN)build$(NC)           Build Docker image"
 	@echo ""
 	@echo "$(BLUE)🔧 Development:$(NC)"
@@ -122,7 +122,7 @@ clean: ## Clean up containers and images
 	@echo "$(BLUE)🧹 Cleaning up...$(NC)"
 	@$(MANAGER) clean
 
-clean-deep: ## Deep cleanup (removes all data)
+clean-deep: ## Deep cleanup (removes containers, images, logs)
 	@echo "$(BLUE)🧹 Deep cleanup...$(NC)"
 	@$(MANAGER) clean --deep
 

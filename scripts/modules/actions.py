@@ -402,15 +402,38 @@ def action_prune(confirm: bool = False) -> bool:
         print_message("Removing Docker images...", Colors.YELLOW)
         cleanup_docker_resources(cleanup_all=True)
 
-        # Remove data directories
-        print_message("Removing data directories...", Colors.YELLOW)
-        for dir_name in ["data", "logs"]:
-            dir_path = Path(dir_name)
-            if dir_path.exists():
-                import shutil
+        # Force remove project images directly
+        try:
+            # Get all quit-smoking-bot images
+            result = subprocess.run(
+                ["docker", "images", "--filter", "reference=quit-smoking-bot*", "-q"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-                shutil.rmtree(dir_path)
-                debug_print(f"Removed directory: {dir_name}")
+            if result.stdout.strip():
+                image_ids = result.stdout.strip().split("\n")
+                for image_id in image_ids:
+                    if image_id.strip():
+                        subprocess.run(
+                            ["docker", "rmi", "-f", image_id.strip()],
+                            capture_output=True,
+                            check=False,
+                        )
+                        debug_print(f"Force removed Docker image: {image_id.strip()}")
+                print_message("Force removed project Docker images", Colors.GREEN)
+        except Exception as e:
+            debug_print(f"Warning: Could not force remove project images: {e}")
+
+        # Clean logs directory
+        print_message("Cleaning logs directory...", Colors.YELLOW)
+        logs_path = Path("logs")
+        if logs_path.exists():
+            import shutil
+
+            shutil.rmtree(logs_path)
+            debug_print("Removed logs directory")
 
         print_success("✅ Bot data cleanup completed!")
         print_message(

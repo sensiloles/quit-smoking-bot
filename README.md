@@ -164,7 +164,7 @@ make monitor        # Advanced monitoring and diagnostics
 
 # 🧹 Maintenance
 make clean          # Clean up containers and images
-make clean-deep     # Deep cleanup (removes all data)
+make clean-deep     # Deep cleanup (removes containers, images, logs)
 make build          # Build Docker image
 ```
 

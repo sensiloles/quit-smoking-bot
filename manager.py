@@ -382,7 +382,7 @@ def main():
   python manager.py status --detailed        # Detailed status with diagnostics
   python manager.py logs --follow            # Follow logs in real-time
   python manager.py clean                    # Basic cleanup
-  python manager.py clean --deep             # Deep cleanup (removes everything)
+  python manager.py clean --deep             # Deep cleanup (removes containers, images, logs)
   python manager.py check-env                # Check environment compatibility
   python manager.py dev-setup                # Setup local development environment
 
@@ -404,7 +404,7 @@ def main():
   --logging           Enable centralized logging
   --follow            Follow logs in real-time
   --detailed          Show detailed status information
-  --deep              Deep cleanup (removes all data)
+  --deep              Deep cleanup (removes containers, images, logs)
         """,
     )
 
@@ -476,7 +476,7 @@ def main():
     parser.add_argument(
         "--deep",
         action="store_true",
-        help="Deep cleanup - removes all data and images (clean)",
+        help="Deep cleanup - removes containers, images and logs (clean)",
     )
 
     # Stop options
