@@ -117,9 +117,11 @@ clean-deep: ## Deep cleanup (removes all data)
 	@echo "$(BLUE)🧹 Deep cleanup...$(NC)"
 	@$(MANAGER) clean --deep
 
-build: ## Build Docker image
+build: ## Build Docker image with automatic cleanup
 	@echo "$(BLUE)🔨 Building Docker image...$(NC)"
 	@SYSTEM_NAME="$(SYSTEM_NAME)" docker-compose -f docker/docker-compose.yml build
+	@echo "$(BLUE)🧹 Cleaning up dangling images after build...$(NC)"
+	@source venv/bin/activate && python -c "import sys; sys.path.insert(0, 'scripts'); from scripts.modules.docker_utils import cleanup_project_dangling_images; from scripts.modules.environment import load_env; load_env(); cleanup_project_dangling_images(verbose=False)" 2>/dev/null || echo "$(YELLOW)⚠️  Image cleanup failed, but build completed$(NC)"
 
 # Advanced operations
 token: ## Set bot token interactively
