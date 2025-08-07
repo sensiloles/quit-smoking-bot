@@ -1,12 +1,11 @@
 import datetime
 import os
 from pathlib import Path
-
-import pytz
+from zoneinfo import ZoneInfo
 
 # Timezone settings - configurable via environment variable
 DEFAULT_TIMEZONE = os.getenv("TZ", "UTC")
-TIMEZONE = pytz.timezone(DEFAULT_TIMEZONE)
+TIMEZONE = ZoneInfo(DEFAULT_TIMEZONE)
 
 # Main timezone variable for the bot
 BOT_TIMEZONE = TIMEZONE
@@ -20,13 +19,14 @@ NOTIFICATION_DAY = 23  # day of month
 NOTIFICATION_HOUR = 21  # hour (24-hour format)
 NOTIFICATION_MINUTE = 58  # minute
 
-# Start date - January 23, 2025 at 21:58
+# Start date - January 23, 2025 at 21:58 (timezone-aware)
 START_DATE = datetime.datetime(
     START_YEAR,
     START_MONTH,
     NOTIFICATION_DAY,
     NOTIFICATION_HOUR,
     NOTIFICATION_MINUTE,
+    tzinfo=BOT_TIMEZONE,
 )
 
 # Prize fund settings

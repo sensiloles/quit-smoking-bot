@@ -22,7 +22,7 @@ class StatusManager:
     def get_status_info(self, user_id: str = "global") -> str:
         """Generate status information about the non-smoking period."""
         now = datetime.datetime.now(BOT_TIMEZONE)
-        duration = now - START_DATE.replace(tzinfo=BOT_TIMEZONE)
+        duration = now - START_DATE
 
         # If we haven't reached the start date yet
         if duration.total_seconds() < 0:
@@ -94,7 +94,7 @@ class StatusManager:
             prize_fund=prize_fund,
             next_increase_date=next_date.strftime("%d.%m.%Y"),
             next_increase_time=next_date.strftime("%H:%M"),
-            timezone=BOT_TIMEZONE.zone if BOT_TIMEZONE.zone != "UTC" else "(UTC)",
+            timezone=BOT_TIMEZONE.key if BOT_TIMEZONE.key != "UTC" else "(UTC)",
             increase_amount=prize_increase,
             quote=quote,
         )

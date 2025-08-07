@@ -24,19 +24,18 @@ classifiers = [
 ]
 
 dependencies = [
-"python-telegram-bot[job-queue]>=22.0,<23.0",
-"pytz>=2023.3",
-"APScheduler>=3.10.0,<4.0",
-"python-dotenv>=1.0.0",
+"python-telegram-bot[job-queue]>=22.3,<23.0",
+"APScheduler>=3.11.0,<4.0",
+"python-dotenv>=1.1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-"ruff>=0.5.0",
-"mypy>=1.5.0",
-"pytest>=7.4.0",
-"pytest-asyncio>=0.21.0",
-"pre-commit>=3.0.0",
+"ruff>=0.8.0",
+"mypy>=1.17.0",
+"pytest>=8.4.0",
+"pytest-asyncio>=0.24.0",
+"pre-commit>=3.8.0",
 ]
 
 [project.urls]

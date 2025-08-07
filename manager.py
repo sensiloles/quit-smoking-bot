@@ -155,10 +155,9 @@ class BotManager:
         checks.append(self._check_venv())
 
         # Package checks
-        checks.append(self._check_package_version("telegram", "22.0"))
-        checks.append(self._check_package_version("apscheduler", "3.10.0"))
-        checks.append(self._check_package_version("pytz"))
-        checks.append(self._check_package_version("dotenv"))
+        checks.append(self._check_package_version("telegram", "22.3"))
+        checks.append(self._check_package_version("apscheduler", "3.11.0"))
+        checks.append(self._check_package_version("dotenv", "1.1.0"))
 
         # Bot startup test
         if Path("src/bot.py").exists():

@@ -645,7 +645,7 @@ class QuitSmokingBot:
             next_run = self.scheduler.get_jobs()[0].next_run_time
             logger.info(f"Next scheduled notification will be sent at: {next_run}")
             logger.info(
-                f"Scheduled monthly notification for day={NOTIFICATION_DAY}, {NOTIFICATION_HOUR:02d}:{NOTIFICATION_MINUTE:02d} {BOT_TIMEZONE.zone} time",
+                f"Scheduled monthly notification for day={NOTIFICATION_DAY}, {NOTIFICATION_HOUR:02d}:{NOTIFICATION_MINUTE:02d} {BOT_TIMEZONE.key} time",
             )
 
             # Start the bot with polling

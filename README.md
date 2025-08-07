@@ -422,7 +422,9 @@ MAX_PRIZE_FUND = 100000     # Maximum amount
 Timezone is configured in code (`src/config.py`):
 
 ```python
-BOT_TIMEZONE = pytz.timezone("Europe/Moscow")  # Change as needed
+from zoneinfo import ZoneInfo
+
+BOT_TIMEZONE = ZoneInfo("Europe/Moscow")  # Change as needed
 ```
 
 ## 📋 Requirements
@@ -535,10 +537,9 @@ load_dotenv()  # Loads .env file automatically
 
 ```toml
 dependencies = [
-    "python-telegram-bot[job-queue]>=22.0,<23.0",  # ✅ Current stable
-    "pytz>=2023.3",
-    "APScheduler>=3.10.0,<4.0",
-    "python-dotenv>=1.0.0",
+    "python-telegram-bot[job-queue]>=22.3,<23.0",  # ✅ Latest stable
+    "APScheduler>=3.11.0,<4.0",
+    "python-dotenv>=1.1.0",
 ]
 ```
 
