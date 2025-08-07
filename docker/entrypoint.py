@@ -19,14 +19,20 @@ from pathlib import Path
 scripts_dir = os.path.join(os.path.dirname(__file__), "..", "scripts")
 sys.path.insert(0, scripts_dir)
 
-from modules import (
-    Colors,
-    debug_print,
-    print_error,
-    print_message,
-    quick_health_check,
-    setup_permissions,
-)
+try:
+    from scripts.modules import (
+        Colors,
+        debug_print,
+        print_error,
+        print_message,
+        quick_health_check,
+        setup_permissions,
+    )
+except ImportError as e:
+    print(f"Failed to import modules: {e}")
+    print(f"Scripts directory: {scripts_dir}")
+    print(f"Python path: {sys.path[:3]}")
+    sys.exit(1)
 
 # Configuration
 DATA_DIR = Path("/app/data")
@@ -59,6 +65,146 @@ def log_message(level: str, message: str):
 
     # Also debug print if DEBUG mode is enabled
     debug_print(f"[entrypoint.py] [{level}] {message}")
+
+
+def cleanup_unused_images():
+    """Clean up dangling Docker images belonging only to this project"""
+    log_message("INFO", "Cleaning up project-specific dangling Docker images")
+
+    try:
+        system_name = os.getenv("SYSTEM_NAME")
+        if not system_name:
+            log_message("WARN", "SYSTEM_NAME not found, cannot filter project images")
+            return
+
+        log_message(
+            "INFO", f"Looking for dangling images related to project: {system_name}"
+        )
+
+        # Strategy 1: Find dangling images with project name label
+        result_project_labeled = subprocess.run(
+            [
+                "docker",
+                "images",
+                "-f",
+                "dangling=true",
+                "-f",
+                f"label=project.name={system_name}",
+                "-q",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        # Strategy 2: Find dangling images with Docker Compose project label (fallback)
+        result_compose_labeled = subprocess.run(
+            [
+                "docker",
+                "images",
+                "-f",
+                "dangling=true",
+                "-f",
+                f"label=com.docker.compose.project={system_name}",
+                "-q",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        # Strategy 2: Find all dangling images and filter by name pattern
+        result_all_dangling = subprocess.run(
+            [
+                "docker",
+                "images",
+                "-f",
+                "dangling=true",
+                "--format",
+                "{{.ID}} {{.Repository}}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        project_dangling_images = set()
+
+        # Collect images from project name labeled strategy
+        if (
+            result_project_labeled.returncode == 0
+            and result_project_labeled.stdout.strip()
+        ):
+            project_labeled_images = [
+                img_id.strip()
+                for img_id in result_project_labeled.stdout.strip().split("\n")
+                if img_id.strip()
+            ]
+            project_dangling_images.update(project_labeled_images)
+            log_message(
+                "INFO",
+                f"Found {len(project_labeled_images)} dangling images with project.name label",
+            )
+
+        # Collect images from Docker Compose labeled strategy (fallback)
+        if (
+            result_compose_labeled.returncode == 0
+            and result_compose_labeled.stdout.strip()
+        ):
+            compose_labeled_images = [
+                img_id.strip()
+                for img_id in result_compose_labeled.stdout.strip().split("\n")
+                if img_id.strip()
+            ]
+            project_dangling_images.update(compose_labeled_images)
+            log_message(
+                "INFO",
+                f"Found {len(compose_labeled_images)} dangling images with Docker Compose project label",
+            )
+
+        # Collect images from name pattern strategy
+        if result_all_dangling.returncode == 0 and result_all_dangling.stdout.strip():
+            lines = result_all_dangling.stdout.strip().split("\n")
+            for line in lines:
+                if line.strip():
+                    parts = line.strip().split(" ", 1)
+                    if len(parts) >= 2:
+                        img_id, repo = parts[0], parts[1]
+                        # Check if repository name contains our system name
+                        if system_name.lower() in repo.lower() or repo.startswith(
+                            system_name
+                        ):
+                            project_dangling_images.add(img_id)
+                            log_message(
+                                "INFO",
+                                f"Found dangling image by name pattern: {img_id} ({repo})",
+                            )
+
+        if not project_dangling_images:
+            log_message("INFO", f"No dangling images found for project: {system_name}")
+            return
+
+        project_dangling_list = list(project_dangling_images)
+        log_message(
+            "INFO",
+            f"Removing {len(project_dangling_list)} dangling images for project '{system_name}'",
+        )
+
+        # Remove project-specific dangling images
+        if project_dangling_list:
+            result = subprocess.run(
+                ["docker", "rmi"] + project_dangling_list,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                log_message("INFO", "Successfully cleaned up project dangling images")
+            else:
+                log_message("WARN", "Failed to remove some project dangling images")
+
+    except Exception as e:
+        log_message("WARN", f"Error during project image cleanup: {e}")
 
 
 def setup_health_system():
@@ -276,6 +422,7 @@ def main():
 
     # Initialize all systems
     terminate_existing_processes()
+    cleanup_unused_images()  # Clean up dangling images before starting
     setup_health_system()
     setup_data_directory()
     rotate_logs()

@@ -119,7 +119,7 @@ clean-deep: ## Deep cleanup (removes all data)
 
 build: ## Build Docker image
 	@echo "$(BLUE)🔨 Building Docker image...$(NC)"
-	@docker-compose -f docker/docker-compose.yml build
+	@SYSTEM_NAME="$(SYSTEM_NAME)" docker-compose -f docker/docker-compose.yml build
 
 # Advanced operations
 token: ## Set bot token interactively

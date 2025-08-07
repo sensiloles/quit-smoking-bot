@@ -26,23 +26,23 @@ docker-help: ## Show Docker-specific commands
 
 docker-build: ## Build Docker image
 	@echo "🔨 Building Docker image..."
-	@docker-compose -f $(DOCKER_COMPOSE_BASE) build
+	@docker-compose --env-file ../.env -f $(DOCKER_COMPOSE_BASE) build
 
 docker-up: ## Start services
 	@echo "🚀 Starting services..."
-	@docker-compose -f $(DOCKER_COMPOSE_BASE) up -d
+	@docker-compose --env-file ../.env -f $(DOCKER_COMPOSE_BASE) up -d
 
 docker-down: ## Stop services
 	@echo "🛑 Stopping Docker services..."
-	@docker-compose -f $(DOCKER_COMPOSE_BASE) down
+	@docker-compose --env-file ../.env -f $(DOCKER_COMPOSE_BASE) down
 
 docker-logs: ## Show logs
-	@docker-compose -f $(DOCKER_COMPOSE_BASE) logs -f
+	@docker-compose --env-file ../.env -f $(DOCKER_COMPOSE_BASE) logs -f
 
 docker-status: ## Show container status
-	@docker-compose -f $(DOCKER_COMPOSE_BASE) ps
+	@docker-compose --env-file ../.env -f $(DOCKER_COMPOSE_BASE) ps
 
 docker-clean: ## Clean up containers and images
 	@echo "🧹 Cleaning up Docker resources..."
-	@docker-compose -f $(DOCKER_COMPOSE_BASE) down --rmi local --volumes --remove-orphans
+	@docker-compose --env-file ../.env -f $(DOCKER_COMPOSE_BASE) down --rmi local --volumes --remove-orphans
 	@docker system prune -f

@@ -71,6 +71,7 @@ This Docker setup is designed to be universal for any Telegram bot. To adapt for
 ## 📊 Features
 
 - **Production-ready entrypoint** with comprehensive initialization and monitoring
+- **Automatic Docker image cleanup** to prevent dangling image accumulation
 - **Health monitoring** and automatic restarts
 - **Log management** with rotation and compression
 - **Security best practices** (non-root user, minimal privileges)

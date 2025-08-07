@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import Optional
 
 from .docker_utils import (
+    auto_cleanup_images_before_build,
     check_docker_installation,
+    cleanup_dangling_images,
     cleanup_docker_resources,
     get_container_status,
 )
@@ -111,6 +113,10 @@ def action_start(
         if not check_bot_token():
             raise BotError("BOT_TOKEN is not configured")
 
+        # Clean up dangling images before build to prevent accumulation
+        print_message("Cleaning up dangling images before build...", Colors.YELLOW)
+        auto_cleanup_images_before_build()
+
         # Build containers if needed
         if force_rebuild:
             print_message("Force rebuilding Docker containers...", Colors.YELLOW)
@@ -130,6 +136,12 @@ def action_start(
                 result = subprocess.run(build_cmd, check=False, capture_output=False)
                 if result.returncode != 0:
                     raise DockerError("Failed to rebuild containers")
+
+                # Clean up dangling images after rebuild
+                print_message(
+                    "Cleaning up dangling images after rebuild...", Colors.YELLOW
+                )
+                cleanup_dangling_images(verbose=False)
 
         # Determine compose profiles
         compose_profiles = []
@@ -162,6 +174,12 @@ def action_start(
         result = subprocess.run(cmd, check=False, env=env, capture_output=False)
         if result.returncode != 0:
             raise DockerError("Failed to start bot container", " ".join(cmd))
+
+        # Clean up dangling images after container build/start
+        print_message(
+            "Cleaning up dangling images after container start...", Colors.YELLOW
+        )
+        cleanup_dangling_images(verbose=False)
 
         # Check status after startup
         print_message("Checking bot status after startup...", Colors.YELLOW)
@@ -219,6 +237,10 @@ def action_restart() -> bool:
     # Stop first
     if not action_stop(confirm=True):
         return False
+
+    # Clean up dangling images during restart
+    print_message("Cleaning up dangling images during restart...", Colors.YELLOW)
+    cleanup_dangling_images(verbose=False)
 
     # Wait a moment
     time.sleep(2)

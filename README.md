@@ -16,6 +16,7 @@ A specialized Telegram bot to track your smoke-free journey with a progressive p
 
 - 🐳 **Docker-Ready**: Advanced production containerization with entrypoint
 - ⚡ **Optimized Caching**: Docker layer caching for faster rebuilds
+- 🧹 **Auto Image Cleanup**: Automatic removal of dangling Docker images for this project only
 - 🔧 **Unified Management**: Single-command interface via `manager.py`
 - 📊 **Health Monitoring**: Real-time health checks and continuous monitoring
 - 🔄 **Log Management**: Automatic log rotation and archiving

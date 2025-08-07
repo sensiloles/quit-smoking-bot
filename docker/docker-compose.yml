@@ -57,11 +57,10 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    # Production labels for monitoring
+    # Production labels for container identification
     labels:
-      - "com.example.service=${SYSTEM_NAME}"
-      - "com.example.environment=production"
-      - "com.example.monitoring=enabled"
+      - "project.name=${SYSTEM_NAME}"
+      - "project.environment=production"
 
     # Network isolation
     networks:

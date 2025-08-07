@@ -10,6 +10,7 @@ The `docker/entrypoint.py` provides enterprise-grade container initialization fo
 - **Creates missing files**: `bot_admins.json`, `bot_users.json`, `quotes.json`
 - **Sets up Python paths**: Ensures proper module imports
 - **Permission management**: Secure file permissions (644/755)
+- **Docker image cleanup**: Removes dangling images specific to this project
 
 ### **2. Process Management**
 
