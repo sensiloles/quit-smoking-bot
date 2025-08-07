@@ -20,7 +20,7 @@ scripts_dir = os.path.join(os.path.dirname(__file__), "..", "scripts")
 sys.path.insert(0, scripts_dir)
 
 try:
-    from scripts.modules import (
+    from scripts import (
         Colors,
         debug_print,
         print_error,
@@ -29,7 +29,7 @@ try:
         setup_permissions,
     )
 except ImportError as e:
-    print(f"Failed to import modules: {e}")
+    print(f"Failed to import scripts: {e}")
     print(f"Scripts directory: {scripts_dir}")
     print(f"Python path: {sys.path[:3]}")
     sys.exit(1)

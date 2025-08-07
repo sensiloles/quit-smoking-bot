@@ -7,7 +7,6 @@ such as port conflicts, token conflicts, and resource conflicts.
 
 import os
 import socket
-import subprocess
 from typing import Any, Dict, Optional
 
 from .docker_utils import run_command
@@ -259,42 +258,6 @@ def detect_all_conflicts() -> Dict[str, bool]:
     return conflicts
 
 
-def resolve_port_conflict(port: int, force: bool = False) -> bool:
-    """Attempt to resolve port conflict"""
-    debug_print(f"Attempting to resolve port conflict for port {port}")
-
-    process_info = find_process_using_port(port)
-    if not process_info:
-        return True  # No conflict
-
-    print_warning(f"Port {port} is in use by: {process_info.get('command', 'unknown')}")
-
-    if not force:
-        response = (
-            input(
-                f"Would you like to try to stop the process using port {port}? (y/N): ",
-            )
-            .strip()
-            .lower()
-        )
-        if response not in ["y", "yes"]:
-            return False
-
-    # Try to stop the process
-    pid = process_info.get("pid")
-    if pid and pid != "unknown":
-        try:
-            debug_print(f"Attempting to kill process {pid}")
-            subprocess.run(["kill", pid], check=True)
-            print_message(f"Stopped process {pid}", Colors.GREEN)
-            return True
-        except subprocess.CalledProcessError:
-            print_error(f"Failed to stop process {pid}")
-            return False
-
-    return False
-
-
 def suggest_conflict_resolutions(conflicts: Dict[str, bool]) -> None:
     """Suggest resolutions for detected conflicts"""
     if not any(conflicts.values()):
@@ -322,28 +285,3 @@ def suggest_conflict_resolutions(conflicts: Dict[str, bool]) -> None:
 
     if conflicts.get("ports"):
         print_message("• Stop services using conflicting ports", Colors.YELLOW)
-
-
-def wait_for_conflict_resolution(max_attempts: int = 5) -> bool:
-    """Wait for user to resolve conflicts manually"""
-    print_message(
-        f"\nWaiting for conflict resolution (max {max_attempts} attempts)...",
-        Colors.YELLOW,
-    )
-
-    for attempt in range(1, max_attempts + 1):
-        print_message(
-            f"Attempt {attempt}/{max_attempts}: Checking conflicts...",
-            Colors.YELLOW,
-        )
-
-        conflicts = detect_all_conflicts()
-        if not any(conflicts.values()):
-            print_message("✅ All conflicts resolved!", Colors.GREEN)
-            return True
-
-        if attempt < max_attempts:
-            input("Press Enter after resolving conflicts to check again...")
-
-    print_warning("⚠️  Some conflicts remain unresolved")
-    return False

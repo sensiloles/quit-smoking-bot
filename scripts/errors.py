@@ -6,7 +6,7 @@ for the bot management system.
 """
 
 import sys
-from typing import Any, Optional
+from typing import Optional
 
 from .output import debug_print, print_error, print_warning
 
@@ -83,73 +83,6 @@ def handle_error(error: Exception, exit_on_error: bool = True) -> None:
 
         if exit_on_error:
             sys.exit(1)
-
-
-def validate_required_param(value: Any, param_name: str) -> Any:
-    """Validate that a required parameter is not None/empty"""
-    if value is None or (isinstance(value, str) and not value.strip()):
-        raise ConfigError(
-            f"Required parameter '{param_name}' is missing or empty",
-            var_name=param_name,
-        )
-    return value
-
-
-def require_docker() -> None:
-    """Ensure Docker is available, raise DockerError if not"""
-    import subprocess
-
-    try:
-        result = subprocess.run(
-            ["docker", "--version"],
-            capture_output=True,
-            check=True,
-        )
-        debug_print(f"Docker version: {result.stdout.strip()}")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        raise DockerError("Docker is not installed or not accessible")
-
-
-def require_docker_compose() -> None:
-    """Ensure Docker Compose is available, raise DockerError if not"""
-    import subprocess
-
-    try:
-        result = subprocess.run(
-            ["docker-compose", "--version"],
-            capture_output=True,
-            check=True,
-        )
-        debug_print(f"Docker Compose version: {result.stdout.strip()}")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        raise DockerError("Docker Compose is not installed or not accessible")
-
-
-def require_env_var(var_name: str) -> str:
-    """Require an environment variable, raise EnvironmentError if not set"""
-    import os
-
-    value = os.getenv(var_name)
-    if not value:
-        raise EnvironmentError(
-            f"Environment variable '{var_name}' is required but not set",
-            var_name=var_name,
-        )
-
-    debug_print(f"Environment variable {var_name} is set")
-    return value
-
-
-def safe_exit(code: int = 0, message: Optional[str] = None) -> None:
-    """Safely exit the application with optional message"""
-    if message:
-        if code == 0:
-            print_warning(message)
-        else:
-            print_error(message)
-
-    debug_print(f"Exiting with code {code}")
-    sys.exit(code)
 
 
 class ErrorContext:

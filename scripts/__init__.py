@@ -12,7 +12,6 @@ from .actions import (
     action_logs,
     action_prune,
     action_restart,
-    action_restore,
     action_setup,
     action_start,
     action_status,
@@ -21,11 +20,7 @@ from .actions import (
 
 # Argument parsing
 from .args import (
-    create_bootstrap_parser,
-    create_check_service_parser,
     create_health_parser,
-    create_run_parser,
-    create_stop_parser,
     parse_and_setup_args,
     prompt_for_token,
     validate_token,
@@ -36,16 +31,13 @@ from .conflicts import (
     check_port_conflict,
     check_telegram_token_conflict,
     detect_all_conflicts,
-    suggest_conflict_resolutions,
 )
 
 # Docker utilities
 from .docker_utils import (
-    check_docker,
     check_docker_installation,
     cleanup_docker_resources,
     get_container_status,
-    run_docker_command,
 )
 
 # Environment and configuration
@@ -90,21 +82,14 @@ from .output import (
 
 # Service management
 from .service import (
-    cleanup_service_resources,
-    get_service_logs,
     get_service_status,
     restart_service,
     start_service,
     stop_service,
-    update_service,
 )
 
 # System utilities
 from .system import (
-    check_permissions,
-    check_system_resources,
-    cleanup_old_files,
-    get_disk_usage,
     get_system_info,
     setup_permissions,
 )
@@ -136,9 +121,7 @@ __all__ = [
     "is_debug_mode",
     "setup_environment",
     # Docker utilities
-    "check_docker",
     "check_docker_installation",
-    "run_docker_command",
     "get_container_status",
     "cleanup_docker_resources",
     # Health monitoring
@@ -152,21 +135,13 @@ __all__ = [
     "start_service",
     "stop_service",
     "restart_service",
-    "get_service_logs",
-    "update_service",
-    "cleanup_service_resources",
     # System utilities
     "setup_permissions",
-    "check_permissions",
     "get_system_info",
-    "get_disk_usage",
-    "cleanup_old_files",
-    "check_system_resources",
     # Conflict detection
     "detect_all_conflicts",
     "check_port_conflict",
     "check_telegram_token_conflict",
-    "suggest_conflict_resolutions",
     # Action handlers
     "action_setup",
     "action_start",
@@ -177,13 +152,8 @@ __all__ = [
     "action_cleanup",
     "action_prune",
     "action_backup",
-    "action_restore",
     # Argument parsing
-    "create_run_parser",
     "create_health_parser",
-    "create_check_service_parser",
-    "create_bootstrap_parser",
-    "create_stop_parser",
     "parse_and_setup_args",
     "validate_token",
     "prompt_for_token",

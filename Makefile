@@ -17,7 +17,7 @@ YELLOW := \033[1;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-.PHONY: help setup install start stop restart status logs clean build monitor code-check dev-setup python-setup
+.PHONY: help setup install start stop restart status logs clean build code-check dev-setup python-setup
 
 # Default target
 .DEFAULT_GOAL := help
@@ -39,11 +39,10 @@ help: ## Show this help message
 	@echo "  $(GREEN)stop-local$(NC)      Stop the bot locally"
 	@echo "  $(GREEN)restart$(NC)         Restart the bot (Docker)"
 	@echo ""
-	@echo "$(BLUE)📊 Monitoring & Logs:$(NC)"
-	@echo "  $(GREEN)status$(NC)          Show bot status"
+	@echo "$(BLUE)📊 Status & Monitoring:$(NC)"
+	@echo "  $(GREEN)status$(NC)          Show comprehensive bot status with diagnostics"
 	@echo "  $(GREEN)logs$(NC)            Show logs"
 	@echo "  $(GREEN)logs-follow$(NC)     Follow logs in real-time"
-	@echo "  $(GREEN)monitor$(NC)         Advanced monitoring and diagnostics"
 	@echo ""
 	@echo "$(BLUE)🧹 Maintenance:$(NC)"
 	@echo "  $(GREEN)clean$(NC)           Clean up containers and images"
@@ -65,7 +64,7 @@ help: ## Show this help message
 	@echo "  make install             # Complete setup and start"
 	@echo "  make start               # Start the bot"
 	@echo "  make logs-follow         # Watch logs in real-time"
-	@echo "  make status              # Check bot status"
+	@echo "  make status              # Comprehensive bot status with diagnostics"
 	@echo "  make stop                # Stop the bot"
 
 # Setup and installation
@@ -100,22 +99,15 @@ restart-rebuild: ## Restart with container rebuild
 	@echo "$(BLUE)🔄 Restarting with rebuild...$(NC)"
 	@$(MANAGER) restart --rebuild
 
-# Monitoring and logs
-status: ## Show bot status
+# Status and logs
+status: ## Show comprehensive bot status with full diagnostics
 	@$(MANAGER) status
-
-status-detailed: ## Show detailed status with diagnostics
-	@$(MANAGER) status --detailed
 
 logs: ## Show logs
 	@$(MANAGER) logs
 
 logs-follow: ## Follow logs in real-time
 	@$(MANAGER) logs --follow
-
-monitor: ## Advanced monitoring and diagnostics
-	@echo "$(BLUE)📊 Running advanced monitoring...$(NC)"
-	@python3 scripts/monitor.py --mode diagnostics
 
 # Maintenance
 clean: ## Clean up containers and images
@@ -130,7 +122,7 @@ build: ## Build Docker image with automatic cleanup
 	@echo "$(BLUE)🔨 Building Docker image...$(NC)"
 	@SYSTEM_NAME="$(SYSTEM_NAME)" docker-compose -f docker/docker-compose.yml build
 	@echo "$(BLUE)🧹 Cleaning up dangling images after build...$(NC)"
-	@source venv/bin/activate && python -c "import sys; sys.path.insert(0, 'scripts'); from scripts.modules.docker_utils import cleanup_project_dangling_images; from scripts.modules.environment import load_env; load_env(); cleanup_project_dangling_images(verbose=False)" 2>/dev/null || echo "$(YELLOW)⚠️  Image cleanup failed, but build completed$(NC)"
+	@source venv/bin/activate && python -c "import sys; sys.path.insert(0, 'scripts'); from scripts.docker_utils import cleanup_project_dangling_images; from scripts.environment import load_env; load_env(); cleanup_project_dangling_images(verbose=False)" 2>/dev/null || echo "$(YELLOW)⚠️  Image cleanup failed, but build completed$(NC)"
 
 # Advanced operations
 token: ## Set bot token interactively
@@ -140,10 +132,7 @@ token: ## Set bot token interactively
 
 backup: ## Create backup of bot data
 	@echo "$(BLUE)💾 Creating backup...$(NC)"
-	@python3 -c "from scripts.modules.actions import action_backup; action_backup()"
-
-diagnose: ## Comprehensive diagnostics
-	@python3 scripts/monitor.py --verbose
+	@python3 -c "from scripts.actions import action_backup; action_backup()"
 
 # Code quality through pre-commit
 code-check: ## Run pre-commit hooks (code formatting, linting, etc)

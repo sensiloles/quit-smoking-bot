@@ -56,13 +56,3 @@ def debug_print(message: str):
     """Print debug message if debug mode is enabled"""
     if os.getenv("DEBUG", "0") == "1" or os.getenv("VERBOSE", "0") == "1":
         print(f"DEBUG: {message}", file=sys.stderr)
-
-
-def print_progress(message: str):
-    """Print a progress message"""
-    print_message(f"🔧 {message}...", Colors.BLUE)
-
-
-def print_step(step: int, total: int, message: str):
-    """Print a step message with progress indicator"""
-    print_message(f"[{step}/{total}] {message}", Colors.CYAN)

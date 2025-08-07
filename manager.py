@@ -14,11 +14,11 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-# Add scripts directory to Python path for importing modules
+# Add scripts directory to Python path for importing scripts
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 
 try:
-    from scripts.modules import (
+    from scripts import (
         BotError,
         Colors,
         DockerError,
@@ -37,8 +37,8 @@ try:
         setup_environment,
     )
 except ImportError as e:
-    print(f"❌ Error importing bot modules: {e}")
-    print("🔧 Please ensure scripts/modules are properly installed")
+    print(f"❌ Error importing bot scripts: {e}")
+    print("🔧 Please ensure scripts are properly installed")
     sys.exit(1)
 
 
@@ -50,7 +50,7 @@ class BotManager:
         self.project_root = Path(__file__).parent.absolute()
         os.chdir(self.project_root)
 
-        # Setup environment using modules
+        # Setup environment using scripts
         setup_environment()
 
         print_message("🤖 Quit Smoking Bot Manager", Colors.BLUE)
@@ -108,8 +108,8 @@ class BotManager:
             print_error(f"Restart failed: {e}")
             return False
 
-    def status(self, detailed: bool = False) -> bool:
-        """Show comprehensive bot status"""
+    def status(self) -> bool:
+        """Show comprehensive bot status with full monitoring and diagnostics"""
         try:
             return action_status()
         except (BotError, DockerError) as e:
@@ -379,7 +379,7 @@ def main():
   python manager.py start --monitoring       # Start with health monitoring
   python manager.py stop                     # Stop the bot
   python manager.py restart --rebuild        # Restart with container rebuild
-  python manager.py status --detailed        # Detailed status with diagnostics
+  python manager.py status                   # Comprehensive status with diagnostics
   python manager.py logs --follow            # Follow logs in real-time
   python manager.py clean                    # Basic cleanup
   python manager.py clean --deep             # Deep cleanup (removes containers, images, logs)
@@ -403,7 +403,6 @@ def main():
   --monitoring         Enable health monitoring services
   --logging           Enable centralized logging
   --follow            Follow logs in real-time
-  --detailed          Show detailed status information
   --deep              Deep cleanup (removes containers, images, logs)
         """,
     )
@@ -448,13 +447,6 @@ def main():
         "--logging",
         action="store_true",
         help="Enable centralized logging (start)",
-    )
-
-    # Status options
-    parser.add_argument(
-        "--detailed",
-        action="store_true",
-        help="Show detailed status information (status)",
     )
 
     # Logs options

@@ -28,7 +28,7 @@ docker-build: ## Build Docker image with automatic cleanup
 	@echo "🔨 Building Docker image..."
 	@docker-compose --env-file .env -f $(DOCKER_COMPOSE_BASE) build
 	@echo "🧹 Cleaning up dangling images after build..."
-	@source venv/bin/activate && python -c "import sys; sys.path.insert(0, 'scripts'); from scripts.modules.docker_utils import cleanup_project_dangling_images; from scripts.modules.environment import load_env; load_env(); cleanup_project_dangling_images(verbose=False)" 2>/dev/null || echo "⚠️  Image cleanup failed, but build completed"
+	@source venv/bin/activate && python -c "import sys; sys.path.insert(0, 'scripts'); from scripts.docker_utils import cleanup_project_dangling_images; from scripts.environment import load_env; load_env(); cleanup_project_dangling_images(verbose=False)" 2>/dev/null || echo "⚠️  Image cleanup failed, but build completed"
 
 docker-up: ## Start services
 	@echo "🚀 Starting services..."

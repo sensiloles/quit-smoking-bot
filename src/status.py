@@ -83,11 +83,6 @@ class StatusManager:
                 microsecond=0,
             )
 
-        # Calculate days until next update
-        days_until_next = (next_date - now).days + (
-            1 if (next_date - now).seconds > 0 else 0
-        )
-
         # Get random motivational quote that's different from the last one
         quote = self.quotes_manager.get_random_quote(user_id)
 

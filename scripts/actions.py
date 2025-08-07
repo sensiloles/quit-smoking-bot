@@ -19,7 +19,7 @@ from .docker_utils import (
 )
 from .environment import check_bot_token, get_system_name, is_dry_run, update_env_token
 from .errors import BotError, DockerError, ErrorContext
-from .health import check_bot_status, is_bot_operational
+from .health import check_bot_status, comprehensive_health_check, is_bot_operational
 from .output import (
     Colors,
     debug_print,
@@ -250,10 +250,20 @@ def action_restart() -> bool:
 
 
 def action_status() -> bool:
-    """Show bot status"""
-    debug_print("Checking bot status")
+    """Show comprehensive bot status with monitoring and diagnostics"""
+    debug_print("Checking bot status with full diagnostics")
 
-    print_message("📊 Bot Status Check", Colors.BLUE)
+    print_message("📊 Comprehensive Bot Status & Diagnostics", Colors.BLUE)
+    return _run_comprehensive_status()
+
+
+def _run_comprehensive_status() -> bool:
+    """Run comprehensive status check with all monitoring and diagnostics"""
+    total_checks = 0
+    failed_checks = 0
+
+    # === BASIC STATUS ===
+    print_message("\n🔋 Basic Status Check:", Colors.BLUE)
 
     # Check container status
     status = get_container_status()
@@ -264,13 +274,13 @@ def action_status() -> bool:
             "Run 'python scripts/start.py start' to start the bot",
             Colors.YELLOW,
         )
-        return True  # Changed: reporting status is always successful
+        return True
 
     if status["running"]:
         print_message("✅ Bot container is running", Colors.GREEN)
 
         # Show container info
-        print_message("\nContainer status:", Colors.BLUE)
+        print_message("\n📋 Container Status:", Colors.BLUE)
         subprocess.run(
             ["docker-compose", "-f", "docker/docker-compose.yml", "ps"],
             check=False,
@@ -287,7 +297,7 @@ def action_status() -> bool:
             )
 
         # Show recent logs
-        print_message("\nRecent logs:", Colors.BLUE)
+        print_message("\n📝 Recent Logs:", Colors.BLUE)
         subprocess.run(
             [
                 "docker-compose",
@@ -309,7 +319,100 @@ def action_status() -> bool:
             Colors.YELLOW,
         )
 
-    return True  # Changed: reporting status is always successful
+    # === HEALTH MONITORING ===
+    print_message("\n🏥 Health Monitoring:", Colors.BLUE)
+    total_checks += 1
+    if comprehensive_health_check():
+        print_message("✅ Health checks passed", Colors.GREEN)
+    else:
+        print_message("❌ Health checks failed", Colors.RED)
+        failed_checks += 1
+
+    # === CONTAINER DIAGNOSTICS ===
+    if status["running"]:
+        try:
+            subprocess.run(["docker", "--version"], capture_output=True, check=True)
+            print_message("\n🐳 Container Diagnostics:", Colors.BLUE)
+            total_checks += 1
+
+            from .environment import get_system_name
+
+            container_name = get_system_name()
+            if container_name:
+                result = subprocess.run(
+                    [
+                        "docker",
+                        "ps",
+                        "--format",
+                        "{{.Names}}",
+                        "--filter",
+                        f"name={container_name}",
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+
+                if container_name in result.stdout:
+                    print_message("✅ Container is running", Colors.GREEN)
+
+                    # Show container details
+                    print_message("\n📊 Container Details:", Colors.YELLOW)
+                    subprocess.run(
+                        [
+                            "docker",
+                            "ps",
+                            "--filter",
+                            f"name={container_name}",
+                            "--format",
+                            "table {{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Ports}}",
+                        ],
+                        check=False,
+                    )
+
+                    # Show resource usage
+                    print_message("\n💻 Resource Usage:", Colors.YELLOW)
+                    result = subprocess.run(
+                        [
+                            "docker",
+                            "stats",
+                            "--no-stream",
+                            "--format",
+                            "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}",
+                            container_name,
+                        ],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        print(result.stdout)
+                    else:
+                        print_message("Resource usage not available", Colors.YELLOW)
+                else:
+                    print_message("❌ Container is not running", Colors.RED)
+                    failed_checks += 1
+
+        except subprocess.CalledProcessError:
+            print_message("⚠️  Docker not available", Colors.YELLOW)
+        except Exception as e:
+            print_message(f"❌ Container diagnostics error: {e}", Colors.RED)
+            failed_checks += 1
+
+    # === FINAL SUMMARY ===
+    print_message("\n📋 Status Summary:", Colors.BLUE)
+    print_message(f"Total checks: {total_checks}", Colors.BLUE)
+    print_message(f"Passed: {total_checks - failed_checks}", Colors.GREEN)
+    print_message(f"Failed: {failed_checks}", Colors.RED)
+
+    if failed_checks == 0:
+        print_message("\n🎉 All systems operational!", Colors.GREEN)
+    else:
+        print_message(
+            f"\n⚠️  {failed_checks} check(s) failed - see details above", Colors.YELLOW
+        )
+
+    return True
 
 
 def action_logs(follow: bool = False, lines: int = 50) -> bool:
@@ -477,38 +580,4 @@ def action_backup() -> bool:
             raise BotError(f"Failed to create backup: {result.stderr}")
 
         print_success(f"✅ Backup created: {backup_path}")
-        return True
-
-
-def action_restore(backup_file: str) -> bool:
-    """Restore bot data from backup"""
-    debug_print(f"Restoring from backup: {backup_file}")
-
-    backup_path = Path(backup_file)
-    if not backup_path.exists():
-        raise BotError(f"Backup file not found: {backup_file}")
-
-    with ErrorContext("Bot restore"):
-        print_message(f"📦 Restoring from backup: {backup_file}...", Colors.BLUE)
-
-        # Stop bot if running
-        status = get_container_status()
-        if status["running"]:
-            print_message("Stopping bot for restore...", Colors.YELLOW)
-            if not action_stop(confirm=True):
-                raise BotError("Failed to stop bot for restore")
-
-        # Extract backup
-        print_message("Extracting backup...", Colors.YELLOW)
-        cmd = ["tar", "xzf", str(backup_path)]
-
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise BotError(f"Failed to restore backup: {result.stderr}")
-
-        print_success("✅ Backup restored successfully!")
-        print_message(
-            "You may need to restart the bot: python scripts/start.py start",
-            Colors.GREEN,
-        )
         return True

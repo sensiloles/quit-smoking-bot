@@ -15,33 +15,33 @@
 When user requests to make a commit, execute these steps in strict order:
 
 1. **Analyze Changes**: Analyze all current git changes
-   ```bash
-   git status
-   git diff --name-only
-   git diff --stat
-   ```
+```bash
+git status
+git diff --name-only
+git diff --stat
+```
 
 2. **Study History**: Look at last 10 commits to understand style
-   ```bash
-   git log --oneline -10
-   git log --pretty=format:"%h - %s (%an, %ar)" -10
-   ```
+```bash
+git log --oneline -10
+git log --pretty=format:"%h - %s (%an, %ar)" -10
+```
 
 3. **Check pre-commit**: Study `.pre-commit-config.yaml` file to understand requirements
 
 4. **Validate Documentation**: BEFORE committing, validate and update all documentation
-   ```bash
-   find . -name "*.md" -not -path "./venv/*" -not -path "./.git/*"
-   ```
-   - Check that documentation matches code changes
-   - Update examples, API references, setup instructions
-   - Verify all links work and code examples are executable
-   - Update dependency versions and file paths if changed
+```bash
+find . -name "*.md" -not -path "./venv/*" -not -path "./.git/*"
+```
+- Check that documentation matches code changes
+- Update examples, API references, setup instructions
+- Verify all links work and code examples are executable
+- Update dependency versions and file paths if changed
 
 5. **Add Files**: Add all changes
-   ```bash
-   git add .
-   ```
+```bash
+git add .
+```
 
 6. **Create Commit**: Make commit following Conventional Commits standard
 
@@ -94,28 +94,28 @@ Project uses:
 Before creating ANY commit **ALWAYS** validate and update documentation:
 
 1. **Scan .md Files**: Find and analyze all documentation files
-   ```bash
-   find . -name "*.md" -not -path "./venv/*" -not -path "./.git/*"
-   ```
+```bash
+find . -name "*.md" -not -path "./venv/*" -not -path "./.git/*"
+```
 
 2. **Check Compliance**: Ensure documentation matches changes:
-   - `README.md` - general description, installation instructions, API
-   - `docker/README.md` - Docker configuration and deployment
-   - `docker/ENTRYPOINT.md` - entrypoint documentation
-   - Any other .md files in project
+- `README.md` - general description, installation instructions, API
+- `docker/README.md` - Docker configuration and deployment
+- `docker/ENTRYPOINT.md` - entrypoint documentation
+- Any other .md files in project
 
 3. **Update Content**:
-   - Update code examples if APIs or interfaces changed
-   - Add descriptions of new functions or parameters
-   - Fix outdated instructions
-   - Update dependency versions in examples
-   - Check file path correctness
+- Update code examples if APIs or interfaces changed
+- Add descriptions of new functions or parameters
+- Fix outdated instructions
+- Update dependency versions in examples
+- Check file path correctness
 
 4. **Quality Check**:
-   - Ensure all links work
-   - Check markdown formatting
-   - Ensure code examples are executable
-   - Verify project structure correspondence
+- Ensure all links work
+- Check markdown formatting
+- Ensure code examples are executable
+- Verify project structure correspondence
 
 ### Examples of Changes Requiring Documentation Updates:
 - Bot API changes → update README.md with new commands
@@ -153,15 +153,122 @@ Before creating ANY commit **ALWAYS** validate and update documentation:
 ```python
 # ✅ Good - English comments
 def calculate_prize_fund(days: int) -> float:
-    """Calculate the prize fund based on smoke-free days."""
-    # Apply daily increase to base amount
-    return BASE_AMOUNT + (days * DAILY_INCREASE)
+"""Calculate the prize fund based on smoke-free days."""
+# Apply daily increase to base amount
+return BASE_AMOUNT + (days * DAILY_INCREASE)
 
 # ❌ Bad - Non-English comments
 def calculate_prize_fund(days: int) -> float:
-    """Вычисляет призовой фонд на основе дней без курения."""
-    # Применяем ежедневное увеличение к базовой сумме
-    return BASE_AMOUNT + (days * DAILY_INCREASE)
+"""Вычисляет призовой фонд на основе дней без курения."""
+# Применяем ежедневное увеличение к базовой сумме
+return BASE_AMOUNT + (days * DAILY_INCREASE)
 ```
 
 Always follow these rules when working with code. Priority: readability, security, performance.
+
+## 🧹 Automatic Cleanup and Artifact Management
+
+### Mandatory Cleanup During Implementation:
+When implementing ANY feature or making changes, **ALWAYS** perform these cleanup steps:
+
+#### 1. **Immediate Cleanup During Development:**
+- Remove unused imports after each change
+- Delete dead/unreachable code immediately
+- Clean up temporary variables and debug statements
+- Remove commented-out code blocks
+- Delete unused function parameters
+
+#### 2. **Function and Class Cleanup:**
+- **Before adding new functions**: Check if similar functionality already exists
+- **After removing functions**: Update all import statements that referenced them
+- **Check dependencies**: Ensure no orphaned functions remain
+- **Update `__all__` exports**: Remove deleted functions from module exports
+- **Clean helper functions**: Remove private functions that are no longer called
+
+#### 3. **File and Module Cleanup:**
+- **Delete empty files**: Remove Python files that contain only imports/comments
+- **Merge duplicate functionality**: Consolidate similar functions into one
+- **Update module imports**: Remove unused modules from `__init__.py`
+- **Clean up test files**: Remove tests for deleted functionality
+
+#### 4. **Post-Implementation Verification:**
+```bash
+# Check for unused imports
+python -m autoflake --check --recursive .
+
+# Verify no undefined references
+python -m flake8 --select=F821 .
+
+# Check for dead code
+python -m vulture .
+```
+
+#### 5. **Documentation Artifact Cleanup:**
+- Remove references to deleted functions from documentation
+- Update command examples that reference removed features
+- Clean up outdated API documentation
+- Remove dead links and broken references
+
+#### 6. **Configuration Cleanup:**
+- Remove unused configuration options
+- Delete obsolete environment variables
+- Clean up unused Docker services/profiles
+- Remove deprecated command line arguments
+
+### Cleanup Checklist Before Committing:
+- [ ] All unused imports removed
+- [ ] No dead/commented code remains
+- [ ] All function references updated
+- [ ] Documentation reflects actual implementation
+- [ ] No orphaned files or directories
+- [ ] Tests updated for removed functionality
+- [ ] Configuration files cleaned up
+- [ ] Linter shows no warnings about unused code
+
+### Tools Integration:
+```bash
+# Use these tools to help with cleanup:
+ruff check --fix .                                             # Auto-fix imports and code issues
+autoflake --remove-all-unused-imports --recursive --in-place .
+isort .                                                        # Sort imports
+vulture .                                                      # Find dead code
+```
+
+### Examples of Good Cleanup:
+
+**✅ Good - Clean Implementation:**
+```python
+# After removing monitor.py functionality:
+# 1. Updated actions.py to include all functionality
+# 2. Removed monitor.py file
+# 3. Updated __init__.py imports
+# 4. Cleaned up Makefile commands
+# 5. Updated README.md documentation
+# 6. Removed unused command line arguments
+```
+
+**❌ Bad - Leaving Artifacts:**
+```python
+# Don't leave these behind:
+# - Unused import statements
+# - Dead functions that are never called
+# - Commented-out code blocks
+# - References to deleted modules
+# - Outdated documentation
+# - Unused configuration options
+```
+
+### Automated Cleanup Rules:
+1. **Every file edit** → Check and remove unused imports
+2. **Every function deletion** → Update all references and imports
+3. **Every feature removal** → Clean documentation and examples
+4. **Every refactoring** → Verify no dead code remains
+5. **Before every commit** → Run full cleanup verification
+
+### Priority Order for Cleanup:
+1. **Critical**: Security artifacts (tokens, secrets, debug info)
+2. **High**: Functional artifacts (unused functions, dead imports)
+3. **Medium**: Documentation artifacts (outdated examples, broken links)
+4. **Low**: Style artifacts (extra whitespace, formatting)
+
+**Remember**: Clean code is maintainable code. Always leave the codebase cleaner than you found it!

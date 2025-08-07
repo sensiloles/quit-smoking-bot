@@ -156,11 +156,10 @@ make start          # Start the bot
 make stop           # Stop the bot
 make restart        # Restart the bot
 
-# 📊 Monitoring & Logs
-make status         # Show bot status
+# 📊 Status & Monitoring
+make status         # Show comprehensive bot status with diagnostics
 make logs           # Show logs
 make logs-follow    # Follow logs in real-time
-make monitor        # Advanced monitoring and diagnostics
 
 # 🧹 Maintenance
 make clean          # Clean up containers and images
@@ -223,13 +222,17 @@ quit-smoking-bot/
 │   ├── entrypoint.py      # 🚀 Production initialization script
 │   └── README.md          # Docker documentation → [see details](docker/README.md)
 ├── scripts/               # Advanced management system
-│   ├── modules/           # Modular management components
-│   │   ├── actions.py     # Core bot operations
-│   │   ├── docker_utils.py # Docker integration
-│   │   ├── health.py      # Health monitoring
-│   │   ├── environment.py # Environment management
-│   │   └── ...           # Other utility modules
-│   └── monitor.py         # Advanced monitoring and diagnostics
+│   ├── actions.py         # Core bot operations
+│   ├── docker_utils.py    # Docker integration
+│   ├── health.py          # Health monitoring
+│   ├── environment.py     # Environment management
+│   ├── service.py         # Service management
+│   ├── errors.py          # Error handling
+│   ├── output.py          # Output formatting
+│   ├── args.py            # Argument parsing
+│   ├── system.py          # System utilities
+│   ├── conflicts.py       # Conflict detection
+│   └── __init__.py        # Package initialization
 ├── data/                  # Persistent data (auto-created)
 │   ├── bot_users.json     # Registered users
 │   ├── bot_admins.json    # Administrator list
@@ -368,10 +371,7 @@ python3 manager.py status
 # Monitor logs continuously
 python3 manager.py logs --follow
 
-# Advanced monitoring and diagnostics
-make monitor
-
-# Quick status check
+# Comprehensive status and diagnostics
 make status
 ```
 
@@ -451,7 +451,7 @@ python3 manager.py status --detailed
 python3 manager.py logs
 
 # Run comprehensive diagnostics
-make monitor
+make status-full
 
 # Common issues:
 # 1. BOT_TOKEN not set - use: python3 manager.py setup --token "TOKEN"
@@ -488,7 +488,7 @@ make stop-local
 
 # Check status and diagnostics
 make status
-make monitor
+make status-full
 ```
 
 ### Notifications not working
@@ -496,8 +496,7 @@ make monitor
 - Check timezone configuration in `src/config.py`
 - Verify notification schedule in `src/config.py`
 - Check logs for scheduler errors: `python3 manager.py logs --follow`
-- Run diagnostics: `make monitor`
-- Quick status check: `make status`
+- Run diagnostics: `make status` (comprehensive diagnostics included)
 
 ## 🛡️ Compatibility & Troubleshooting
 

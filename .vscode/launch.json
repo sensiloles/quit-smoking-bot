@@ -12,22 +12,64 @@
       "envFile": "${workspaceFolder}/.env"
     },
     {
-      "name": "Python: Bot Main",
+      "name": "🤖 Bot: Start Telegram Bot",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/main.py",
+      "program": "${workspaceFolder}/src/bot.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "python": "./venv/bin/python3",
       "envFile": "${workspaceFolder}/.env"
     },
     {
-      "name": "Python: Manager",
+      "name": "🤖 Bot: Start with Module",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.bot",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "./venv/bin/python3",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "🔧 Manager: Status",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/manager.py",
       "console": "integratedTerminal",
       "args": ["status"],
+      "cwd": "${workspaceFolder}",
+      "python": "./venv/bin/python3",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "🔧 Manager: Start Bot",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manager.py",
+      "console": "integratedTerminal",
+      "args": ["start"],
+      "cwd": "${workspaceFolder}",
+      "python": "./venv/bin/python3",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "🔧 Manager: Setup",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manager.py",
+      "console": "integratedTerminal",
+      "args": ["setup"],
+      "cwd": "${workspaceFolder}",
+      "python": "./venv/bin/python3",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "📋 Scripts: Health Check",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/health.py",
+      "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "python": "./venv/bin/python3",
       "envFile": "${workspaceFolder}/.env"

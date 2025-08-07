@@ -169,42 +169,6 @@ def check_docker() -> bool:
     return True
 
 
-def check_docker_buildx() -> bool:
-    """Check Docker Buildx availability"""
-    result = run_command(["docker", "buildx", "version"])
-    if result.returncode != 0:
-        print_warning("Docker Buildx is not installed. Using legacy builder.")
-        print_message(
-            "For better performance, consider installing Docker Buildx:",
-            Colors.YELLOW,
-        )
-        print_message("https://docs.docker.com/go/buildx/", Colors.YELLOW)
-        return False
-    return True
-
-
-def run_docker_command(
-    cmd: List[str],
-    description: str = "",
-    check: bool = True,
-) -> bool:
-    """Run a Docker command with error handling"""
-    if description:
-        print_message(f"🔧 {description}...", Colors.BLUE)
-
-    result = run_command(cmd, capture_output=False)
-
-    if result.returncode == 0:
-        if description:
-            print_message(f"✅ {description} completed", Colors.GREEN)
-        return True
-    if description:
-        print_error(f"❌ {description} failed")
-    if check:
-        raise subprocess.CalledProcessError(result.returncode, cmd)
-    return False
-
-
 def get_container_status(container_name: Optional[str] = None) -> Dict[str, Any]:
     """Get container status information"""
     if not container_name:
@@ -430,8 +394,6 @@ def auto_cleanup_images_before_build() -> bool:
 
 def cleanup_docker_resources(service: str = "", cleanup_all: bool = False) -> bool:
     """Clean up Docker resources"""
-    system_name = get_system_name()
-
     print_message("Cleaning up Docker resources...", Colors.YELLOW)
     success = True
 

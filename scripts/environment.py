@@ -120,11 +120,6 @@ def is_debug_mode() -> bool:
     return os.getenv("DEBUG", "0") == "1"
 
 
-def is_verbose_mode() -> bool:
-    """Check if verbose mode is enabled"""
-    return os.getenv("VERBOSE", "0") == "1"
-
-
 def update_env_token(token: str, env_file: str = ".env") -> bool:
     """Update BOT_TOKEN in .env file"""
     debug_print(f"Updating BOT_TOKEN in {env_file}")

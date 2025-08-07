@@ -29,7 +29,7 @@ The `docker/entrypoint.py` provides enterprise-grade container initialization fo
 
 - **Background daemon**: Continuous health checks every 30 seconds
 - **Health status logging**: Persistent health history
-- **Integration**: Uses `scripts/modules/health.py` for checks
+- **Integration**: Uses `scripts/health.py` for checks
 - **Operational monitoring**: Ensures bot is responding to Telegram API
 
 ### **5. Production Initialization**
@@ -62,7 +62,7 @@ The entrypoint starts a background daemon that:
 
 - Runs health checks every 30 seconds
 - Logs health status to `/app/logs/health.log`
-- Uses `quick_health_check()` from modules
+- Uses `quick_health_check()` from scripts
 - Provides continuous monitoring without external dependencies
 
 ## 🎯 Production Benefits

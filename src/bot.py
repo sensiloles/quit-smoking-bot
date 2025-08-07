@@ -55,7 +55,6 @@ class QuitSmokingBot:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /start is issued."""
         user_id = update.effective_user.id
-        user_name = update.effective_user.first_name
 
         # If this is the first user ever and no admins exist, make them admin
         if not self.user_manager.get_all_admins():

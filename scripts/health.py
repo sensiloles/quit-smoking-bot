@@ -17,8 +17,6 @@ def is_bot_healthy() -> bool:
     """Check if bot is healthy using Docker healthcheck"""
     debug_print("Starting is_bot_healthy check")
 
-    system_name = get_system_name()
-
     # Get container ID
     result = run_command(
         ["docker-compose", "-f", "docker/docker-compose.yml", "ps", "-q", "bot"],
@@ -175,8 +173,19 @@ def quick_health_check() -> bool:
     debug_print("Running quick health check")
 
     try:
-        # Check if bot process is running
-        result = run_command(["pgrep", "-f", "python.*src.*bot"])
+        from pathlib import Path
+
+        # If we're inside Docker container, check local process
+        if Path("/app").exists():
+            debug_print("Running inside Docker container")
+            result = run_command(["pgrep", "-f", "python.*src.*bot"])
+        else:
+            debug_print("Running on host system, checking container health")
+            # On host system, check if container process is running
+            system_name = get_system_name()
+            result = run_command(
+                ["docker", "exec", system_name, "pgrep", "-f", "python.*src.*bot"]
+            )
 
         if result.returncode == 0:
             debug_print("Bot process found")
@@ -211,15 +220,7 @@ def comprehensive_health_check() -> bool:
         if result.returncode == 0 and "Up" in result.stdout:
             print_message("✅ Container is running", Colors.GREEN)
 
-            # Check if bot process is running inside container
-            if quick_health_check():
-                print_message("✅ Bot process is running", Colors.GREEN)
-            else:
-                print_message("❌ Bot process is not running", Colors.RED)
-                success = False
-
             # Check recent logs for errors
-            system_name = get_system_name()
             result = run_command(
                 [
                     "docker-compose",
@@ -445,7 +446,7 @@ def check_bot_status() -> Dict[str, Any]:
         print_message("=== END DIAGNOSTICS ===", Colors.YELLOW)
 
         print_message(
-            "Use 'python scripts/status.py' for detailed diagnostics.",
+            "Use 'python manager.py status' for detailed diagnostics.",
             Colors.YELLOW,
         )
 
