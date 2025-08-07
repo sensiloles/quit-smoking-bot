@@ -172,11 +172,10 @@ make build          # Build Docker image
 
 ### Environment Variables (.env)
 
-| Variable              | Required | Default | Description                            |
-| --------------------- | -------- | ------- | -------------------------------------- |
-| `BOT_TOKEN`           | ✅       | -       | Your Telegram bot token from BotFather |
-| `SYSTEM_NAME`         | ✅       | -       | System name for containers and logging |
-| `SYSTEM_DISPLAY_NAME` | ✅       | -       | Human-readable name for the bot        |
+| Variable      | Required | Default | Description                            |
+| ------------- | -------- | ------- | -------------------------------------- |
+| `BOT_TOKEN`   | ✅       | -       | Your Telegram bot token from BotFather |
+| `SYSTEM_NAME` | ✅       | -       | System name for containers and logging |
 
 **Example `.env` file:**
 
@@ -186,7 +185,7 @@ BOT_TOKEN=your_telegram_bot_token_here
 
 # System Configuration
 SYSTEM_NAME=quit-smoking-bot
-SYSTEM_DISPLAY_NAME=Quit Smoking Bot
+
 ```
 
 ### Bot Configuration (src/config.py)
@@ -237,7 +236,7 @@ quit-smoking-bot/
 │   └── quotes.json        # Motivational quotes
 ├── logs/                  # Application logs (auto-created)
 ├── manager.py             # 🎯 Primary management interface
-├── main.py               # Bot entry point
+├── src/bot.py            # Bot entry point and main logic
 ├── Makefile              # Convenient command shortcuts
 ├── pyproject.toml        # Python project configuration and dependencies
 └── README.md            # This file
@@ -247,13 +246,52 @@ quit-smoking-bot/
 
 ### Running Locally (without Docker)
 
+#### **✅ Recommended Local Setup:**
+
 ```bash
-# Install dependencies from pyproject.toml
+# 1. Setup virtual environment
+source venv/bin/activate
+
+# 2. Install dependencies
 pip install -e .
 
-# Run locally
-python3 manager.py setup --token "YOUR_TOKEN"
-python3 main.py
+# 3. Start bot (using token from .env or command line)
+python3 src/bot.py --token "YOUR_BOT_TOKEN_HERE"
+# OR (if BOT_TOKEN is in .env)
+python3 src/bot.py
+
+# OR use convenient command (requires .env with BOT_TOKEN):
+make start-local
+
+# 4. Stop bot when needed
+# Ctrl+C (in terminal) OR use convenient command:
+make stop-local
+```
+
+#### **🔧 Alternative Methods:**
+
+```bash
+# As Python module
+python3 -m src.bot --token "TOKEN"
+
+# Via installed package entry point
+pip install -e .
+quit-smoking-bot
+```
+
+#### **🚨 Common Issues & Solutions:**
+
+If you get `'Updater' object has no attribute '_polling_cleanup_cb'`:
+
+```bash
+# Fix: Update python-telegram-bot
+pip install -U "python-telegram-bot>=22.0"
+
+# If issues persist, recreate environment:
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
 ```
 
 **Note**: Local running uses the project directory for logs and data, while Docker uses `/app/` paths.
@@ -398,7 +436,7 @@ BOT_TIMEZONE = pytz.timezone("Europe/Moscow")  # Change as needed
 This project uses modern Python packaging with `pyproject.toml`:
 
 - **Main dependencies**: Defined in `pyproject.toml`
-- **Local usage**: Run without Docker using `python3 main.py`
+- **Local usage**: Run without Docker using `python3 src/bot.py`
 - **No requirements.txt files**: All managed through pyproject.toml
 
 ## 🔍 Troubleshooting
@@ -439,7 +477,14 @@ make start
 
 ```bash
 # Run locally to debug
-python3 main.py
+python3 src/bot.py
+
+# Start local bot (alternative to python3 src/bot.py)
+make start-local
+
+# Stop local bot
+make stop-local
+# OR press Ctrl+C in terminal with running bot
 
 # Check status and diagnostics
 make status
@@ -454,11 +499,170 @@ make monitor
 - Run diagnostics: `make monitor`
 - Quick status check: `make status`
 
+## 🛡️ Compatibility & Troubleshooting
+
+### Preventing Version Conflicts
+
+This guide helps prevent dependency conflicts between Docker and local development.
+
+### 🚨 Common Issues
+
+#### `Updater` object has no attribute `_polling_cleanup_cb`
+
+**Cause**: Old python-telegram-bot version (20.8) with `__slots__` restrictions.
+
+**Fix**:
+
+```bash
+pip install -U "python-telegram-bot>=22.0"
+```
+
+#### "No token provided" despite .env file exists
+
+**Cause**: Missing `load_dotenv()` in bot code - .env file not loaded automatically.
+
+**Fix**: Already fixed in `src/bot.py` with:
+
+```python
+from dotenv import load_dotenv
+load_dotenv()  # Loads .env file automatically
+```
+
+### ✅ Prevention Strategy
+
+#### 1. Version Management
+
+**pyproject.toml** (Source of Truth):
+
+```toml
+dependencies = [
+    "python-telegram-bot[job-queue]>=22.0,<23.0",  # ✅ Current stable
+    "pytz>=2023.3",
+    "APScheduler>=3.10.0,<4.0",
+    "python-dotenv>=1.0.0",
+]
+```
+
+#### 2. Development Workflow
+
+```bash
+# 🔄 Before each development session
+source venv/bin/activate
+pip install -e .  # Sync with pyproject.toml
+
+# 🧪 Test both environments
+python3 src/bot.py --help  # Local test
+make start                 # Docker test
+```
+
+#### 3. Environment Isolation
+
+**Local Development**:
+
+- Uses `venv/` virtual environment
+- Dependencies from `pyproject.toml`
+- Data/logs in project directory
+
+**Docker Production**:
+
+- Uses container environment
+- Same `pyproject.toml` dependencies
+- Data/logs in `/app/`
+
+### 🔧 Troubleshooting Commands
+
+#### Check Versions
+
+```bash
+# Python version
+python3 --version
+
+# PTB version
+python3 -c "import telegram; print(telegram.__version__)"
+
+# All packages
+pip list | grep -E "(telegram|scheduler)"
+```
+
+#### Reset Environment
+
+```bash
+# Complete reset
+rm -rf venv/
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+```
+
+#### Version Conflicts
+
+```bash
+# Force update
+pip install -U --force-reinstall "python-telegram-bot>=22.0"
+
+# Check conflicts
+pip check
+```
+
+### 📋 Pre-Deploy Checklist
+
+- [ ] Local bot starts without errors
+- [ ] Docker bot starts without errors
+- [ ] Both use same PTB version
+- [ ] Dependencies updated in pyproject.toml
+- [ ] Virtual environment recreated if needed
+
+### 🚀 Quick Compatibility Commands
+
+```bash
+# ✅ Environment check (automated)
+python3 manager.py check-env
+
+# 🔧 Manual checks
+make check-env         # Complete environment compatibility check
+make check-versions    # Check dependency versions only
+make test-local        # Test local bot startup
+make start-local       # Start bot locally (needs .env)
+make stop-local        # Stop locally running bot
+make test-both-envs    # Test both environments
+make fix-deps         # Fix dependency issues
+
+# 🚀 Development workflow
+make python-setup      # Setup environment (uses manager.py dev-setup)
+python3 manager.py dev-setup  # Direct setup command
+make start-local       # Start bot locally (needs .env with BOT_TOKEN)
+make stop-local        # Stop local bot
+
+# 🐳 Docker production
+make start
+```
+
+### 📞 Emergency Recovery
+
+If bot is completely broken:
+
+```bash
+# 1. Reset everything
+rm -rf venv/
+git stash  # Save current changes
+
+# 2. Fresh start
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+
+# 3. Test
+python3 src/bot.py --help
+
+# 4. Restore changes
+git stash pop
+```
+
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create your feature branch
-3. Test with `python3 main.py`
+3. Test with `python3 src/bot.py`
 4. Deploy with `make start`
 5. Submit pull request
 

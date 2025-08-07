@@ -7,6 +7,11 @@ import os
 import signal
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 from telegram import (
     BotCommand,
     BotCommandScopeChat,

@@ -99,11 +99,6 @@ def get_system_name() -> str:
     return os.getenv("SYSTEM_NAME")
 
 
-def get_system_display_name() -> str:
-    """Get system display name from environment"""
-    return os.getenv("SYSTEM_DISPLAY_NAME")
-
-
 def check_system_name() -> bool:
     """Check if SYSTEM_NAME is set"""
     name = get_system_name()

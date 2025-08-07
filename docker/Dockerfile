@@ -30,7 +30,6 @@ RUN mkdir -p /app/data /app/logs && \
 
 # Copy only necessary application files (not logs, data, cache)
 COPY --chown=botuser:botuser ../src ./src
-COPY --chown=botuser:botuser ../main.py ./
 COPY --chown=botuser:botuser ../docker ./docker
 COPY --chown=botuser:botuser ../scripts ./scripts
 

@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
-"python-telegram-bot[job-queue]>=20.0,<21.0",
+"python-telegram-bot[job-queue]>=22.0,<23.0",
 "pytz>=2023.3",
 "APScheduler>=3.10.0,<4.0",
 "python-dotenv>=1.0.0",

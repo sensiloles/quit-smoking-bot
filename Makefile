@@ -33,9 +33,11 @@ help: ## Show this help message
 	@echo "  $(GREEN)install$(NC)         Full installation (setup + start)"
 	@echo ""
 	@echo "$(BLUE)🚀 Service Management:$(NC)"
-	@echo "  $(GREEN)start$(NC)           Start the bot"
-	@echo "  $(GREEN)stop$(NC)            Stop the bot"
-	@echo "  $(GREEN)restart$(NC)         Restart the bot"
+	@echo "  $(GREEN)start$(NC)           Start the bot (Docker)"
+	@echo "  $(GREEN)start-local$(NC)     Start the bot locally"
+	@echo "  $(GREEN)stop$(NC)            Stop the bot (Docker)"
+	@echo "  $(GREEN)stop-local$(NC)      Stop the bot locally"
+	@echo "  $(GREEN)restart$(NC)         Restart the bot (Docker)"
 	@echo ""
 	@echo "$(BLUE)📊 Monitoring & Logs:$(NC)"
 	@echo "  $(GREEN)status$(NC)          Show bot status"
@@ -50,6 +52,13 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(BLUE)🔧 Development:$(NC)"
 	@echo "  $(GREEN)code-check$(NC)      Run pre-commit hooks (formatting, linting)"
+	@echo "  $(GREEN)check-env$(NC)       Complete environment compatibility check"
+	@echo "  $(GREEN)check-versions$(NC)  Check dependency versions only"
+	@echo "  $(GREEN)test-local$(NC)      Test bot startup locally"
+	@echo "  $(GREEN)start-local$(NC)     Start bot locally (needs .env)"
+	@echo "  $(GREEN)stop-local$(NC)      Stop locally running bot"
+	@echo "  $(GREEN)test-both-envs$(NC)  Test both local and Docker environments"
+	@echo "  $(GREEN)fix-deps$(NC)        Fix dependency issues (force reinstall)"
 	@echo ""
 	@echo ""
 	@echo "$(BLUE)💡 Quick Examples:$(NC)"
@@ -141,17 +150,53 @@ code-check: ## Run pre-commit hooks (code formatting, linting, etc)
 	@echo "$(BLUE)🔧 Running code quality checks via pre-commit...$(NC)"
 	@source venv/bin/activate && pre-commit run --all-files
 
+# Compatibility checks
+check-versions: ## Check dependency versions and compatibility
+	@echo "$(BLUE)🔍 Checking dependency versions...$(NC)"
+	@source venv/bin/activate && python3 -c "import telegram; print(f'✅ python-telegram-bot: {telegram.__version__}')" || echo "$(RED)❌ python-telegram-bot not found$(NC)"
+	@source venv/bin/activate && python3 -c "import apscheduler; print(f'✅ APScheduler: {apscheduler.__version__}')" || echo "$(RED)❌ APScheduler not found$(NC)"
+	@echo "$(GREEN)Version check completed$(NC)"
+
+check-env: ## Complete environment compatibility check (replaces check_environment.py)
+	@source venv/bin/activate && $(MANAGER) check-env
+
+test-local: ## Test bot startup locally
+	@echo "$(BLUE)🧪 Testing local bot startup...$(NC)"
+	@source venv/bin/activate && python3 src/bot.py --help >/dev/null 2>&1 && echo "$(GREEN)✅ Local bot can start$(NC)" || echo "$(RED)❌ Local bot startup failed$(NC)"
+
+start-local: ## Start bot locally (requires .env with BOT_TOKEN)
+	@echo "$(BLUE)🚀 Starting bot locally...$(NC)"
+	@if [ ! -f .env ]; then \
+		echo "$(RED)❌ .env file not found. Create .env with BOT_TOKEN=your_token$(NC)"; \
+		exit 1; \
+	fi
+	@source venv/bin/activate && python3 src/bot.py && echo "$(GREEN)✅ Local bot started$(NC)" || echo "$(RED)❌ Failed to start local bot$(NC)"
+
+stop-local: ## Stop locally running bot
+	@echo "$(BLUE)🛑 Stopping local bot...$(NC)"
+	@pkill -f 'src/bot.py' 2>/dev/null && echo "$(GREEN)✅ Local bot stopped$(NC)" || echo "$(YELLOW)⚠️ No local bot was running$(NC)"
+
+test-docker: ## Test Docker bot build
+	@echo "$(BLUE)🧪 Testing Docker bot build...$(NC)"
+	@$(MANAGER) status >/dev/null 2>&1 && echo "$(GREEN)✅ Docker environment ready$(NC)" || echo "$(RED)❌ Docker environment not ready$(NC)"
+
+test-both-envs: check-env test-local ## Test both local and Docker environments
+	@echo "$(GREEN)🎯 Environment compatibility check completed$(NC)"
+
+fix-deps: ## Fix dependency issues (force reinstall)
+	@echo "$(BLUE)🔧 Fixing dependency issues...$(NC)"
+	@source venv/bin/activate && pip install -U --force-reinstall "python-telegram-bot>=22.0"
+	@echo "$(GREEN)✅ Dependencies fixed$(NC)"
+
 # Development setup
 dev-setup: ## Complete development setup (Python + Docker)
 	@echo "$(BLUE)🚀 Complete development setup...$(NC)"
-	@python3 dev_setup.py
+	@$(MANAGER) dev-setup
 	@echo "$(GREEN)✅ Development environment ready!$(NC)"
 	@echo "$(YELLOW)💡 Next: Reload VS Code window and run 'make install'$(NC)"
 
 python-setup: ## Setup Python virtual environment only
 	@echo "$(BLUE)🐍 Setting up Python environment...$(NC)"
-	@rm -rf venv
-	@python3 -m venv venv
-	@source venv/bin/activate && pip install -e '.[dev]'
+	@$(MANAGER) dev-setup
 	@echo "$(GREEN)✅ Python environment ready!$(NC)"
 	@echo "$(YELLOW)💡 Reload VS Code window to pick up changes$(NC)"
